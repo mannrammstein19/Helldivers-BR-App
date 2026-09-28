@@ -89,5 +89,26 @@
   ],
   "war_defense": [
     "imagens/fundos/fundos-grids/defesa.jpg"
+  ],
+  "arrow_up": [
+    "imagens/ui/icons/seta-cima.png"
+  ],
+  "arrow_down": [
+    "imagens/ui/icons/seta-baixo.png"
+  ],
+  "arrow_left": [
+    "imagens/ui/icons/seta-esquerda.png"
+  ],
+  "arrow_right": [
+    "imagens/ui/icons/seta-direita.png"
+  ],
+  "requisition": [
+    "imagens/ui/icons/Requisition_Slip.svg"
+  ],
+  "arsenal_background": [
+    "imagens/fundos/site/wallpaper_principal_estratagema.png"
+  ],
+  "arsenal_medals": [
+    "imagens/ui/icons/medals.png"
   ]
 }

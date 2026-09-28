@@ -44,6 +44,8 @@ import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.*
 
+private data class MapCaption(val text: String, val at: Offset, val color: Color, val small: Boolean = false)
+
 private data class MapArt(val bitmaps: Map<String, Bitmap> = emptyMap(), val failed: Int = 0, val done: Boolean = false)
 
 @Composable
@@ -173,6 +175,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
             val origin = center + pan
             textPaint.setShadowLayer(2f / unit, 0f, 1f / unit, android.graphics.Color.BLACK)
             val occupied = mutableListOf<RectF>()
+            val pendingLabels = mutableListOf<MapCaption>()
             val now = System.currentTimeMillis()
             canvas.save(); canvas.translate(origin.x, origin.y); canvas.scale(unit, unit)
             fun circle(at: Offset, radius: Float, color: Color, stroke: Float = 0f) {
@@ -273,9 +276,9 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     val dssAt=at+Offset(0f,-r*3.2f);val d=r*.95f
                     val diamond=Path().apply {moveTo(dssAt.x,dssAt.y-d);lineTo(dssAt.x+d,dssAt.y);lineTo(dssAt.x,dssAt.y+d);lineTo(dssAt.x-d,dssAt.y);close()}
                     paint.style=Paint.Style.FILL;paint.color=Color(0xFFFFD23F).toArgb();canvas.drawPath(diamond,paint)
-                    if(detail) label("DSS",dssAt+Offset(0f,-d*1.9f),Color(0xFFFFD23F),true)
+                    // DSS text joins the collision-controlled caption group below.
                 }
-                if (p.regions.isNotEmpty() && (zoom >= 2.3f || selected == p.index)) {
+                if (p.regions.any { it.isAvailable == true } && (zoom >= 2.3f || selected == p.index)) {
                     circle(at + Offset(r * 2.3f, r * 1.8f), 2.dp.toPx() / unit, Color(0xFFB1C6CD))
                 }
                 if(selected==p.index) circle(at,r*3.4f,Color.White,1.3f/unit)
@@ -283,23 +286,32 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     val gap = (if (quiet) 11.sp else 13.sp).toPx() / unit
                     val caption = captions.getValue(p.index)
                     val progress = if (defense || offensive) mapPercent(mapProgress(p)) else null
-                    val regionText = if (p.regions.isNotEmpty()) "${p.regions.size} regiões" else null
-                    textPaint.textSize = (if (quiet) 8.sp else 11.sp).toPx() / unit
-                    val width = max(textPaint.measureText(caption.first), textPaint.measureText(regionText ?: caption.second))
-                    val bounds = RectF(at.x-width/2-3f/unit, at.y-r*4f-gap*2,
-                        at.x+width/2+3f/unit, at.y+r*3.2f+gap*(if(regionText != null) 3.4f else 2.4f))
-                    if (selected == p.index || occupied.none { RectF.intersects(it, bounds) }) {
-                        occupied.add(bounds)
-                        label(caption.first,at+Offset(0f,r*3.2f+gap),if(quiet) Color(0xFF94A4AB) else Color.White, quiet)
-                        label(caption.second,at+Offset(0f,r*3.2f+gap*2),Color(0xFFADB7C5),true)
-                        regionText?.let { label(it,at+Offset(0f,r*3.2f+gap*3),Color(0xFFADB7C5),true) }
-                        if (progress != null) {
-                            label(progress,at+Offset(0f,-r*3.5f),if(defense) Color(0xFF4DA6FF) else mapColor("human"))
-                            if (defense) label("INVASÃO ${mapPercent(mapInvasionProgress(p,now))}",at+Offset(0f,-r*3.5f-gap),mapColor(mapFaction(p.event!!.faction)),true)
-                        }
+                    val regionText = if (p.regions.any { it.isAvailable == true }) "${p.regions.count { it.isAvailable == true }} regiões" else null
+                    val lines = mutableListOf(
+                        MapCaption(caption.first, at+Offset(0f,r*3.2f+gap), if(quiet) Color(0xFF94A4AB) else Color.White, quiet),
+                        MapCaption(caption.second, at+Offset(0f,r*3.2f+gap*2), Color(0xFFADB7C5), true))
+                    regionText?.let { lines += MapCaption(it,at+Offset(0f,r*3.2f+gap*3),Color(0xFFADB7C5),true) }
+                    if (progress != null) {
+                        lines += MapCaption(progress,at+Offset(0f,-r*3.5f),if(defense) Color(0xFF4DA6FF) else mapColor("human"))
+                        if (defense) lines += MapCaption("INVASÃO ${mapPercent(mapInvasionProgress(p,now))}",at+Offset(0f,-r*3.5f-gap),mapColor(mapFaction(p.event!!.faction)),true)
+                    }
+                    if (dssHost == p.index) lines += MapCaption("DSS",at+Offset(0f,-r*3.5f-gap*2),Color(0xFFFFD23F),true)
+                    val boxes = lines.map { line ->
+                        textPaint.textSize = (if(line.small) 8.sp else 11.sp).toPx()/unit
+                        val half = textPaint.measureText(line.text)/2
+                        val metrics = textPaint.fontMetrics
+                        val margin = 3.dp.toPx()/unit
+                        RectF(line.at.x-half-margin,line.at.y+metrics.top-margin,
+                            line.at.x+half+margin,line.at.y+metrics.bottom+margin)
+                    }
+                    // Selection gets priority through drawOrder, without bypassing collision checks.
+                    if (boxes.none { box -> occupied.any { RectF.intersects(it,box) } }) {
+                        occupied.addAll(boxes)
+                        pendingLabels.addAll(lines)
                     }
                 }
             }
+            pendingLabels.forEach { label(it.text, it.at, it.color, it.small) }
             canvas.restore()
         }
         if(art.done&&art.failed>0) Text("${art.failed} imagens do mapa não carregaram. Verifique a conexão e os arquivos do site.",color=HD.Gold,fontSize=11.sp)

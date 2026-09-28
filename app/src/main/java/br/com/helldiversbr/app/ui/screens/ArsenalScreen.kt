@@ -1,5 +1,7 @@
 package br.com.helldiversbr.app.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -25,6 +27,7 @@ import coil.decode.SvgDecoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ArsenalScreen(onOpenCatalog: (String) -> Unit, contentPadding: PaddingValues) {
     val context = LocalContext.current
@@ -37,20 +40,22 @@ fun ArsenalScreen(onOpenCatalog: (String) -> Unit, contentPadding: PaddingValues
     }
     val catalog = entries.orEmpty()
     var query by rememberSaveable { mutableStateOf("") }
-    var category by rememberSaveable { mutableStateOf("Todos") }
+    var openCategories by rememberSaveable { mutableStateOf(listOf<String>()) }
     var favoritesOnly by rememberSaveable { mutableStateOf(false) }
     val prefs = remember { context.getSharedPreferences("hdbr_arsenal", 0) }
     var favorites by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet())!!.toSet()) }
     val loader = remember(context) { ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build() }
     DisposableEffect(loader) { onDispose { loader.shutdown() } }
-    val filtered = remember(catalog, query, category, favoritesOnly, favorites) {
+    val filtered = remember(catalog, query, favoritesOnly, favorites) {
         val key = searchKey(query.trim())
         catalog.filter {
-            (category == "Todos" || category == it.category) &&
-                (!favoritesOnly || it.name in favorites) &&
+            (!favoritesOnly || it.name in favorites) &&
                 searchKey("${it.name} ${it.category} ${it.source}").contains(key)
         }
     }
+    Box(Modifier.fillMaxSize()) {
+    SiteImage("arsenal_background", null, Modifier.matchParentSize(), scale = ContentScale.Crop)
+    Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .62f)))
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(14.dp, contentPadding.calculateTopPadding() + 12.dp, 14.dp, contentPadding.calculateBottomPadding() + 20.dp),
@@ -70,11 +75,6 @@ fun ArsenalScreen(onOpenCatalog: (String) -> Unit, contentPadding: PaddingValues
                 trailingIcon = { if (query.isNotEmpty()) TextButton(onClick = { query = "" }) { Text("Limpar") } })
         }
         item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(listOf("Todos") + catalog.map { it.category }.distinct()) { label ->
-                    FilterChip(selected = category == label, onClick = { category = label }, label = { Text(label) })
-                }
-            }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 FilterChip(selected = favoritesOnly, onClick = { favoritesOnly = !favoritesOnly }, label = { Text("★ Favoritos") })
                 Text("${filtered.size} encontrados", color = HD.TextDim, fontSize = 11.sp)
@@ -85,15 +85,45 @@ fun ArsenalScreen(onOpenCatalog: (String) -> Unit, contentPadding: PaddingValues
         if (entries != null && filtered.isEmpty()) item {
             HdCard { Text("Nenhum equipamento encontrado. Experimente outro nome ou remova os filtros.", color = HD.TextDim) }
         }
-        items(filtered, key = { it.name }) { entry ->
-            StratagemCard(entry, entry.name in favorites, loader, onFavorite = {
-                favorites = if (entry.name in favorites) favorites - entry.name else favorites + entry.name
-                prefs.edit().putStringSet("favorites", favorites).apply()
-            }, onOpen = { onOpenCatalog(entry.path) })
+        filtered.groupBy { it.permission }.forEach { (permission, group) ->
+            item(key = "permission-$permission") {
+                Text(permission, color = HD.Yellow, fontSize = 23.sp, fontWeight = FontWeight.Black)
+            }
+            group.groupBy { it.category }.forEach { (category, rows) ->
+                val groupKey = "$permission/$category"
+                val opened = groupKey in openCategories || query.isNotBlank() || favoritesOnly
+                item(key = "category-$groupKey") {
+                    HdCard(modifier = Modifier.clickable {
+                        openCategories = if (groupKey in openCategories) openCategories - groupKey else openCategories + groupKey
+                    }, accent = permissionAccent(permission)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(category, color = permissionAccent(permission), fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text("${rows.size} DISPONÍVEIS", color = HD.TextDim, fontSize = 10.sp)
+                            Text(if (opened) "  −" else "  +", color = HD.Text, fontSize = 24.sp)
+                        }
+                    }
+                }
+                if (opened) items(rows, key = { it.name }) { entry ->
+                    StratagemCard(entry, entry.name in favorites, loader, onFavorite = {
+                        favorites = if (entry.name in favorites) favorites - entry.name else favorites + entry.name
+                        prefs.edit().putStringSet("favorites", favorites).apply()
+                    }, onOpen = { onOpenCatalog(entry.path) })
+                }
+            }
         }
+    }
     }
 }
 
+private fun permissionAccent(permission: String) = when {
+    "Ofensiva" in permission -> HD.Red
+    "Suprimento" in permission -> HD.SignalBlue
+    "Defensiva" in permission -> HD.Green
+    else -> HD.Yellow
+}
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StratagemCard(entry: StratagemEntry, favorite: Boolean, loader: ImageLoader, onFavorite: () -> Unit, onOpen: () -> Unit) {
     var expanded by rememberSaveable(entry.name) { mutableStateOf(false) }
@@ -115,15 +145,31 @@ private fun StratagemCard(entry: StratagemEntry, favorite: Boolean, loader: Imag
                 }
                 TextButton(onClick = onFavorite) { Text(if (favorite) "★" else "☆", fontSize = 24.sp) }
             }
-            Text(entry.code.ifBlank { "Sem código informado" }, color = HD.Yellow, fontSize = 21.sp, fontWeight = FontWeight.Black)
+            Text("CÓDIGO DE ATIVAÇÃO", color = HD.TextMuted, fontSize = 10.sp)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                entry.code.forEach { direction ->
+                    val key = when (direction) {
+                        '↑' -> "arrow_up"; '↓' -> "arrow_down"
+                        '←' -> "arrow_left"; '→' -> "arrow_right"
+                        else -> null
+                    }
+                    if (key != null) SiteImage(key, direction.toString(), Modifier.size(23.dp))
+                }
+            }
+            if (entry.code.none { it in "↑↓←→" }) Text(entry.code.ifBlank { "Sem código informado" }, color = HD.TextDim)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if ("Medalhas" in entry.cost) SiteImage("arsenal_medals", "Medalhas", Modifier.size(20.dp))
+                else if (entry.cost.any { it.isDigit() }) SiteImage("requisition", "Requisições", Modifier.size(20.dp))
+                Text(entry.cost, color = HD.Text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
             Text("Recarga: ${entry.cooldown}   •   Nível: ${entry.level}", color = HD.TextDim, fontSize = 12.sp)
             TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "OCULTAR AQUISIÇÃO −" else "VER AQUISIÇÃO +") }
             if (expanded) {
                 HorizontalDivider(color = HD.Border)
-                Text("Custo: ${entry.cost}\nFonte: ${entry.source}", color = HD.TextDim, fontSize = 13.sp)
-                if (entry.path.isNotBlank() && entry.path != "#") {
-                    YellowButton("FICHA COMPLETA NO SITE ↗", onOpen, Modifier.fillMaxWidth())
-                }
+                Text("Fonte: ${entry.source}", color = HD.TextDim, fontSize = 13.sp)
+            }
+            if (entry.path.isNotBlank() && entry.path != "#") {
+                YellowButton("FICHA COMPLETA NO SITE ↗", onOpen, Modifier.fillMaxWidth())
             }
         }
     }

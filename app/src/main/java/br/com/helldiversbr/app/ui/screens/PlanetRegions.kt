@@ -49,7 +49,8 @@ fun regionPresentation(region: PlanetRegion): RegionPresentation {
 
 @Composable
 fun PlanetRegions(planet: Planet) {
-    if (planet.regions.isEmpty()) return
+    val available = planet.regions.filter { it.isAvailable == true }
+    if (available.isEmpty()) return
     val context = LocalContext.current
     val types = remember {
         context.assets.open("region-types.json").bufferedReader().use {
@@ -57,8 +58,8 @@ fun PlanetRegions(planet: Planet) {
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionLabel("Regiões do planeta · ${planet.regions.size}")
-        planet.regions.forEachIndexed { index, region ->
+        SectionLabel("Regiões do planeta · ${available.size}")
+        available.forEachIndexed { index, region ->
             val info = regionPresentation(region)
             val type = types[region.hash?.toString()]
             val identity = if (type == "factory") "Megafábrica" else when (region.size) {

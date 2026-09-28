@@ -3,6 +3,8 @@ package br.com.helldiversbr.app.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -80,46 +82,26 @@ fun WarScreen(
     onOpenMap: () -> Unit,
     contentPadding: PaddingValues,
 ) {
-    Box(Modifier.fillMaxSize().background(Color.Transparent)) {
-        when (state) {
-            HomeState.Loading -> Column(
-                Modifier.fillMaxSize().statusBarsPadding(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                CircularProgressIndicator(color = HD.Yellow)
-                Text(
-                    "MAPEANDO FRENTES DE BATALHA...",
-                    color = HD.TextDim,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp,
-                    modifier = Modifier.padding(top = 16.dp),
-                )
-            }
-
-            is HomeState.Ready -> WarList(state.data, state.refreshing, null, onRefresh, onOpenMap, contentPadding)
-
-            is HomeState.Error -> {
-                val last = state.last
-                if (last != null) {
-                    WarList(last, false, state.message, onRefresh, onOpenMap, contentPadding)
-                } else {
-                    Column(
-                        Modifier.fillMaxSize().statusBarsPadding().padding(32.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        SectionLabel("Central offline", HD.Red)
-                        Text(state.message, color = HD.Text, fontSize = 17.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 10.dp))
-                        YellowButton("TENTAR NOVAMENTE", onRefresh, Modifier.padding(top = 18.dp))
-                    }
-                }
-            }
+    val data = when (state) {
+        is HomeState.Ready -> state.data
+        is HomeState.Error -> state.last
+        else -> null
+    }
+    if (data != null) {
+        WarList(data, (state as? HomeState.Ready)?.refreshing == true,
+            (state as? HomeState.Error)?.message, onRefresh, onOpenMap, contentPadding)
+    } else {
+        Column(Modifier.fillMaxSize().padding(contentPadding).padding(24.dp),
+            verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+            if (state is HomeState.Error) {
+                Text(state.message, color = HD.Text)
+                YellowButton("TENTAR NOVAMENTE", onRefresh)
+            } else CircularProgressIndicator(color = HD.Yellow)
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WarList(
     data: HomeData,
@@ -163,10 +145,15 @@ private fun WarList(
         ),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item { WarHeader(data, onRefresh) }
+        item(key = "war-section-1") {
+            WarHeader(data, onRefresh)
+            if (data.staleSources.isNotEmpty()) Text(
+                "Última leitura válida mantida: ${data.staleSources.joinToString()}. Tentaremos novamente na próxima atualização.",
+                color = HD.Gold, fontSize = 11.sp)
+        }
 
         if (refreshing) {
-            item {
+            item(key = "war-section-2") {
                 LinearProgressIndicator(
                     Modifier.fillMaxWidth().height(2.dp),
                     color = HD.Yellow,
@@ -176,7 +163,7 @@ private fun WarList(
         }
 
         if (errorBanner != null) {
-            item {
+            item(key = "war-section-3") {
                 HdCard(accent = HD.Red) {
                     SectionLabel("Conexão degradada", HD.Red)
                     Text("$errorBanner Mostrando a última leitura válida.", color = HD.TextDim, fontSize = 12.sp)
@@ -185,22 +172,22 @@ private fun WarList(
             }
         }
 
-        item {
+        item(key = "war-section-4") {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatTile("Helldivers no front", fmtWar(data.helldiversOnFront), "efetivo em campanhas", HD.YellowBright, Modifier.weight(1f), backgroundKey = "war_players")
                 StatTile("Frentes ativas", data.activeFronts.toString(), "campanhas detectadas", HD.SignalBlue, Modifier.weight(1f), backgroundKey = "war_fronts")
             }
         }
-        item {
+        item(key = "war-section-5") {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatTile("Liberações", data.liberationCount.toString(), "ofensivas da Super Terra", HD.Green, Modifier.weight(1f), backgroundKey = "war_liberation")
                 StatTile("Defesas", data.defenseCount.toString(), "planetas sob ataque", HD.Red, Modifier.weight(1f), backgroundKey = "war_defense")
             }
         }
 
-        item { OrderCard(data) }
+        item(key = "war-section-6") { OrderCard(data) }
 
-        item {
+        item(key = "war-section-7") {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                     Column {
@@ -243,27 +230,27 @@ private fun WarList(
                 }
 
                 SectionLabel("Facção inimiga", HD.TextMuted)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item { FactionFilter("all", "TODAS", HD.Yellow, factionFilter) { factionFilter = it } }
-                    item { FactionFilter("terminids", "TERMINÍDEOS", HD.TerminidOrange, factionFilter) { factionFilter = it } }
-                    item { FactionFilter("automatons", "AUTÔMATOS", HD.AutomatonRed, factionFilter) { factionFilter = it } }
-                    item { FactionFilter("illuminates", "ILUMINADOS", HD.IlluminatePurple, factionFilter) { factionFilter = it } }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FactionFilter("all", "TODAS", HD.Yellow, factionFilter) { factionFilter = it }
+                    FactionFilter("terminids", "TERMINÍDEOS", HD.TerminidOrange, factionFilter) { factionFilter = it }
+                    FactionFilter("automatons", "AUTÔMATOS", HD.AutomatonRed, factionFilter) { factionFilter = it }
+                    FactionFilter("illuminates", "ILUMINADOS", HD.IlluminatePurple, factionFilter) { factionFilter = it }
                 }
             }
         }
 
         if (filtered.isEmpty()) {
-            item { HdCard { Text("Nenhuma frente corresponde ao filtro selecionado.", color = HD.TextDim, fontSize = 13.sp) } }
+            item(key = "war-section-12") { HdCard { Text("Nenhuma frente corresponde ao filtro selecionado.", color = HD.TextDim, fontSize = 13.sp) } }
         } else {
             itemsIndexed(
                 filtered,
-                key = { index, campaign -> "${campaign.id ?: campaign.planet.nameText}-${campaign.planet.event?.id ?: 0}-$index" },
+                key = { _, campaign -> "planet-${campaign.planet.index}" },
             ) { _, campaign ->
                 CampaignCard(data, campaign) { selectedPlanetIndex = campaign.planet.index }
             }
         }
 
-        item {
+        item(key = "war-section-13") {
             HdCard(accent = HD.SignalBlue) {
                 SectionLabel("Mapa tático", HD.SignalBlue)
                 Text("MAPA GALÁCTICO COMPLETO", color = HD.Text, fontSize = 18.sp, fontWeight = FontWeight.Black)
@@ -273,7 +260,7 @@ private fun WarList(
         }
 
         if (data.dispatches.isNotEmpty()) {
-            item {
+            item(key = "war-section-14") {
                 Column {
                     SectionLabel("📡 Despachos", HD.SignalBlue)
                     Text("COMUNICAÇÕES RECENTES", color = HD.Text, fontSize = 20.sp, fontWeight = FontWeight.Black)
@@ -316,7 +303,7 @@ private fun WarFilter(id: String, label: String, selected: String, onSelect: (St
         colors = CardDefaults.cardColors(containerColor = if (active) HD.Yellow else HD.Surface),
         border = BorderStroke(1.dp, if (active) HD.Yellow else HD.Border),
     ) {
-        Text(label, color = if (active) Color.Black else HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp), textAlign = TextAlign.Center)
+        Text(label, color = if (active) Color.Black else HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), textAlign = TextAlign.Center)
     }
 }
 
@@ -334,14 +321,18 @@ private fun FactionFilter(id: String, label: String, accent: Color, selected: St
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
-            Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(accent))
+            if (id != "all") SiteImage(when (id) {
+                "terminids" -> "terminid"
+                "automatons" -> "automaton"
+                else -> "illuminate"
+            }, label, Modifier.size(20.dp))
             Text(label, color = if (active) accent else HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.45.sp)
         }
     }
 }
 
 @Composable
-private fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
+fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
     val planet = campaign.planet
     val catalog = data.planetCatalog[planet.index]
     val defense = planet.event != null
@@ -457,7 +448,7 @@ private fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit)
                     Text("BIOMA: $biome", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(status, color = statusColor, fontSize = 9.sp, fontWeight = FontWeight.Black)
                 }
-                if (planet.regions.isNotEmpty()) Text("${planet.regions.size} regiões neste planeta", color = HD.TextDim, fontSize = 11.sp)
+                if (planet.regions.any { it.isAvailable == true }) Text("${planet.regions.count { it.isAvailable == true }} regiões neste planeta", color = HD.TextDim, fontSize = 11.sp)
                 Text("↗ TOQUE PARA ABRIR DOSSIÊ TÁTICO", color = HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
             }
         }

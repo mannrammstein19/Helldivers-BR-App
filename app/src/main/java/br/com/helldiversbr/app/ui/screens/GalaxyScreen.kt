@@ -136,10 +136,18 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
         item { SectionLabel(if (query.isNotBlank() || faction != "Todas") "Planetas encontrados" else "Frentes em operação") }
         if (listPlanets.isEmpty()) item { Text("Nenhum planeta nesta lista. Pesquise um nome ou ajuste os filtros.", color = HD.TextDim) }
         items(listPlanets, key = { it.index }) { planet ->
-            HdCard(modifier = Modifier.clickable { selectedId = planet.index }, accent = factionColor(planet.currentOwner)) {
-                if (planet.regions.isNotEmpty()) Text("${planet.regions.size} regiões", color = HD.TextMuted, fontSize = 11.sp)
-                Text(planet.nameText, color = HD.Text, fontWeight = FontWeight.Bold)
-                Text("${planet.sector} • ${galaxyFaction(planet)}", color = HD.TextDim, fontSize = 12.sp)
+            val campaign = campaigns[planet.index]
+            if (data != null && campaign != null) {
+                CampaignCard(data, campaign) { dossierId = planet.index }
+            } else {
+                HdCard(modifier = Modifier.clickable { dossierId = planet.index }, accent = factionColor(planet.currentOwner)) {
+                    Text(planet.nameText, color = HD.Text, fontWeight = FontWeight.Bold)
+                    Text("${planet.sector} • ${galaxyFaction(planet)}", color = HD.TextDim)
+                    Text("${mapPlayerCount(planet.statistics.playerCount)} Helldivers", color = HD.Text)
+                    val count = planet.regions.count { it.isAvailable == true }
+                    if (count > 0) Text("$count regiões disponíveis", color = HD.TextDim, fontSize = 12.sp)
+                    Text("TOQUE PARA ABRIR DOSSIÊ", color = HD.Yellow, fontSize = 11.sp)
+                }
             }
         }
         item { TextButton(onClick = onOpenFullMap) { Text("MAPA COMPLETO DO SITE ↗") } }

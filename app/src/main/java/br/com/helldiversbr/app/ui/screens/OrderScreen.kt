@@ -22,7 +22,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -130,7 +131,7 @@ private fun OrderContent(
                             modifier = Modifier.fillMaxSize(),
                             scale = ContentScale.Crop,
                         )
-                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, HD.BgDeep.copy(alpha = 0.98f)))))
+                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.8f to Color.Transparent, 1f to HD.BgDeep.copy(alpha = 0.55f))))
                     }
 
                     Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -142,7 +143,8 @@ private fun OrderContent(
                             val completed = if (ui.state == "completed") order.tasks.size else order.tasks.indices.count { i ->
                                 val task = order.tasks[i]
                                 val progress = order.progress.getOrNull(i) ?: 0L
-                                val goal = task.goal
+                                var showForecast by rememberSaveable(data.order.order?.id, data.order.order?.expiration, index) { mutableStateOf(false) }
+    val goal = task.goal
                                 if (goal != null && goal > 0) progress >= goal else progress > 0
                             }
                             Text(
@@ -295,9 +297,22 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
                 )
                 Text("${"%.1f".format(orderLocale, percent)}%", color = accent, fontSize = 12.sp, fontWeight = FontWeight.Black)
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("Ritmo e previsão", color = HD.TextDim, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                Text(if (done) "CONCLUÍDO" else "EM ANDAMENTO", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.background(accent.copy(alpha = 0.08f), RoundedCornerShape(2.dp)).padding(horizontal = 7.dp, vertical = 4.dp))
+            TextButton(onClick = { showForecast = !showForecast }) {
+                Text(if (showForecast) "RITMO E PREVISÃO −" else "RITMO E PREVISÃO +", color = accent)
+            }
+            if (showForecast) {
+                val rate = if (task.type in listOf(11, 12, 13) && campaign != null)
+                    OrderRepository.campaignRate(data, campaign) else data.orderRates[index]
+                val eta = OrderRepository.etaFromRate(percent, rate)
+                Text(when {
+                    done -> "Objetivo concluído."
+                    "Ordem Maior" in data.staleSources || (campaign != null && "campanhas" in data.staleSources) -> "Telemetria sem atualização. Previsão pausada até receber uma nova leitura válida."
+                    data.order.state != "active" -> "Sem previsão: aguardando confirmação ou ordem encerrada."
+                    rate == null -> "Coletando amostras. São necessárias duas leituras válidas, separadas por pelo menos 30 segundos. A atualização automática ocorre a cada 60 segundos enquanto o app está aberto."
+                    rate <= 0 -> "Sem avanço positivo na última amostra. Ainda não há previsão de conclusão."
+                    else -> "Ritmo observado: ${"%.2f".format(orderLocale, rate)}%/h. Conclusão estimada em ${eta ?: "—"}."
+                }, color = HD.TextDim, fontSize = 12.sp, lineHeight = 17.sp)
+                Text("Estimativa baseada na variação recente; pode mudar com o esforço dos jogadores.", color = HD.TextMuted, fontSize = 11.sp)
             }
         }
     }

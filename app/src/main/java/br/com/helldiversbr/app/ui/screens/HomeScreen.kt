@@ -276,68 +276,16 @@ private fun HomeList(
 
         item { OrderCard(data) }
 
-        data.campaigns.maxByOrNull { it.planet.statistics.playerCount }?.let { spotlight ->
-            item { FrontSpotlightCard(data, spotlight, onOpenWar) }
-        }
-
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                    Column {
-                        SectionLabel("Telemetria ao vivo", HD.SignalBlue)
-                        Text("SITUAÇÃO DA GUERRA", color = HD.Text, fontSize = 20.sp, fontWeight = FontWeight.Black)
-                    }
-                    val time = SimpleDateFormat("HH:mm", ptBrHome).format(Date(data.updatedAtMillis))
-                    Text("ATUALIZADO $time", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                }
-
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    StatTile(
-                        label = "Helldivers no front",
-                        value = fmtHome(data.helldiversOnFront),
-                        detail = "efetivo em campanhas ativas",
-                        accent = HD.YellowBright,
-                        modifier = Modifier.weight(1f),
-                    )
-                    StatTile(
-                        label = "Liberações",
-                        value = data.liberationCount.toString(),
-                        detail = "frentes ofensivas",
-                        accent = HD.Green,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    StatTile(
-                        label = "Defesas",
-                        value = data.defenseCount.toString(),
-                        detail = "frentes em defesa",
-                        accent = HD.Red,
-                        modifier = Modifier.weight(1f),
-                    )
-                    StatTile(
-                        label = "Frentes ativas",
-                        value = data.activeFronts.toString(),
-                        detail = "campanhas detectadas",
-                        accent = HD.SignalBlue,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-
-        item {
-            YellowButton("ABRIR CENTRAL DE GUERRA  →", onOpenWar, Modifier.fillMaxWidth())
-        }
-
         if (data.dispatches.isNotEmpty()) {
             item {
                 Column {
                     SectionLabel("Comunicações recentes", HD.TextDim)
-                    Text("ÚLTIMO DESPACHO", color = HD.Text, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    Text("DESPACHOS RECENTES", color = HD.Text, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 }
             }
-            item { DispatchCard(data.dispatches.first()) }
+            data.dispatches.take(5).forEachIndexed { index, dispatch ->
+                item(key = "home-dispatch-${dispatch.id}-$index") { DispatchCard(dispatch) }
+            }
         }
     }
 }

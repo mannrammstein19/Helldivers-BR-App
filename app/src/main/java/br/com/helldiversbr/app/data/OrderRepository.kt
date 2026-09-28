@@ -21,6 +21,8 @@ data class HomeData(
     val campaigns: List<Campaign>,
     val campaignRates: Map<String, Double>,
     val updatedAtMillis: Long,
+    val orderRates: Map<Int, Double> = emptyMap(),
+    val staleSources: List<String> = emptyList(),
 ) {
     val helldiversOnFront: Long get() = campaigns.sumOf { it.planet.statistics.playerCount.coerceAtLeast(0) }
     val liberationCount: Int get() = campaigns.count { it.planet.event == null }
@@ -36,6 +38,8 @@ object OrderRepository {
         val ratePerHour: Double? = null,
     )
 
+    private val objectiveHistory = mutableMapOf<String, RateSnapshot>()
+    private var lastGood: HomeData? = null
     private val rateHistory = mutableMapOf<String, RateSnapshot>()
 
     /**
@@ -57,8 +61,8 @@ object OrderRepository {
 
         val liveOrder = live.getOrNull()
         val snap = snapshot.getOrNull()
-        val dispatches = dispatchesResult.getOrDefault(emptyList())
-        val campaigns = campaignsResult.getOrDefault(emptyList())
+        val dispatches = dispatchesResult.getOrElse { lastGood?.dispatches.orEmpty() }
+        val campaigns = campaignsResult.getOrElse { lastGood?.campaigns.orEmpty() }
             .sortedWith(
                 compareByDescending<Campaign> { it.planet.event != null }
                     .thenByDescending { it.planet.statistics.playerCount }
@@ -98,14 +102,34 @@ object OrderRepository {
                 percent = snap.final_percent ?: computePercent(snapOrder),
                 fromSnapshot = true,
             )
-            else -> OrderUi(order = null, state = "pending", percent = 0.0, fromSnapshot = false)
+            else -> if (live.isFailure && snapshot.isFailure && lastGood != null) lastGood!!.order
+                else OrderUi(order = null, state = "pending", percent = 0.0, fromSnapshot = false)
         }
 
         val now = System.currentTimeMillis()
-        val catalog = planetCatalogResult.getOrDefault(emptyMap())
+        val catalog = planetCatalogResult.getOrElse { lastGood?.planetCatalog.orEmpty() }
         val names = catalog.mapValues { (_, p) -> p.displayName }.filterValues { it.isNotBlank() }
-        val rates = updateCampaignRates(campaigns, now)
+        val rates = if (campaignsResult.isFailure) lastGood?.campaignRates.orEmpty() else updateCampaignRates(campaigns, now)
 
+        val objectiveRates = mutableMapOf<Int, Double>()
+        val keys = mutableSetOf<String>()
+        ui.order?.let { order ->
+            order.tasks.forEachIndexed { index, task ->
+                val goal = task.goal
+                if (goal != null && goal > 0 && ui.state == "active" && !(live.isFailure && snapshot.isFailure)) {
+                    val key = "${order.id}:${order.expiration}:$index:${task.type}:$goal:${task.planetId}"
+                    keys += key
+                    val progress = (order.progress.getOrElse(index) { 0L }.toDouble() / goal * 100).coerceIn(0.0, 100.0)
+                    val previous = objectiveHistory[key]
+                    val elapsed = previous?.let { now - it.timeMillis } ?: 0L
+                    val rate = if (previous != null && elapsed >= 30_000L)
+                        (progress - previous.progress) / (elapsed / 3_600_000.0) else previous?.ratePerHour
+                    if (previous == null || elapsed >= 30_000L) objectiveHistory[key] = RateSnapshot(progress, now, rate)
+                    if (rate != null) objectiveRates[index] = rate
+                }
+            }
+        }
+        if (!(live.isFailure && snapshot.isFailure)) objectiveHistory.keys.retainAll(keys)
         HomeData(
             order = ui,
             dispatches = dispatches,
@@ -114,7 +138,13 @@ object OrderRepository {
             campaigns = campaigns,
             campaignRates = rates,
             updatedAtMillis = now,
-        )
+            orderRates = if (live.isFailure && snapshot.isFailure) lastGood?.orderRates.orEmpty() else objectiveRates,
+            staleSources = buildList {
+                if (campaignsResult.isFailure) add("campanhas")
+                if (dispatchesResult.isFailure) add("despachos")
+                if (live.isFailure && snapshot.isFailure) add("Ordem Maior")
+            },
+        ).also { lastGood = it }
     }
 
     fun campaignKey(campaign: Campaign): String {
