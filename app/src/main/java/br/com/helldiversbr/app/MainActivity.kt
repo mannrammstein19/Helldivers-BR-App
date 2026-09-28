@@ -7,7 +7,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,12 +28,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -54,9 +51,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -84,16 +81,15 @@ private data class Tab(
     val route: String,
     val label: String,
     val iconFile: String,
-    val fallback: ImageVector,
 )
 
 private val tabs = listOf(
-    Tab("inicio", "Início", "inicio.png", Icons.Filled.Home),
-    Tab("guerra", "Guerra", "guerra.png", Icons.Filled.Public),
-    Tab("ordem", "Ordem", "ordem.png", Icons.Filled.Star),
-    Tab("mapa", "Mapa", "mapa.png", Icons.Filled.Map),
-    Tab("arsenal", "Arsenal", "arsenal.png", Icons.Filled.Shield),
-    Tab("menu", "Menu", "menu.png", Icons.Filled.Menu),
+    Tab("inicio", "Início", "inicio.png"),
+    Tab("guerra", "Guerra", "guerra.png"),
+    Tab("ordem", "Ordem", "ordem.png"),
+    Tab("mapa", "Mapa", "mapa.png"),
+    Tab("arsenal", "Arsenal", "arsenal.png"),
+    Tab("menu", "Menu", "menu.png"),
 )
 
 class MainActivity : ComponentActivity() {
@@ -308,19 +304,14 @@ private fun AppBottomBar(
                             Modifier.fillMaxWidth().height(2.dp)
                                 .background(if (selected) HD.Yellow else Color.Transparent)
                         )
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(28.dp).padding(top = 4.dp)) {
-                            Icon(
-                                imageVector = tab.fallback,
-                                contentDescription = tab.label,
-                                tint = if (selected) HD.Yellow else HD.TextDim,
-                                modifier = Modifier.size(22.dp),
-                            )
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(30.dp).padding(top = 4.dp)) {
+                            // Usa somente os ícones originais do HELLDIVERS-BR. Na V5 havia um
+                            // Material Icon por baixo da PNG e as duas silhuetas podiam se sobrepor.
                             AsyncImage(
                                 model = "${HelldiversApi.SITE_BASE}/icons/${tab.iconFile}",
-                                contentDescription = null,
-                                modifier = Modifier.size(27.dp),
+                                contentDescription = tab.label,
+                                modifier = Modifier.size(28.dp),
                                 contentScale = ContentScale.Fit,
-                                alpha = 1f,
                                 colorFilter = ColorFilter.tint(if (selected) HD.Yellow else HD.TextDim),
                             )
                         }
@@ -347,98 +338,238 @@ private fun AppDrawer(
     onThemeMode: (HdThemeMode) -> Unit,
     onClose: () -> Unit,
 ) {
+    var search by remember { mutableStateOf("") }
+    val query = search.trim().lowercase()
+    fun show(vararg labels: String): Boolean = query.isBlank() || labels.any { it.lowercase().contains(query) }
+
     ModalDrawerSheet(
         drawerContainerColor = HD.BgDeep,
         drawerContentColor = HD.Text,
-        modifier = Modifier.fillMaxWidth(0.84f),
+        modifier = Modifier.fillMaxWidth(0.72f),
     ) {
-        Column(
-            Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Text("HELLDIVERS BR", color = HD.Yellow, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
-                    Text("MENU DE NAVEGAÇÃO", color = HD.Text, fontSize = 20.sp, fontWeight = FontWeight.Black)
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
+            // Cabeçalho semelhante ao painel lateral mobile do site.
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.94f))
+                    .clickable { onClose() },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().height(48.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("✕", color = HD.Yellow, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "FECHAR MENU",
+                        color = HD.Yellow,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 2.0.sp,
+                    )
                 }
-                Text("✕", color = HD.TextDim, fontSize = 18.sp, modifier = Modifier.clickable { onClose() }.padding(8.dp))
+                Box(
+                    Modifier.width(42.dp).height(3.dp).clip(RoundedCornerShape(50)).background(HD.Yellow)
+                )
+                HorizontalDivider(color = HD.Yellow, thickness = 1.dp)
             }
-            HorizontalDivider(color = HD.Yellow)
 
-            DrawerEntry("INÍCIO", "Terminal principal", current == "inicio") { onNavigate("inicio") }
-            DrawerEntry("CENTRAL DE GUERRA", "Frentes, campanhas e telemetria", current == "guerra") { onNavigate("guerra") }
-            DrawerEntry("ORDEM MAIOR", "Objetivos do Alto Comando", current == "ordem") { onNavigate("ordem") }
-            DrawerEntry("MAPA GALÁCTICO", "Setores e linhas de suprimento", current == "mapa") { onNavigate("mapa") }
-            DrawerEntry("ARSENAL", "Estratagemas e armamentos", current == "arsenal") { onNavigate("arsenal") }
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // Logo nativa do projeto: não depende de rede para aparecer no menu.
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(HD.Surface)
+                        .border(1.dp, HD.Border, RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AsyncImage(
+                        model = R.drawable.ic_launcher_foreground,
+                        contentDescription = "HELLDIVERS-BR",
+                        modifier = Modifier.size(142.dp),
+                        contentScale = ContentScale.Fit,
+                    )
+                }
 
-            Text("ARQUIVOS DA SUPER TERRA", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, modifier = Modifier.padding(top = 8.dp))
-            DrawerEntry("WARBONDS", "Catálogo de títulos de guerra", false) { onOpenSite("warbonds/warbonds-wiki.html") }
-            DrawerEntry("FACÇÕES", "Dossiês de inimigos", false) { onOpenSite("faccoes.html") }
-            DrawerEntry("SITE COMPLETO", "Abrir HELLDIVERS-BR no navegador", false) { onOpenSite("") }
+                DrawerSearch(search = search, onSearch = { search = it })
 
-            Text("TEMA", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp, modifier = Modifier.padding(top = 8.dp))
-            ThemeEntry(
-                title = "PADRÃO HELLDIVERS",
-                description = "Preto + amarelo da Super Terra",
-                selected = themeMode == HdThemeMode.DEFAULT,
-                onClick = { onThemeMode(HdThemeMode.DEFAULT) },
-            )
-            ThemeEntry(
-                title = "MERIDIA",
-                description = "Buraco Negro // roxo operacional",
-                selected = themeMode == HdThemeMode.MERIDIA,
-                onClick = { onThemeMode(HdThemeMode.MERIDIA) },
-            )
+                DrawerThemeControl(
+                    themeMode = themeMode,
+                    onToggle = {
+                        onThemeMode(
+                            if (themeMode == HdThemeMode.DEFAULT) HdThemeMode.MERIDIA else HdThemeMode.DEFAULT
+                        )
+                    },
+                )
 
-            Text(
-                "APLICATIVO NATIVO // KOTLIN + JETPACK COMPOSE",
-                color = HD.TextMuted,
-                fontSize = 8.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.8.sp,
-                modifier = Modifier.padding(top = 10.dp, bottom = 18.dp),
-            )
+                if (show("comando", "página principal", "central de guerra", "ordem maior", "mapa galáctico")) {
+                    DrawerGroupLabel("COMANDO")
+                    if (show("página principal", "inicio", "início")) {
+                        DrawerCompactEntry("Página Principal", current == "inicio") { onNavigate("inicio") }
+                    }
+                    if (show("central de guerra", "guerra")) {
+                        DrawerCompactEntry("⚔ Central de Guerra", current == "guerra") { onNavigate("guerra") }
+                    }
+                    if (show("ordem maior", "ordem")) {
+                        DrawerCompactEntry("Ordem Maior", current == "ordem") { onNavigate("ordem") }
+                    }
+                    if (show("mapa galáctico", "mapa")) {
+                        DrawerCompactEntry("Mapa Galáctico", current == "mapa") { onNavigate("mapa") }
+                    }
+                }
+
+                if (show("aquisições", "passes de guerra", "warbonds")) {
+                    DrawerGroupLabel("AQUISIÇÕES")
+                    if (show("passes de guerra", "warbonds")) {
+                        DrawerCompactEntry("Passes de Guerra", false) { onOpenSite("warbonds/warbonds-wiki.html") }
+                    }
+                }
+
+                if (show("equipamento", "estratagemas", "arsenal")) {
+                    DrawerGroupLabel("EQUIPAMENTO")
+                    if (show("estratagemas", "arsenal")) {
+                        DrawerCompactEntry("Estratagemas", current == "arsenal") { onNavigate("arsenal") }
+                    }
+                    if (show("catálogo", "site", "arsenal completo")) {
+                        DrawerCompactEntry("Catálogo completo", false) { onOpenSite("estratagemas.html") }
+                    }
+                }
+
+                if (show("inimigos", "facções", "faccoes")) {
+                    DrawerGroupLabel("INIMIGOS & FACÇÕES")
+                    DrawerCompactEntry("Facções", false) { onOpenSite("faccoes.html") }
+                }
+
+                if (show("comunidade", "site completo", "helldivers br")) {
+                    DrawerGroupLabel("COMUNIDADE")
+                    DrawerCompactEntry("Site HELLDIVERS-BR", false) { onOpenSite("") }
+                }
+
+                Text(
+                    "APLICATIVO NATIVO // KOTLIN + JETPACK COMPOSE",
+                    color = HD.TextMuted,
+                    fontSize = 7.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.7.sp,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun DrawerEntry(title: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
-    val border = if (selected) HD.Yellow else HD.Border
+private fun DrawerSearch(search: String, onSearch: (String) -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (selected) HD.Yellow.copy(alpha = 0.10f) else HD.Surface)
-            .clickable { onClick() }
-            .padding(13.dp),
+            .background(HD.Surface)
+            .border(1.dp, HD.Border, RoundedCornerShape(8.dp))
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(5.dp).clip(RoundedCornerShape(50)).background(border))
-            Text(title, color = if (selected) HD.Yellow else HD.Text, fontSize = 12.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 9.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("BUSCA GLOBAL HDBR", color = HD.Text, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.0.sp)
+            Text("MENU NATIVO", color = HD.TextMuted, fontSize = 6.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
         }
-        Text(subtitle, color = HD.TextMuted, fontSize = 10.sp, modifier = Modifier.padding(start = 14.dp, top = 3.dp))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(39.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(HD.BgDeep)
+                .border(1.dp, HD.Yellow.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("⌕", color = HD.Yellow, fontSize = 19.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.weight(1f)) {
+                if (search.isBlank()) {
+                    Text("Pesquisar no menu...", color = HD.TextMuted, fontSize = 11.sp)
+                }
+                BasicTextField(
+                    value = search,
+                    onValueChange = onSearch,
+                    singleLine = true,
+                    textStyle = TextStyle(color = HD.Text, fontSize = 11.sp, fontWeight = FontWeight.Medium),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            if (search.isNotBlank()) {
+                Text("✕", color = HD.TextMuted, fontSize = 12.sp, modifier = Modifier.clickable { onSearch("") }.padding(5.dp))
+            }
+        }
     }
 }
 
 @Composable
-private fun ThemeEntry(title: String, description: String, selected: Boolean, onClick: () -> Unit) {
+private fun DrawerThemeControl(themeMode: HdThemeMode, onToggle: () -> Unit) {
+    val meridia = themeMode == HdThemeMode.MERIDIA
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (selected) HD.Yellow.copy(alpha = 0.12f) else HD.Surface)
-            .clickable { onClick() }
-            .padding(13.dp),
+            .height(58.dp)
+            .background(HD.Surface)
+            .border(1.dp, HD.Border, RoundedCornerShape(8.dp))
+            .clickable { onToggle() }
+            .padding(horizontal = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            Modifier.size(18.dp).clip(RoundedCornerShape(50))
-                .background(if (selected) HD.Yellow else HD.SurfaceHigh)
-        )
-        Column(Modifier.padding(start = 11.dp)) {
-            Text(title, color = if (selected) HD.Yellow else HD.Text, fontSize = 11.sp, fontWeight = FontWeight.Black)
-            Text(description, color = HD.TextMuted, fontSize = 9.sp)
+            Modifier
+                .size(30.dp)
+                .border(1.dp, if (meridia) HD.Yellow else HD.TextMuted, RoundedCornerShape(3.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(if (meridia) "◉" else "◐", color = if (meridia) HD.Yellow else HD.TextDim, fontSize = 13.sp)
         }
+        Column(Modifier.padding(start = 10.dp).weight(1f)) {
+            Text("TEMA", color = HD.TextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = 1.0.sp)
+            Text(if (meridia) "MERIDIA" else "PADRÃO", color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp)
+        }
+        Text("ALTERAR", color = HD.Yellow, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp)
+    }
+}
+
+@Composable
+private fun DrawerGroupLabel(label: String) {
+    Column(Modifier.fillMaxWidth().padding(top = 5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text(label, color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.0.sp)
+        HorizontalDivider(color = HD.Yellow.copy(alpha = 0.25f))
+    }
+}
+
+@Composable
+private fun DrawerCompactEntry(title: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(47.dp)
+            .background(if (selected) HD.Yellow.copy(alpha = 0.11f) else HD.Surface)
+            .border(1.dp, if (selected) HD.Yellow.copy(alpha = 0.75f) else HD.Border, RoundedCornerShape(3.dp))
+            .clickable { onClick() },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.width(4.dp).height(47.dp).background(if (selected) HD.Yellow else HD.Yellow.copy(alpha = 0.35f)))
+        Text(
+            title,
+            color = if (selected) HD.Yellow else HD.Text,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 10.dp),
+            maxLines = 1,
+        )
     }
 }

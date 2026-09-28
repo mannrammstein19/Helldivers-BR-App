@@ -387,7 +387,7 @@ private fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit)
     ) {
         Column {
             Row(
-                Modifier.fillMaxWidth().background(HD.Surface).padding(horizontal = 13.dp, vertical = 10.dp),
+                Modifier.fillMaxWidth().background(HD.Surface).padding(horizontal = 13.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -404,10 +404,10 @@ private fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit)
                 Text(headerEta ?: "—", color = HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
 
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(planet.nameText.uppercase(), color = HD.Text, fontSize = 25.sp, lineHeight = 26.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(sector.uppercase(), color = HD.TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, modifier = Modifier.padding(top = 3.dp))
+                    Text(sector.uppercase(), color = HD.TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, modifier = Modifier.padding(top = 1.dp))
                 }
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -435,7 +435,7 @@ private fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit)
                 }
             }
 
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (defense) {
                     ProgressBlock("DEFESA HELLDIVERS", percent, HD.DefenseBlue)
                     ProgressBlock("INVASÃO ${enemyFaction.uppercase()}", invasionProgress ?: 0.0, accent, valueOverride = invasionProgress?.let(::pct) ?: "—")
@@ -443,11 +443,11 @@ private fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit)
                     ProgressBlock("CONTROLE PLANETÁRIO", percent, accent)
                 }
 
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     TacticalMetric("👥 HELLDIVERS OPERANDO", fmtWar(planet.statistics.playerCount), "%.1f%% do efetivo ativo".format(ptBrWar, share), HD.Text, Modifier.weight(1f))
                     TacticalMetric("■ ${if (defense) "AVANÇO DA DEFESA / HORA" else "AVANÇO LÍQUIDO / HORA"}", rateText(rate), if (rate == null) "aguardando nova amostra" else "saldo planetário observado", if ((rate ?: 0.0) >= 0) HD.DefenseBlue else HD.Red, Modifier.weight(1f))
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     TacticalMetric("PRESSÃO ${enemyFaction.uppercase()}", rateText(enemyPressure), if (defense) "ritmo do relógio da invasão" else "regeneração registrada na API", accent, Modifier.weight(1f))
                     TacticalMetric(if (defense) "🏁 TEMPO DA DEFESA" else "🏁 VITÓRIA ESTIMADA", if (defense) etaWin ?: "calculando" else etaWin ?: "calculando", if (defense) "prazo inimigo: ${etaDeadline ?: "—"}" else "projeção no ritmo atual", HD.Text, Modifier.weight(1f))
                 }
@@ -475,15 +475,15 @@ private fun ProgressBlock(label: String, value: Double, color: Color, valueOverr
 @Composable
 private fun TacticalMetric(label: String, value: String, detail: String, valueColor: Color, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.height(112.dp),
+        modifier = modifier.height(90.dp),
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = HD.Surface),
         border = BorderStroke(1.dp, HD.Border),
     ) {
-        Column(Modifier.fillMaxSize().padding(11.dp), verticalArrangement = Arrangement.SpaceBetween) {
-            Text(label, color = HD.TextDim, fontSize = 8.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
-            Text(value, color = valueColor, fontSize = 18.sp, lineHeight = 19.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(detail, color = HD.TextMuted, fontSize = 9.sp, lineHeight = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(label, color = HD.TextDim, fontSize = 7.5.sp, lineHeight = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.35.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(value, color = valueColor, fontSize = 17.sp, lineHeight = 18.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(detail, color = HD.TextMuted, fontSize = 8.5.sp, lineHeight = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
