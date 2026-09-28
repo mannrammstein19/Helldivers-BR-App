@@ -76,16 +76,25 @@ object OrderRepository {
         }
 
         val snapOrder = snap?.order
+        fun visibleState(state: String, order: Assignment): String {
+            if (state in listOf("completed", "failed", "pending", "unknown")) return state
+            val expired = runCatching { Instant.parse(order.expiration).isBefore(Instant.now()) }.getOrDefault(false)
+            return if (expired) "pending" else "active"
+        }
         val ui = when {
+            liveOrder != null && snap != null && snapOrder != null && liveOrder.id != null && liveOrder.id == snapOrder.id && snap.state in listOf("completed", "failed") -> OrderUi(
+                order = snapOrder, state = snap.state,
+                percent = snap.final_percent ?: computePercent(snapOrder), fromSnapshot = true,
+            )
             liveOrder != null -> OrderUi(
                 order = liveOrder,
-                state = "active",
+                state = visibleState("active", liveOrder),
                 percent = computePercent(liveOrder),
                 fromSnapshot = false,
             )
             snap != null && snapOrder != null -> OrderUi(
                 order = snapOrder,
-                state = snap.state.ifBlank { "pending" },
+                state = visibleState(snap.state.ifBlank { "pending" }, snapOrder),
                 percent = snap.final_percent ?: computePercent(snapOrder),
                 fromSnapshot = true,
             )

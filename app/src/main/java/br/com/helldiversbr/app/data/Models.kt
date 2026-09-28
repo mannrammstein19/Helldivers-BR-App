@@ -9,8 +9,16 @@ import kotlinx.serialization.json.contentOrNull
 /** Recompensa da Ordem Maior. type 1 = Medalhas. */
 @Serializable
 data class Reward(
-    val type: Int = 0,
+    val type: JsonElement? = null,
     val amount: Long = 0,
+    val quantity: Long? = null,
+    val value: Long? = null,
+    val id: JsonElement? = null,
+    val id32: JsonElement? = null,
+    val itemId: JsonElement? = null,
+    val itemID: JsonElement? = null,
+    val name: JsonElement? = null,
+    val description: JsonElement? = null,
 )
 
 @Serializable
@@ -102,7 +110,10 @@ data class PlanetEvent(
 /** Regiões internas dos planetas mais recentes. */
 @Serializable
 data class PlanetRegion(
-    val name: String? = null,
+    val name: JsonElement? = null,
+    val hash: Long? = null,
+    val size: String? = null,
+    val owner: JsonElement? = null,
     val health: Long? = null,
     val maxHealth: Long = 0,
     val regenPerSecond: Double? = null,
@@ -130,6 +141,8 @@ data class Planet(
     val position_x: Double? = null,
     val position_y: Double? = null,
     val waypoints: List<Long> = emptyList(),
+    val attacking: List<Long> = emptyList(),
+    val disabled: Boolean = false,
     val statistics: PlanetStatistics = PlanetStatistics(),
     val event: PlanetEvent? = null,
     val regions: List<PlanetRegion> = emptyList(),

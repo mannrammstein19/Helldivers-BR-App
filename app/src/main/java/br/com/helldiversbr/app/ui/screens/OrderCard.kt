@@ -1,5 +1,6 @@
 package br.com.helldiversbr.app.ui.screens
 
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,6 +46,8 @@ fun OrderCard(data: HomeData) {
     }
 
     HdCard(accent = accent) {
+        SiteImage(br.com.helldiversbr.app.data.SiteAssets.orderKey(ui.state), "Ordem Maior",
+            Modifier.fillMaxWidth().height(140.dp), androidx.compose.ui.layout.ContentScale.Crop)
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -77,15 +80,13 @@ fun OrderCard(data: HomeData) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OrderMiniStat(
                 label = "TEMPO RESTANTE",
-                value = if (ui.state == "active") OrderRepository.remaining(order.expiration) else "ENCERRADA",
+                value = if (ui.state == "active") OrderRepository.remaining(order.expiration) else if (ui.state in listOf("completed", "failed")) "ENCERRADA" else "AGUARDANDO",
                 modifier = Modifier.weight(1f),
             )
-            OrderMiniStat(
-                label = "RECOMPENSA",
-                value = order.mainReward?.amount?.takeIf { it > 0 }?.let { "${fmt(it)} MEDALHAS" } ?: "—",
-                modifier = Modifier.weight(1f),
-            )
+
         }
+
+        OrderRewards(order, accent)
 
         Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

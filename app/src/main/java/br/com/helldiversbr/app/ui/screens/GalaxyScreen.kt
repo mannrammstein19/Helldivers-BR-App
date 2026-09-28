@@ -50,14 +50,18 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     val campaigns = data?.campaigns.orEmpty().associateBy { it.planet.index }
     val planets = remember(state.planets, campaigns) {
         (state.planets.map { campaigns[it.index]?.planet?.copy(
-            position = it.mapPosition, waypoints = it.waypoints) ?: it } +
+            position = it.mapPosition, waypoints = it.waypoints, attacking = it.attacking, disabled = it.disabled) ?: it } +
             campaigns.values.map { it.planet }).distinctBy { it.index }
     }
     var query by rememberSaveable { mutableStateOf("") }
     var activeOnly by rememberSaveable { mutableStateOf(false) }
     var routes by rememberSaveable { mutableStateOf(true) }
+    var sectors by rememberSaveable { mutableStateOf(true) }
+    var territories by rememberSaveable { mutableStateOf(true) }
+    var invasions by rememberSaveable { mutableStateOf(true) }
     var faction by rememberSaveable { mutableStateOf("Todas") }
     var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var dossierId by rememberSaveable { mutableStateOf<Long?>(null) }
     val filtered = remember(planets, query, activeOnly, faction, campaigns) {
         planets.filter {
             (!activeOnly || it.index in campaigns) &&
@@ -68,6 +72,8 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     val selected = planets.firstOrNull { it.index == selectedId }
     val listPlanets = if (query.isNotBlank() || activeOnly || faction != "Todas") filtered
         else filtered.filter { it.index in campaigns }
+    val dossierPlanet = planets.firstOrNull { it.index == dossierId }
+    if (dossierPlanet != null && data != null) PlanetDossierDialog(data, campaigns[dossierPlanet.index] ?: Campaign(planet = dossierPlanet)) { dossierId = null }
     LazyColumn(Modifier.fillMaxSize(),
         contentPadding = PaddingValues(14.dp, contentPadding.calculateTopPadding() + 12.dp, 14.dp, contentPadding.calculateBottomPadding() + 20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -90,13 +96,16 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 item { FilterChip(activeOnly, { activeOnly = !activeOnly }, label = { Text("Frentes ativas") }) }
                 item { FilterChip(routes, { routes = !routes }, label = { Text("Rotas") }) }
+                item { FilterChip(invasions, { invasions = !invasions }, label = { Text("Invasão") }) }
+                item { FilterChip(territories, { territories = !territories }, label = { Text("Territórios") }) }
+                item { FilterChip(sectors, { sectors = !sectors }, label = { Text("Setores") }) }
                 items(listOf("Todas", "Super Terra", "Terminídeos", "Autômatos", "Iluminados")) { label ->
                     FilterChip(faction == label, { faction = label }, label = { Text(label) })
                 }
             }
         }
         item {
-            GalaxyCanvas(filtered, planets, routes, selectedId, campaigns.keys, onSelect = { selectedId = it })
+            GalaxyCanvas(filtered, planets, routes, sectors, territories, invasions, selectedId, campaigns.keys, state.dssHost, onSelect = { selectedId = it })
             Text("Arraste para mover • Use dois dedos para ampliar • Toque num planeta", color = HD.TextDim, fontSize = 11.sp)
             Text("${filtered.size} planetas no filtro. A lista abaixo também permite selecionar as frentes.", color = HD.TextMuted, fontSize = 11.sp)
         }
@@ -114,6 +123,9 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
                     ProgressBar(percent, HD.Yellow)
                 }
                 data?.planetCatalog?.get(selected.index)?.let { Text(PlanetVisuals.biomeLabel(it), color = HD.TextDim) }
+                PlanetRegions(selected)
+                if (data != null) YellowButton("DOSSIÊ TÁTICO COMPLETO", { dossierId = selected.index })
+                if (mapName(selected) == "omicron") Text("Hive Lord · Draco Barata — marcações editoriais do portal, sem confirmação ao vivo da API.", color = HD.Gold, fontSize = 11.sp)
             }
         }
         item { SectionLabel(if (query.isNotBlank() || faction != "Todas") "Planetas encontrados" else "Frentes em operação") }
@@ -134,83 +146,4 @@ private fun galaxyFaction(p: Planet): String = when (p.currentOwner.lowercase())
     "automaton", "automatons", "cyborg", "3" -> "Autômatos"
     "illuminate", "illuminates", "4" -> "Iluminados"
     else -> p.currentOwner.ifBlank { "Desconhecida" }
-}
-
-@Composable
-private fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, selected: Long?, active: Set<Long>, onSelect: (Long) -> Unit) {
-    var zoom by remember { mutableStateOf(1f) }
-    var pan by remember { mutableStateOf(Offset.Zero) }
-    val positioned = planets.filter { it.mapPosition?.let { pos -> pos.x.isFinite() && pos.y.isFinite() } == true }
-    val extent = remember(all) { all.mapNotNull { it.mapPosition }.flatMap { listOf(abs(it.x), abs(it.y)) }
-        .filter { it.isFinite() }.maxOrNull()?.coerceAtLeast(1.0)?.toFloat() ?: 1f }
-    val colorById = positioned.associate { it.index to factionColor(it.currentOwner) }
-    Column {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = { zoom = (zoom / 1.4f).coerceAtLeast(1f) }) { Text("−") }
-            TextButton(onClick = { zoom = 1f; pan = Offset.Zero }) { Text("CENTRALIZAR") }
-            TextButton(onClick = { zoom = (zoom * 1.4f).coerceAtMost(8f) }) { Text("+") }
-        }
-        if (positioned.isEmpty()) {
-            Box(Modifier.fillMaxWidth().height(220.dp).background(HD.BgDeep), contentAlignment = Alignment.Center) {
-                Text("Sem coordenadas para os filtros atuais.", color = HD.TextDim)
-            }
-        } else Canvas(Modifier.fillMaxWidth().height(370.dp).clipToBounds().background(Color(0xFF050810))
-            .pointerInput(Unit) {
-                detectTransformGestures { centroid, move, scale, _ ->
-                    val next = (zoom * scale).coerceIn(1f, 8f)
-                    val center = Offset(size.width / 2f, size.height / 2f)
-                    pan = centroid - center - (centroid - center - pan) * (next / zoom) + move
-                    val limit = size.width.coerceAtLeast(size.height) * next
-                    pan = Offset(pan.x.coerceIn(-limit, limit), pan.y.coerceIn(-limit, limit))
-                    zoom = next
-                }
-            }
-            .pointerInput(positioned, extent) {
-                detectTapGestures { tap ->
-                    val scale = minOf(size.width, size.height) * 0.43f * zoom / extent
-                    val center = Offset(size.width / 2f, size.height / 2f) + pan
-                    positioned.minByOrNull { p ->
-                        val pos = p.mapPosition!!
-                        (center + Offset(pos.x.toFloat() * scale, -pos.y.toFloat() * scale) - tap).getDistance()
-                    }?.let { p ->
-                        val pos = p.mapPosition!!
-                        if ((center + Offset(pos.x.toFloat() * scale, -pos.y.toFloat() * scale) - tap).getDistance() <= 24.dp.toPx()) onSelect(p.index)
-                    }
-                }
-            }) {
-            val scale = size.minDimension * 0.43f * zoom / extent
-            val origin = center + pan
-            fun point(p: Planet): Offset {
-                val pos = p.mapPosition!!
-                return origin + Offset(pos.x.toFloat() * scale, -pos.y.toFloat() * scale)
-            }
-            repeat(4) { i -> drawCircle(Color(0xFF1D283A), size.minDimension * (i + 1) / 9f * zoom, origin, style = Stroke(1f)) }
-            drawLine(Color(0xFF1D283A), Offset(origin.x, 0f), Offset(origin.x, size.height))
-            drawLine(Color(0xFF1D283A), Offset(0f, origin.y), Offset(size.width, origin.y))
-            val byId = positioned.associateBy { it.index }
-            if (routes) {
-                val drawn = mutableSetOf<Pair<Long, Long>>()
-                positioned.forEach { p -> p.waypoints.forEach { id ->
-                    val edge = minOf(p.index, id) to maxOf(p.index, id)
-                    if (drawn.add(edge)) byId[id]?.let { drawLine(Color(0xFF3A495B), point(p), point(it), 1.dp.toPx()) }
-                } }
-            }
-            val labelPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                color = android.graphics.Color.WHITE
-                textSize = 10.sp.toPx()
-                setShadowLayer(3f, 0f, 1f, android.graphics.Color.BLACK)
-            }
-            positioned.forEach { p ->
-                val color = colorById.getValue(p.index)
-                val radius = if (p.index in active) 5.dp.toPx() else 3.dp.toPx()
-                if (p.index in active) drawCircle(color.copy(alpha = 0.18f), radius * 2.5f, point(p))
-                drawCircle(color, radius, point(p))
-                if (p.index == selected || (zoom >= 2f && p.index in active) || positioned.size <= 10) {
-                    val at = point(p)
-                    drawContext.canvas.nativeCanvas.drawText(p.nameText, at.x + radius + 4.dp.toPx(), at.y, labelPaint)
-                }
-                if (p.index == selected) drawCircle(Color.White, radius + 5.dp.toPx(), point(p), style = Stroke(2.dp.toPx()))
-            }
-        }
-    }
 }

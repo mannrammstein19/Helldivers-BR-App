@@ -1,14 +1,27 @@
-# HELLDIVERS-BR — Android V7.0.0
+# HELLDIVERS-BR — Android V8.0.0
 
 Projeto Kotlin + Jetpack Compose, evoluído a partir da V6 enviada. Este pacote contém código-fonte; não contém APK compilado.
 
-## Novidades
+## Antes de compilar: conferir as imagens
+Abra **CONFIRIR-IMAGENS.html** no Chrome, com conexão. Confira primeiro as três artes da Ordem Maior (andamento, vitória, derrota) e a medalha. Verde significa que carregou; confira também visualmente se é a arte esperada. O HTML e o app usam os mesmos caminhos de `app/src/main/assets/site-assets.json`.
+
+Se mudar um caminho nesse JSON, gere novamente a conferência com `python tools/generate_asset_preview.py`. Se trocar o arquivo no site mantendo o caminho, abra o link original e confirme a nova arte. Um cache antigo pode exigir limpar o cache do navegador/app para a comparação.
+
+O teste no Chrome verifica a imagem e o acesso pelo navegador. O carregamento via Android e a seleção de estados ainda precisam ser testados no APK. Aqui, as solicitações às quatro imagens principais receberam HTTP 403; não foi possível aprovar seu conteúdo visual.
+
+## Novidades V8
+- 55 contornos originais, territórios, ícones de facção dentro dos planetas, defesa/libertação, invasões, DSS, locais especiais e marcações editoriais de Omicron.
+- Artes da Ordem Maior selecionadas por estado e recompensas com SVGs originais, sem caveira genérica.
+- Regiões nos dossiês do mapa e da Guerra, com tipo identificado pelo hash da região.
+- Remoção do cabeçalho “Menu de navegação”, mantendo menu lateral e botão inferior.
+
+## Recursos da V7 mantidos
 - Arsenal nativo: 110 registros reais do site, códigos, aquisição, busca, categorias e favoritos.
 - Mapa nativo: planetas da API, zoom, arraste, seleção, rotas, pesquisa e filtros.
 - Facções nativas com conteúdo do site e acesso aos dossiês completos.
 - Base da V6 preservada: Home, Guerra, Ordem Maior, temas, menu compacto e ícones originais.
 
-Veja CHANGES-V7.md para escopo completo, recursos ainda exclusivos do site e limites de validação.
+Veja CHANGES-V8.md para escopo completo, recursos ainda exclusivos do site e limites de validação.
 
 ## Gerar o APK no GitHub
 1. Faça backup da V6.
@@ -39,4 +52,4 @@ O comando gera app/src/main/assets/stratagems.json. Assim, os valores são edita
 - Abrir Facções pela Home e menu; mudar entre Padrão e Meridia.
 - Conferir Guerra e Ordem Maior da V6, rotação, fonte ampliada e botão Voltar.
 
-A sintaxe foi analisada localmente, mas este pacote ainda requer compilação pelo Actions e teste Android.
+A sintaxe foi analisada localmente. Os testes em app/src/test serão executados pelo Actions antes do APK; não foram executados neste ambiente, que não tem SDK Android/Gradle. A correspondência visual exata e o desempenho precisam ser conferidos no aparelho.

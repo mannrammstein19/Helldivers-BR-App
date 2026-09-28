@@ -158,9 +158,6 @@ private fun App(
             AppBackdrop(themeMode)
             Scaffold(
                 containerColor = Color.Transparent,
-                topBar = {
-                    AppTopHeader(onMenu = { scope.launch { drawerState.open() } })
-                },
                 bottomBar = {
                     AppBottomBar(
                         current = current,
@@ -462,7 +459,7 @@ private fun AppDrawer(
                 }
 
                 Text(
-                    "HELLDIVERS-BR // V7.0.0",
+                    "HELLDIVERS-BR // V8.0.0",
                     color = HD.TextMuted,
                     fontSize = 7.5.sp,
                     fontWeight = FontWeight.Bold,

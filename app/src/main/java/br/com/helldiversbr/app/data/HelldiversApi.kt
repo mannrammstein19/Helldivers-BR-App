@@ -6,6 +6,8 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
@@ -71,6 +73,13 @@ object HelldiversApi {
         parseList(get("https://api.helldivers2.dev/api/v2/dispatches", true)) {
             json.decodeFromJsonElement(ListSerializer(Dispatch.serializer()), it)
         }
+    }
+
+    suspend fun dssHost(): Long? = withContext(Dispatchers.IO) {
+        parseList(get("https://api.helldivers2.dev/api/v2/space-stations", true)) { it.toList() }
+            .firstOrNull()?.let { station ->
+                (((station as? JsonObject)?.get("planet") as? JsonObject)?.get("index") as? JsonPrimitive)?.longOrNull
+            }
     }
 
     suspend fun planets(): List<Planet> = withContext(Dispatchers.IO) {

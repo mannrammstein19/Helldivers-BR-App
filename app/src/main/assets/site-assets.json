@@ -1,0 +1,81 @@
+{
+  "order_active": [
+    "imagens/fundos/major-order/major-order-ativa.png"
+  ],
+  "order_completed": [
+    "imagens/fundos/major-order/major-order-vitoria.png"
+  ],
+  "order_failed": [
+    "imagens/fundos/major-order/major-order-derrota.png"
+  ],
+  "human": [
+    "imagens/icones/faccoes/logo super terra.svg",
+    "imagens/ui/icons/logo super terra.svg"
+  ],
+  "automaton": [
+    "imagens/guerra/faccoes/logo automatons.png",
+    "imagens/icones/faccoes/logo automatons.png"
+  ],
+  "terminid": [
+    "imagens/guerra/faccoes/logo terminids.png",
+    "imagens/icones/faccoes/logo terminids.png"
+  ],
+  "illuminate": [
+    "imagens/guerra/faccoes/logo illuminats.png",
+    "imagens/icones/faccoes/logo illuminates.png"
+  ],
+  "earth": [
+    "icons/super-terra-personalizada.png"
+  ],
+  "defense": [
+    "imagens/ui/icons/defesa.png"
+  ],
+  "liberation": [
+    "imagens/ui/icons/libertacao-v2.png"
+  ],
+  "galaxy": [
+    "imagens/mapa/plano-planeta.jpg"
+  ],
+  "penta": [
+    "imagens/planetas/penta.png"
+  ],
+  "meridia": [
+    "imagens/planetas/meridia.png"
+  ],
+  "wreckage": [
+    "imagens/planetas/destrocos.png"
+  ],
+  "city": [
+    "imagens/ui/Megacity_Icon.webp"
+  ],
+  "factory": [
+    "imagens/ui/Automaton_Megafactory_Icon.webp"
+  ],
+  "reward_medalhas": [
+    "icons/recompensas/medalhas.svg"
+  ],
+  "reward_generica": [
+    "icons/recompensas/generica.svg"
+  ],
+  "reward_capa": [
+    "icons/recompensas/capa.svg"
+  ],
+  "reward_capacete": [
+    "icons/recompensas/capacete.svg"
+  ],
+  "reward_arma": [
+    "icons/recompensas/arma.svg"
+  ],
+  "reward_armadura": [
+    "icons/recompensas/armadura.svg"
+  ],
+  "reward_estratagema": [
+    "icons/recompensas/estratagema.svg"
+  ],
+  "hive_lord": [
+    "imagens/ui/icons/hive-lord.svg"
+  ],
+  "draco_barata": [
+    "imagens/ui/icons/draco-barata.svg"
+  ]
+}

@@ -507,7 +507,7 @@ private fun HazardBadge(item: PlanetVisuals.HazardVisual) {
 }
 
 @Composable
-private fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: () -> Unit) {
+fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: () -> Unit) {
     val p = campaign.planet
     val catalog = data.planetCatalog[p.index]
     val defense = p.event != null
@@ -534,7 +534,7 @@ private fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: (
                         Icon(Icons.Filled.Close, contentDescription = "Fechar", tint = Color.White)
                     }
                     Column(Modifier.align(Alignment.BottomStart).padding(15.dp)) {
-                        SectionLabel(if (defense) "DEFESA // DOSSIÊ TÁTICO" else "LIBERTAÇÃO // DOSSIÊ TÁTICO", accent)
+                        SectionLabel(if (defense) "DEFESA // DOSSIÊ TÁTICO" else if (data.campaigns.any { it.planet.index == p.index }) "LIBERTAÇÃO // DOSSIÊ TÁTICO" else "DOSSIÊ TÁTICO", accent)
                         Text(p.nameText.uppercase(), color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
                         Text(sector.uppercase(), color = HD.TextDim, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
                     }
@@ -563,6 +563,7 @@ private fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: (
                         }
                     }
                     HorizontalDivider(color = HD.BorderSoft)
+                    PlanetRegions(p)
                     Text("TELEMETRIA NATIVA // DADOS SINCRONIZADOS COM A CENTRAL DE GUERRA", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
                 }
             }

@@ -9,12 +9,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.supervisorScope
 
 data class GalaxyState(
     val planets: List<Planet> = emptyList(),
     val loading: Boolean = false,
     val error: String? = null,
     val updatedAtMillis: Long? = null,
+    val dssHost: Long? = null,
 )
 
 class GalaxyViewModel : ViewModel() {
@@ -27,9 +30,13 @@ class GalaxyViewModel : ViewModel() {
         request = viewModelScope.launch {
             mutableState.value = mutableState.value.copy(loading = true, error = null)
             try {
-                val planets = HelldiversApi.planets()
+                val (planets, dss) = supervisorScope {
+                    val station = async { try { HelldiversApi.dssHost() } catch (e: CancellationException) { throw e } catch (e: Exception) { null } }
+                    val worlds = HelldiversApi.planets()
+                    worlds to station.await()
+                }
                 check(planets.isNotEmpty()) { "Catálogo vazio" }
-                mutableState.value = GalaxyState(planets = planets, updatedAtMillis = System.currentTimeMillis())
+                mutableState.value = GalaxyState(planets = planets, updatedAtMillis = System.currentTimeMillis(), dssHost = dss)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

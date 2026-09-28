@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import br.com.helldiversbr.app.data.SiteAssets
 import br.com.helldiversbr.app.data.HelldiversApi
 import br.com.helldiversbr.app.data.HomeData
 import br.com.helldiversbr.app.data.OrderRepository
@@ -123,11 +124,11 @@ private fun OrderContent(
             ) {
                 Column {
                     Box(Modifier.fillMaxWidth().aspectRatio(16f / 7.2f)) {
-                        AsyncImage(
-                            model = "${HelldiversApi.SITE_BASE}/imagens/fundos/site/wallpaper_principal_page.png",
-                            contentDescription = null,
+                        SiteImage(
+                            assetKey = SiteAssets.orderKey(ui.state),
+                            description = "Ordem Maior: ${ui.state}",
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
+                            scale = ContentScale.Crop,
                         )
                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, HD.BgDeep.copy(alpha = 0.98f)))))
                     }
@@ -138,7 +139,7 @@ private fun OrderContent(
                             Text("Aguardando novas instruções do Alto Comando.", color = HD.TextDim, fontSize = 13.sp)
                             YellowButton("ATUALIZAR", onRefresh)
                         } else {
-                            val completed = order.tasks.indices.count { i ->
+                            val completed = if (ui.state == "completed") order.tasks.size else order.tasks.indices.count { i ->
                                 val task = order.tasks[i]
                                 val progress = order.progress.getOrNull(i) ?: 0L
                                 val goal = task.goal
@@ -152,7 +153,7 @@ private fun OrderContent(
                                 fontWeight = FontWeight.Black,
                             )
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                OrderHeaderStat("TEMPO RESTANTE", if (ui.state == "active") OrderRepository.remaining(order.expiration) else "ENCERRADA", Modifier.weight(1f))
+                                OrderHeaderStat("TEMPO RESTANTE", if (ui.state == "active") OrderRepository.remaining(order.expiration) else if (ui.state in listOf("completed", "failed")) "ENCERRADA" else "AGUARDANDO", Modifier.weight(1f))
                                 OrderHeaderStat("OBJETIVOS CONCLUÍDOS", "$completed / ${order.tasks.size}", Modifier.weight(1f))
                             }
                             Card(
@@ -160,14 +161,8 @@ private fun OrderContent(
                                 shape = RoundedCornerShape(5.dp),
                                 border = BorderStroke(1.dp, HD.BorderSoft),
                             ) {
-                                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text("☠", color = accent, fontSize = 23.sp)
-                                    Text(
-                                        order.mainReward?.amount?.takeIf { it > 0 }?.let { "  ${orderFmt(it)} MEDALHAS" } ?: "  RECOMPENSA CLASSIFICADA",
-                                        color = accent,
-                                        fontSize = 17.sp,
-                                        fontWeight = FontWeight.Black,
-                                    )
+                                Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                                    OrderRewards(order, accent)
                                 }
                             }
                         }
