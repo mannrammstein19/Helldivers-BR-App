@@ -69,6 +69,7 @@ fun HomeScreen(
     onOpenWar: () -> Unit,
     onOpenMap: () -> Unit,
     onOpenArsenal: () -> Unit,
+    onOpenFactions: () -> Unit,
     contentPadding: PaddingValues,
 ) {
     Box(Modifier.fillMaxSize().background(Color.Transparent)) {
@@ -99,6 +100,7 @@ fun HomeScreen(
                 onOpenWar = onOpenWar,
                 onOpenMap = onOpenMap,
                 onOpenArsenal = onOpenArsenal,
+                onOpenFactions = onOpenFactions,
                 contentPadding = contentPadding,
             )
 
@@ -115,6 +117,7 @@ fun HomeScreen(
                         onOpenWar = onOpenWar,
                         onOpenMap = onOpenMap,
                         onOpenArsenal = onOpenArsenal,
+                        onOpenFactions = onOpenFactions,
                         contentPadding = contentPadding,
                     )
                 } else {
@@ -158,6 +161,7 @@ private fun HomeList(
     onOpenWar: () -> Unit,
     onOpenMap: () -> Unit,
     onOpenArsenal: () -> Unit,
+    onOpenFactions: () -> Unit,
     contentPadding: PaddingValues,
 ) {
     val context = LocalContext.current
@@ -264,7 +268,7 @@ private fun HomeList(
                         action = "CONSULTAR INTELIGÊNCIA",
                         imageUrl = "${HelldiversApi.SITE_BASE}/imagens/fundos/fundos-grids/campo.jpg",
                         accent = HD.IlluminatePurple,
-                        onClick = { openExternal("faccoes.html") },
+                        onClick = onOpenFactions,
                     )
                 }
             }

@@ -6,6 +6,8 @@ import br.com.helldiversbr.app.data.HomeData
 import br.com.helldiversbr.app.data.OrderRepository
 import br.com.helldiversbr.app.update.RemoteVersion
 import br.com.helldiversbr.app.update.UpdateChecker
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +29,8 @@ class MainViewModel : ViewModel() {
     private val _update = MutableStateFlow<RemoteVersion?>(null)
     val update: StateFlow<RemoteVersion?> = _update.asStateFlow()
 
+    private var refreshJob: Job? = null
+
     init {
         // Atualiza sozinho a cada 60 s enquanto o app está aberto (mesmo intervalo do site).
         viewModelScope.launch {
@@ -41,7 +45,8 @@ class MainViewModel : ViewModel() {
     }
 
     fun refresh() {
-        viewModelScope.launch {
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
             val previous = when (val s = _home.value) {
                 is HomeState.Ready -> s.data
                 is HomeState.Error -> s.last
@@ -50,6 +55,8 @@ class MainViewModel : ViewModel() {
             if (previous != null) _home.value = HomeState.Ready(previous, refreshing = true)
             _home.value = try {
                 HomeState.Ready(OrderRepository.load())
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 HomeState.Error("Sem conexão com a telemetria da Super Terra.", previous)
             }

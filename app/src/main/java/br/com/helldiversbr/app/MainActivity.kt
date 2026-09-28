@@ -66,7 +66,8 @@ import androidx.navigation.compose.rememberNavController
 import br.com.helldiversbr.app.data.HelldiversApi
 import br.com.helldiversbr.app.ui.MainViewModel
 import br.com.helldiversbr.app.ui.screens.ArsenalScreen
-import br.com.helldiversbr.app.ui.screens.ComingSoonScreen
+import br.com.helldiversbr.app.ui.screens.GalaxyScreen
+import br.com.helldiversbr.app.ui.screens.FactionsScreen
 import br.com.helldiversbr.app.ui.screens.HomeScreen
 import br.com.helldiversbr.app.ui.screens.OrderScreen
 import br.com.helldiversbr.app.ui.screens.WarScreen
@@ -179,6 +180,7 @@ private fun App(
                             onOpenWar = { navigate("guerra") },
                             onOpenMap = { navigate("mapa") },
                             onOpenArsenal = { navigate("arsenal") },
+                            onOpenFactions = { navigate("faccoes") },
                             contentPadding = padding,
                         )
                     }
@@ -198,11 +200,14 @@ private fun App(
                         )
                     }
                     composable("mapa") {
-                        ComingSoonScreen("Mapa Galáctico", "mapa-classico.html", padding)
+                        GalaxyScreen(home = home, contentPadding = padding, onOpenFullMap = { openSite("mapa-classico.html") })
+                    }
+                    composable("faccoes") {
+                        FactionsScreen(padding, ::openSite)
                     }
                     composable("arsenal") {
                         ArsenalScreen(
-                            onOpenCatalog = { openSite("estratagemas.html") },
+                            onOpenCatalog = ::openSite,
                             contentPadding = padding,
                         )
                     }
@@ -339,8 +344,8 @@ private fun AppDrawer(
     onClose: () -> Unit,
 ) {
     var search by remember { mutableStateOf("") }
-    val query = search.trim().lowercase()
-    fun show(vararg labels: String): Boolean = query.isBlank() || labels.any { it.lowercase().contains(query) }
+    val query = br.com.helldiversbr.app.data.searchKey(search.trim())
+    fun show(vararg labels: String): Boolean = query.isBlank() || labels.any { br.com.helldiversbr.app.data.searchKey(it).contains(query) }
 
     ModalDrawerSheet(
         drawerContainerColor = HD.BgDeep,
@@ -436,7 +441,7 @@ private fun AppDrawer(
                     }
                 }
 
-                if (show("equipamento", "estratagemas", "arsenal")) {
+                if (show("equipamento", "estratagemas", "arsenal", "catálogo", "site", "arsenal completo")) {
                     DrawerGroupLabel("EQUIPAMENTO")
                     if (show("estratagemas", "arsenal")) {
                         DrawerCompactEntry("Estratagemas", current == "arsenal") { onNavigate("arsenal") }
@@ -448,7 +453,7 @@ private fun AppDrawer(
 
                 if (show("inimigos", "facções", "faccoes")) {
                     DrawerGroupLabel("INIMIGOS & FACÇÕES")
-                    DrawerCompactEntry("Facções", false) { onOpenSite("faccoes.html") }
+                    DrawerCompactEntry("Facções", current == "faccoes") { onNavigate("faccoes") }
                 }
 
                 if (show("comunidade", "site completo", "helldivers br")) {
@@ -457,7 +462,7 @@ private fun AppDrawer(
                 }
 
                 Text(
-                    "APLICATIVO NATIVO // KOTLIN + JETPACK COMPOSE",
+                    "HELLDIVERS-BR // V7.0.0",
                     color = HD.TextMuted,
                     fontSize = 7.5.sp,
                     fontWeight = FontWeight.Bold,

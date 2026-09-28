@@ -1,212 +1,129 @@
 package br.com.helldiversbr.app.ui.screens
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import br.com.helldiversbr.app.data.HelldiversApi
+import br.com.helldiversbr.app.data.*
 import br.com.helldiversbr.app.ui.theme.HD
+import coil.ImageLoader
 import coil.compose.AsyncImage
-
-private data class ArsenalCategory(
-    val title: String,
-    val english: String,
-    val count: Int,
-    val description: String,
-)
-
-private val offensive = listOf(
-    ArsenalCategory("Estratagemas Orbitais", "Orbital Strikes", 12, "Bombardeios, canhões e ataques vindos diretamente do Super Destroyer."),
-    ArsenalCategory("Ataques Águia", "Eagle Strikes", 7, "Passagens rápidas da Águia para destruir alvos e limpar setores inteiros."),
-)
-
-private val support = listOf(
-    ArsenalCategory("Armas de Apoio", "Support Weapons", 32, "Armamentos pesados chamados durante a missão."),
-    ArsenalCategory("Mochilas", "Backpacks", 13, "Sistemas de suporte, escudos, drones e equipamentos transportáveis."),
-    ArsenalCategory("Veículos", "Vehicles", 8, "Exotrajes e veículos de mobilidade e combate."),
-)
-
-private val defensive = listOf(
-    ArsenalCategory("Sentinelas", "Sentries", 14, "Torretas automáticas para controle de área e proteção de objetivos."),
-    ArsenalCategory("Plataformas", "Emplacements", 9, "Armas fixas e fortificações para sustentar uma posição."),
-    ArsenalCategory("Minas e Defesas", "Mines & Defense", 15, "Campos de negação, minas e outros recursos defensivos."),
-)
+import coil.decode.SvgDecoder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
-fun ArsenalScreen(
-    onOpenCatalog: () -> Unit,
-    contentPadding: PaddingValues,
-) {
+fun ArsenalScreen(onOpenCatalog: (String) -> Unit, contentPadding: PaddingValues) {
+    val context = LocalContext.current
+    var entries by remember { mutableStateOf<List<StratagemEntry>?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val result = withContext(Dispatchers.IO) { runCatching { StratagemCatalog.load(context) } }
+        entries = result.getOrNull()
+        failed = result.isFailure
+    }
+    val catalog = entries.orEmpty()
+    var query by rememberSaveable { mutableStateOf("") }
+    var category by rememberSaveable { mutableStateOf("Todos") }
+    var favoritesOnly by rememberSaveable { mutableStateOf(false) }
+    val prefs = remember { context.getSharedPreferences("hdbr_arsenal", 0) }
+    var favorites by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet())!!.toSet()) }
+    val loader = remember(context) { ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build() }
+    DisposableEffect(loader) { onDispose { loader.shutdown() } }
+    val filtered = remember(catalog, query, category, favoritesOnly, favorites) {
+        val key = searchKey(query.trim())
+        catalog.filter {
+            (category == "Todos" || category == it.category) &&
+                (!favoritesOnly || it.name in favorites) &&
+                searchKey("${it.name} ${it.category} ${it.source}").contains(key)
+        }
+    }
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 14.dp,
-            end = 14.dp,
-            top = contentPadding.calculateTopPadding() + 12.dp,
-            bottom = contentPadding.calculateBottomPadding() + 26.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(14.dp, contentPadding.calculateTopPadding() + 12.dp, 14.dp, contentPadding.calculateBottomPadding() + 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { ArsenalHero(onOpenCatalog) }
-        item { ArsenalSection("Permissão Ofensiva", HD.Red, offensive, onOpenCatalog) }
-        item { ArsenalSection("Permissão de Suprimento", HD.SignalBlue, support, onOpenCatalog) }
-        item { ArsenalSection("Permissão Defensiva", HD.Green, defensive, onOpenCatalog) }
         item {
             HdCard(accent = HD.Yellow) {
-                SectionLabel("Catálogo completo", HD.Yellow)
-                Text("A V5 mantém o terminal nativo e oferece acesso ao catálogo completo do HELLDIVERS-BR enquanto as fichas individuais são portadas para Compose.", color = HD.TextDim, fontSize = 12.sp, lineHeight = 18.sp)
-                YellowButton("ABRIR CATÁLOGO COMPLETO  →", onOpenCatalog, Modifier.fillMaxWidth())
+                SectionLabel("Super Terra // Registros táticos")
+                Text("ARSENAL DE ESTRATAGEMAS", color = HD.Text, fontSize = 26.sp, fontWeight = FontWeight.Black)
+                Text("${catalog.size} registros • códigos, recargas e aquisição", color = HD.TextDim, fontSize = 12.sp)
+                Text("Os dados do catálogo ficam disponíveis sem conexão. Imagens e fichas completas usam o site.", color = HD.TextMuted, fontSize = 11.sp)
             }
         }
-    }
-}
-
-@Composable
-private fun ArsenalHero(onOpenCatalog: () -> Unit) {
-    Card(
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = HD.BgDeep.copy(alpha = 0.95f)),
-        border = BorderStroke(1.dp, HD.Yellow.copy(alpha = 0.7f)),
-    ) {
-        Box(Modifier.fillMaxWidth().aspectRatio(16f / 10f)) {
-            AsyncImage(
-                model = "${HelldiversApi.SITE_BASE}/imagens/fundos/site/wallpaper_principal_estratagema.png",
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.Black.copy(alpha = 0.20f),
-                            HD.BgDeep.copy(alpha = 0.78f),
-                            HD.BgDeep,
-                        )
-                    )
-                )
-            )
-            Column(
-                Modifier.align(Alignment.BottomStart).padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(7.dp),
-            ) {
-                SectionLabel("◆ Super Terra // Terminal de armamento", HD.Yellow)
-                Text("ARSENAL DE", color = HD.Text, fontSize = 27.sp, fontWeight = FontWeight.Black, lineHeight = 28.sp)
-                Text("ESTRATAGEMAS", color = HD.Yellow, fontSize = 27.sp, fontWeight = FontWeight.Black, lineHeight = 28.sp)
-                Text("Protocolos de ativação, aquisição e recarga para operações em toda a Guerra Galáctica.", color = HD.TextDim, fontSize = 11.sp, lineHeight = 16.sp)
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.42f)),
-                    border = BorderStroke(1.dp, HD.Yellow.copy(alpha = 0.45f)),
-                    shape = RoundedCornerShape(7.dp),
-                    modifier = Modifier.fillMaxWidth().padding(top = 5.dp),
-                ) {
-                    Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("REGISTROS TÁTICOS", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                        Text("110", color = HD.Yellow, fontSize = 27.sp, fontWeight = FontWeight.Black)
-                        Text("CATALOGADOS", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ArsenalLegend(HD.Red, "OFENSIVA")
-                    ArsenalLegend(HD.SignalBlue, "SUPRIMENTO")
-                    ArsenalLegend(HD.Green, "DEFENSIVA")
+        item {
+            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
+                label = { Text("Buscar equipamento, categoria ou fonte") },
+                trailingIcon = { if (query.isNotEmpty()) TextButton(onClick = { query = "" }) { Text("Limpar") } })
+        }
+        item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(listOf("Todos") + catalog.map { it.category }.distinct()) { label ->
+                    FilterChip(selected = category == label, onClick = { category = label }, label = { Text(label) })
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ArsenalLegend(color: Color, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(18.dp).height(2.dp).background(color))
-        Text(label, color = HD.TextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp)
-    }
-}
-
-@Composable
-private fun ArsenalSection(
-    title: String,
-    accent: Color,
-    categories: List<ArsenalCategory>,
-    onOpenCatalog: () -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(5.dp).height(31.dp).background(accent))
-            Text(title, color = HD.Yellow, fontSize = 23.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 10.dp))
-        }
-        HorizontalDivider(color = accent.copy(alpha = 0.75f))
-        categories.forEach { category ->
-            ArsenalCategoryCard(category, accent, onOpenCatalog)
-        }
-    }
-}
-
-@Composable
-private fun ArsenalCategoryCard(category: ArsenalCategory, accent: Color, onOpenCatalog: () -> Unit) {
-    var expanded by rememberSaveable(category.title) { mutableStateOf(false) }
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = HD.Surface.copy(alpha = 0.96f)),
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.5f)),
-    ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("◆  ${category.title}", color = accent, fontSize = 16.sp, lineHeight = 19.sp, fontWeight = FontWeight.Black)
-                    Text(category.english, color = HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 2.dp))
-                }
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.08f)),
-                    border = BorderStroke(1.dp, accent),
-                    shape = RoundedCornerShape(4.dp),
-                ) {
-                    Text("${category.count} DISPONÍVEIS", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
-                }
-                Text(if (expanded) "  ⌃" else "  ⌄", color = accent, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                FilterChip(selected = favoritesOnly, onClick = { favoritesOnly = !favoritesOnly }, label = { Text("★ Favoritos") })
+                Text("${filtered.size} encontrados", color = HD.TextDim, fontSize = 11.sp)
             }
+        }
+        if (entries == null && !failed) item { CircularProgressIndicator(color = HD.Yellow) }
+        if (failed) item { Text("Não foi possível abrir o catálogo local.", color = HD.Red) }
+        if (entries != null && filtered.isEmpty()) item {
+            HdCard { Text("Nenhum equipamento encontrado. Experimente outro nome ou remova os filtros.", color = HD.TextDim) }
+        }
+        items(filtered, key = { it.name }) { entry ->
+            StratagemCard(entry, entry.name in favorites, loader, onFavorite = {
+                favorites = if (entry.name in favorites) favorites - entry.name else favorites + entry.name
+                prefs.edit().putStringSet("favorites", favorites).apply()
+            }, onOpen = { onOpenCatalog(entry.path) })
+        }
+    }
+}
+
+@Composable
+private fun StratagemCard(entry: StratagemEntry, favorite: Boolean, loader: ImageLoader, onFavorite: () -> Unit, onOpen: () -> Unit) {
+    var expanded by rememberSaveable(entry.name) { mutableStateOf(false) }
+    val accent = when {
+        "Ofensiva" in entry.permission -> HD.Red
+        "Suprimento" in entry.permission -> HD.SignalBlue
+        "Defensiva" in entry.permission -> HD.Green
+        else -> HD.Yellow
+    }
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = HD.Surface), border = BorderStroke(1.dp, accent.copy(alpha = 0.5f))) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                AsyncImage("${HelldiversApi.SITE_BASE}/${entry.icon}", null, imageLoader = loader,
+                    modifier = Modifier.size(44.dp), contentScale = ContentScale.Fit)
+                Column(Modifier.weight(1f).padding(horizontal = 10.dp).clickable { expanded = !expanded }) {
+                    Text(entry.category.uppercase(), color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text(entry.name, color = HD.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+                TextButton(onClick = onFavorite) { Text(if (favorite) "★" else "☆", fontSize = 24.sp) }
+            }
+            Text(entry.code.ifBlank { "Sem código informado" }, color = HD.Yellow, fontSize = 21.sp, fontWeight = FontWeight.Black)
+            Text("Recarga: ${entry.cooldown}   •   Nível: ${entry.level}", color = HD.TextDim, fontSize = 12.sp)
+            TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "OCULTAR AQUISIÇÃO −" else "VER AQUISIÇÃO +") }
             if (expanded) {
-                HorizontalDivider(color = HD.BorderSoft)
-                Text(category.description, color = HD.TextDim, fontSize = 11.sp, lineHeight = 16.sp)
-                Text(
-                    "ABRIR REGISTROS TÁTICOS  →",
-                    color = HD.Yellow,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.7.sp,
-                    modifier = Modifier.clickable { onOpenCatalog() }.padding(vertical = 5.dp),
-                )
+                HorizontalDivider(color = HD.Border)
+                Text("Custo: ${entry.cost}\nFonte: ${entry.source}", color = HD.TextDim, fontSize = 13.sp)
+                if (entry.path.isNotBlank() && entry.path != "#") {
+                    YellowButton("FICHA COMPLETA NO SITE ↗", onOpen, Modifier.fillMaxWidth())
+                }
             }
         }
     }

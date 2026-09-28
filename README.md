@@ -1,44 +1,42 @@
-# HELLDIVERS-BR — App Android nativo
+# HELLDIVERS-BR — Android V7.0.0
 
-Versão **6.0.0** do aplicativo Android do HELLDIVERS-BR, feita em **Kotlin + Jetpack Compose**.
+Projeto Kotlin + Jetpack Compose, evoluído a partir da V6 enviada. Este pacote contém código-fonte; não contém APK compilado.
 
-## O que já está funcional nesta versão
-- Home nativa inspirada diretamente no visual mobile do HELLDIVERS-BR.
-- Terminais com imagem para Central de Guerra, Mapa, Estratagemas, Warbonds e Facções.
-- **Barra inferior com 6 itens**: Início, Guerra, Ordem, Mapa, Arsenal e Menu.
-- Ícones da barra carregados do próprio HELLDIVERS-BR, sem sobreposição com ícones genéricos.
-- **Menu lateral nativo compacto**, com logo, busca de opções, tema e grupos inspirados no menu mobile do site.
-- **Tema Meridia** ativável no menu e salvo no Android.
-- **Ordem Maior em tela própria**, com banner, prazo, medalhas, briefing e objetivos por facção.
-- **Arsenal nativo** com hero visual, permissões Ofensiva/Suprimento/Defensiva e categorias expansíveis.
-- Central de Guerra nativa com telemetria, Helldivers no front, liberações, defesas e frentes ativas.
-- Campanhas/planetas com imagens de bioma, dono/facção correta, cores semânticas, jogadores, progresso, pressão e dossiê tático.
-- Pesquisa por planeta/setor e filtros combinados por operação e facção inimiga.
-- Despachos recentes do Alto Comando.
-- Atualização automática a cada 60 segundos.
-- Sistema de aviso de atualização do APK.
+## Novidades
+- Arsenal nativo: 110 registros reais do site, códigos, aquisição, busca, categorias e favoritos.
+- Mapa nativo: planetas da API, zoom, arraste, seleção, rotas, pesquisa e filtros.
+- Facções nativas com conteúdo do site e acesso aos dossiês completos.
+- Base da V6 preservada: Home, Guerra, Ordem Maior, temas, menu compacto e ícones originais.
 
-## Dados
-O app consome a API comunitária `api.helldivers2.dev` com os cabeçalhos de identificação recomendados e usa o snapshot público da Ordem Maior do projeto HELLDIVERS-BR como fallback.
+Veja CHANGES-V7.md para escopo completo, recursos ainda exclusivos do site e limites de validação.
 
-## Gerar o APK pelo GitHub
-1. Substitua o conteúdo do repositório `Helldivers-BR-App` pelos arquivos desta versão.
-2. Abra **Actions → Build APK Helldivers BR → Run workflow**.
-3. Quando o workflow terminar com o sinal verde, baixe **Helldivers-BR-apk** na área de Artifacts.
-4. Dentro estará `Helldivers-BR.apk`.
+## Gerar o APK no GitHub
+1. Faça backup da V6.
+2. Copie o conteúdo da pasta Helldivers-BR-App deste ZIP para a raiz do repositório do aplicativo, mantendo a pasta .github/workflows incluída no ZIP.
+3. Confirme o envio dos arquivos alterados e novos, incluindo app/src/main/assets e tools.
+4. Abra Actions → Build APK Helldivers BR → Run workflow.
+5. Se a compilação terminar com sucesso, baixe Helldivers-BR-apk em Artifacts. Dentro estará Helldivers-BR.apk.
 
-## Releases e atualização automática
-Ao publicar uma tag no formato `v6.0.0`, o workflow também anexa `Helldivers-BR.apk` à Release.
-O aplicativo consulta o `versao-app.json` deste próprio repositório para detectar novas versões.
+Não publique tag/release antes de validar o APK no celular. O fluxo existente produz APK debug.
 
-Para uma próxima versão, aumente `versionCode` e `versionName` em `app/build.gradle.kts` e atualize `versao-app.json`.
+## O que depende de internet
+Telemetria, mapa, imagens e fichas completas. O catálogo de estratagemas, textos de facções e favoritos funcionam sem rede. As últimas leituras de telemetria são mantidas apenas em memória.
 
-## Evolução
-- `CHANGES-V3.md`: Central de Guerra visual e dossiê tático.
-- `CHANGES-V4.md`: facções/donos corrigidos, pesquisa e filtros.
-- `CHANGES-V5.md`: shell visual, barra inferior, drawer, Meridia, Ordem dedicada e Arsenal nativo.
-- `CHANGES-V6.md`: densidade visual, ícones originais sem sobreposição e drawer inspirado no mobile do site.
+## Atualizar o catálogo a partir do site
+Use Python 3, sem bibliotecas adicionais:
 
-## Próximas etapas
-- Portar o **Mapa Galáctico** para Compose/nativo preservando a lógica do mapa do site.
-- Migrar as fichas individuais de Estratagemas para o app, mantendo os mesmos dados do HELLDIVERS-BR.
+```sh
+python tools/import_site_catalog.py /caminho/estratagemas.html
+```
+
+O comando gera app/src/main/assets/stratagems.json. Assim, os valores são editados no site e importados para o app. As alterações entram no próximo APK; não há sincronização automática do catálogo em instalações existentes.
+
+## Verificação no aparelho
+- Buscar “canhao” e conferir resultados com acentos; filtrar e favoritar, reiniciar e confirmar favorito.
+- Abrir uma ficha específica; verificar nomes/códigos/imagens SVG e registros de missão sem link.
+- Abrir o mapa; arrastar, ampliar com dois dedos, centralizar, filtrar e selecionar pela lista.
+- Interromper a conexão após uma leitura; verificar aviso e conservação dos dados do mapa.
+- Abrir Facções pela Home e menu; mudar entre Padrão e Meridia.
+- Conferir Guerra e Ordem Maior da V6, rotação, fonte ampliada e botão Voltar.
+
+A sintaxe foi analisada localmente, mas este pacote ainda requer compilação pelo Actions e teste Android.

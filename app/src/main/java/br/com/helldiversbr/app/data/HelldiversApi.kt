@@ -73,6 +73,12 @@ object HelldiversApi {
         }
     }
 
+    suspend fun planets(): List<Planet> = withContext(Dispatchers.IO) {
+        parseList(get("$API/planets", true)) {
+            json.decodeFromJsonElement(ListSerializer(Planet.serializer()), it)
+        }
+    }
+
     suspend fun campaigns(): List<Campaign> = withContext(Dispatchers.IO) {
         parseList(get("$API/campaigns", true)) {
             json.decodeFromJsonElement(ListSerializer(Campaign.serializer()), it)

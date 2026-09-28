@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Federação da Super Terra",
+    "badge": "Aliados / Pátria",
+    "image": "inimigos/super-terra.png",
+    "description": "O bastião da Liberdade, Prósperidade e Democracia Gerenciada. A Super Terra envia seus elite combatentes — os Helldivers — para espalhar a paz e defender o estilo de vida humano contra todas as ameaças espaciais.",
+    "details": "Força Militar: Helldivers & Frota de Super Destroyer Objetivo: Defesa da Galáxia e Espalhar a Democracia",
+    "path": "",
+    "faction": "humans"
+  },
+  {
+    "name": "Termínios (Terminids)",
+    "badge": "Ameaça Insetóide",
+    "image": "inimigos/Terminids.png",
+    "description": "Uma praga alienígena em constante evolução biológica. Movidos por puro instinto de expansão e destruição, atacam em grandes hordas violentas. São também a principal fonte do valioso recurso Elemento 710 (E-710) .",
+    "details": "Estilo de Combate: Enxame, Ataques de Perto, Veneno Recurso Chave: Elemento 710 (Combustível FTL)",
+    "path": "inimigos/terminideos.html",
+    "faction": "terminids"
+  },
+  {
+    "name": "Autômatos (Automatons)",
+    "badge": "Ameaça Sintética",
+    "image": "inimigos/Automatons.jpg",
+    "description": "Uma facção robótica impiedosa e altamente militarizada que odeia a liberdade. Equipados com pesadas blindagens, tanques, serras elétricas e artilharia pesada, eles marcham sem parar exterminando tudo em seu caminho.",
+    "details": "Estilo de Combate: Armas de Fogo, Tanques, Fortaleza Blindada Origem: Criados pelos antigos Ciborgues",
+    "path": "inimigos/automatos.html",
+    "faction": "automaton"
+  },
+  {
+    "name": "Iluminados (Illuminates)",
+    "badge": "Ameaça Alienígena",
+    "image": "inimigos/Iluminados.png",
+    "description": "Uma civilização ancestral extremamente avançada tecnologicamente. Utilizam escudos de energia, armas de plasma, ilusões e tecnologia de dobra espacial para tentar desestabilizar o domínio da Super Terra.",
+    "details": "Estilo de Combate: Escudos, Teletransporte, Dano de Energia Nível de Tecnologia: Extremamente Alto",
+    "path": "inimigos/iluminados.html",
+    "faction": "illuminate"
+  }
+]

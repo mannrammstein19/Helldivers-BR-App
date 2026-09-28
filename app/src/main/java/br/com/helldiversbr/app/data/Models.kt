@@ -110,6 +110,9 @@ data class PlanetRegion(
     val players: Long? = null,
 )
 
+@Serializable
+data class PlanetPosition(val x: Double = 0.0, val y: Double = 0.0)
+
 /** Planeta agregado pela API comunitária. Mantemos apenas os campos usados no app. */
 @Serializable
 data class Planet(
@@ -121,11 +124,21 @@ data class Planet(
     val regenPerSecond: Double = 0.0,
     val currentOwner: String = "",
     val initialOwner: String = "",
+    val position: PlanetPosition? = null,
+    val positionX: Double? = null,
+    val positionY: Double? = null,
+    val position_x: Double? = null,
+    val position_y: Double? = null,
+    val waypoints: List<Long> = emptyList(),
     val statistics: PlanetStatistics = PlanetStatistics(),
     val event: PlanetEvent? = null,
     val regions: List<PlanetRegion> = emptyList(),
 ) {
     val nameText: String get() = localizedText(name).ifBlank { "PLANETA #$index" }
+    val mapPosition: PlanetPosition? get() = position
+        ?: if (positionX != null && positionY != null) PlanetPosition(positionX, positionY)
+        else if (position_x != null && position_y != null) PlanetPosition(position_x, position_y)
+        else null
 }
 
 
