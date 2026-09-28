@@ -37,6 +37,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: () -> Unit, vm: GalaxyViewModel = viewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -93,13 +94,17 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
                 label = { Text("Buscar planeta ou setor") },
                 trailingIcon = { if (query.isNotBlank()) TextButton(onClick = { query = "" }) { Text("Limpar") } })
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { FilterChip(activeOnly, { activeOnly = !activeOnly }, label = { Text("Frentes ativas") }) }
-                item { FilterChip(routes, { routes = !routes }, label = { Text("Rotas") }) }
-                item { FilterChip(invasions, { invasions = !invasions }, label = { Text("Invasão") }) }
-                item { FilterChip(territories, { territories = !territories }, label = { Text("Territórios") }) }
-                item { FilterChip(sectors, { sectors = !sectors }, label = { Text("Setores") }) }
-                items(listOf("Todas", "Super Terra", "Terminídeos", "Autômatos", "Iluminados")) { label ->
+            Text("EXIBIÇÃO", color = HD.TextMuted, fontSize = 11.sp)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(activeOnly, { activeOnly = !activeOnly }, label = { Text("Frentes ativas") })
+                FilterChip(routes, { routes = !routes }, label = { Text("Rotas") })
+                FilterChip(invasions, { invasions = !invasions }, label = { Text("Invasão") })
+                FilterChip(territories, { territories = !territories }, label = { Text("Territórios") })
+                FilterChip(sectors, { sectors = !sectors }, label = { Text("Setores") })
+            }
+            Text("FACÇÕES", color = HD.TextMuted, fontSize = 11.sp)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Todas", "Super Terra", "Terminídeos", "Autômatos", "Iluminados").forEach { label ->
                     FilterChip(faction == label, { faction = label }, label = { Text(label) })
                 }
             }
@@ -132,6 +137,7 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
         if (listPlanets.isEmpty()) item { Text("Nenhum planeta nesta lista. Pesquise um nome ou ajuste os filtros.", color = HD.TextDim) }
         items(listPlanets, key = { it.index }) { planet ->
             HdCard(modifier = Modifier.clickable { selectedId = planet.index }, accent = factionColor(planet.currentOwner)) {
+                if (planet.regions.isNotEmpty()) Text("${planet.regions.size} regiões", color = HD.TextMuted, fontSize = 11.sp)
                 Text(planet.nameText, color = HD.Text, fontWeight = FontWeight.Bold)
                 Text("${planet.sector} • ${galaxyFaction(planet)}", color = HD.TextDim, fontSize = 12.sp)
             }

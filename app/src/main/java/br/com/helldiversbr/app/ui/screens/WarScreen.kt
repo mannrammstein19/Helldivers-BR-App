@@ -187,14 +187,14 @@ private fun WarList(
 
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile("Helldivers no front", fmtWar(data.helldiversOnFront), "efetivo em campanhas", HD.YellowBright, Modifier.weight(1f))
-                StatTile("Frentes ativas", data.activeFronts.toString(), "campanhas detectadas", HD.SignalBlue, Modifier.weight(1f))
+                StatTile("Helldivers no front", fmtWar(data.helldiversOnFront), "efetivo em campanhas", HD.YellowBright, Modifier.weight(1f), backgroundKey = "war_players")
+                StatTile("Frentes ativas", data.activeFronts.toString(), "campanhas detectadas", HD.SignalBlue, Modifier.weight(1f), backgroundKey = "war_fronts")
             }
         }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile("Liberações", data.liberationCount.toString(), "ofensivas da Super Terra", HD.Green, Modifier.weight(1f))
-                StatTile("Defesas", data.defenseCount.toString(), "planetas sob ataque", HD.Red, Modifier.weight(1f))
+                StatTile("Liberações", data.liberationCount.toString(), "ofensivas da Super Terra", HD.Green, Modifier.weight(1f), backgroundKey = "war_liberation")
+                StatTile("Defesas", data.defenseCount.toString(), "planetas sob ataque", HD.Red, Modifier.weight(1f), backgroundKey = "war_defense")
             }
         }
 
@@ -457,6 +457,7 @@ private fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit)
                     Text("BIOMA: $biome", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(status, color = statusColor, fontSize = 9.sp, fontWeight = FontWeight.Black)
                 }
+                if (planet.regions.isNotEmpty()) Text("${planet.regions.size} regiões neste planeta", color = HD.TextDim, fontSize = 11.sp)
                 Text("↗ TOQUE PARA ABRIR DOSSIÊ TÁTICO", color = HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
             }
         }
@@ -475,15 +476,15 @@ private fun ProgressBlock(label: String, value: Double, color: Color, valueOverr
 @Composable
 private fun TacticalMetric(label: String, value: String, detail: String, valueColor: Color, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.height(90.dp),
+        modifier = modifier,
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = HD.Surface),
         border = BorderStroke(1.dp, HD.Border),
     ) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(label, color = HD.TextDim, fontSize = 7.5.sp, lineHeight = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.35.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(value, color = valueColor, fontSize = 17.sp, lineHeight = 18.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(detail, color = HD.TextMuted, fontSize = 8.5.sp, lineHeight = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, color = HD.TextDim, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.35.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(value, color = valueColor, fontSize = 18.sp, lineHeight = 20.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(detail, color = HD.TextMuted, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }

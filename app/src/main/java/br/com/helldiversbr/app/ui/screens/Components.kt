@@ -122,6 +122,7 @@ fun StatTile(
     detail: String,
     accent: Color,
     modifier: Modifier = Modifier,
+    backgroundKey: String? = null,
 ) {
     Card(
         modifier = modifier,
@@ -129,7 +130,12 @@ fun StatTile(
         colors = CardDefaults.cardColors(containerColor = HD.Surface),
         border = BorderStroke(1.dp, HD.Border),
     ) {
-        Column(Modifier.padding(13.dp)) {
+        Box {
+            if (backgroundKey != null) {
+                SiteImage(backgroundKey, label, Modifier.matchParentSize(), scale = androidx.compose.ui.layout.ContentScale.Crop)
+                Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.65f)))
+            }
+        Column(Modifier.padding(10.dp)) {
             Box(Modifier.fillMaxWidth().height(2.dp).background(accent))
             Text(
                 label.uppercase(),
@@ -156,6 +162,7 @@ fun StatTile(
                 modifier = Modifier.padding(top = 2.dp),
             )
         }
+    }
     }
 }
 

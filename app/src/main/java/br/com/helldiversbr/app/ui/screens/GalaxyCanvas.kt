@@ -89,6 +89,59 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
         }
         result.mapValues { it.value.sorted() }
     }
+    // Static geography is rasterized only when its inputs change, never on pinch frames.
+    val backdrop = remember(art, outlines, enemySectors, territories, sectors) {
+        Bitmap.createBitmap(1200, 1200, Bitmap.Config.ARGB_8888).also { bitmap ->
+            val c = android.graphics.Canvas(bitmap)
+            c.translate(600f, 600f); c.scale(1.2f, 1.2f)
+            c.clipPath(Path().apply { addCircle(0f, 0f, 500f, Path.Direction.CW) })
+            val brush = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
+            art.bitmaps["galaxy"]?.let { c.drawBitmap(it, null, RectF(-500f,-500f,500f,500f), brush) }
+            brush.color = Color.Black.copy(alpha = .35f).toArgb()
+            c.drawCircle(0f,0f,500f,brush)
+            outlines.forEach { (key, path) ->
+                val enemies = enemySectors[key].orEmpty()
+                if (territories && enemies.isNotEmpty()) {
+                    brush.style = Paint.Style.FILL
+                    brush.color = mapColor(enemies.first()).copy(alpha = .20f).toArgb()
+                    if (enemies.size > 1) {
+                        val bounds = RectF(); path.computeBounds(bounds, true)
+                        brush.shader = android.graphics.LinearGradient(bounds.left,bounds.top,bounds.right,bounds.bottom,
+                            enemies.map { mapColor(it).copy(alpha = .20f).toArgb() }.toIntArray(), null, android.graphics.Shader.TileMode.CLAMP)
+                    }
+                    c.drawPath(path, brush); brush.shader = null
+                }
+                if (sectors) {
+                    brush.style = Paint.Style.STROKE; brush.strokeWidth = 1f
+                    brush.color = (enemies.firstOrNull()?.let { mapColor(it).copy(alpha = .48f) } ?: Color(0x6659606C)).toArgb()
+                    c.drawPath(path, brush)
+                }
+            }
+        }
+    }
+    val indexed = remember(positioned) { positioned.associate { it.first.index to it.first } }
+    val edges = remember(positioned) {
+        val seen = mutableSetOf<Pair<Long, Long>>()
+        positioned.flatMap { (p, a) -> p.waypoints.mapNotNull { id ->
+            val b = positions[id]
+            if (b != null && seen.add(min(p.index,id) to max(p.index,id)))
+                Triple(a, b, mapFaction(p.currentOwner) != mapFaction(indexed.getValue(id).currentOwner))
+            else null
+        } }
+    }
+    val drawOrder = remember(positioned, active, selected) {
+        positioned.sortedBy { (p, _) -> when {
+            p.index == selected -> 0
+            p.event != null || p.index in active -> 1
+            mapFaction(p.currentOwner) != "human" -> 2
+            else -> 3
+        } }
+    }
+    val captions = remember(positioned) { positioned.associate { (p, _) ->
+        p.index to (p.nameText to "${mapPlayerCount(p.statistics.playerCount)} HD")
+    } }
+    val paint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true } }
+    val textPaint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER } }
     Column {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = { zoom = (zoom / 1.4f).coerceAtLeast(1f) }) { Text("−") }
@@ -118,24 +171,23 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
             val canvas = drawContext.canvas.nativeCanvas
             val unit = size.minDimension / 1120f * zoom
             val origin = center + pan
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
-            val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                textAlign = Paint.Align.CENTER; color = android.graphics.Color.WHITE
-                textSize = 9.sp.toPx() / unit; setShadowLayer(2f / unit, 0f, 1f / unit, android.graphics.Color.BLACK)
-            }
+            textPaint.setShadowLayer(2f / unit, 0f, 1f / unit, android.graphics.Color.BLACK)
+            val occupied = mutableListOf<RectF>()
             val now = System.currentTimeMillis()
             canvas.save(); canvas.translate(origin.x, origin.y); canvas.scale(unit, unit)
             fun circle(at: Offset, radius: Float, color: Color, stroke: Float = 0f) {
                 paint.shader = null; paint.color = color.toArgb(); paint.style = if (stroke > 0) Paint.Style.STROKE else Paint.Style.FILL; paint.strokeWidth = stroke
                 canvas.drawCircle(at.x, at.y, radius, paint)
             }
-            fun icon(key: String, at: Offset, width: Float, height: Float = width): Boolean {
+            fun icon(key: String, at: Offset, width: Float, height: Float = width, alpha: Int = 255): Boolean {
                 val image = art.bitmaps[key] ?: return false
                 paint.shader = null; paint.style = Paint.Style.FILL; paint.color = android.graphics.Color.WHITE
+                paint.alpha = alpha
                 // Fit rather than stretching source artwork.
                 val ratio = min(width / image.width, height / image.height)
                 val w = image.width * ratio; val h = image.height * ratio
                 canvas.drawBitmap(image, null, RectF(at.x - w / 2, at.y - h / 2, at.x + w / 2, at.y + h / 2), paint)
+                paint.alpha = 255
                 return true
             }
             fun arc(at: Offset, radius: Float, percent: Double?, color: Color, stroke: Float) {
@@ -146,33 +198,11 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 }
             }
             fun label(text: String, at: Offset, color: Color = Color.White, small: Boolean = false) {
-                textPaint.color = color.toArgb(); textPaint.textSize = (if (small) 8.sp else 10.sp).toPx() / unit
+                textPaint.color = color.toArgb(); textPaint.textSize = (if (small) 8.sp else 11.sp).toPx() / unit
                 canvas.drawText(text, at.x, at.y, textPaint)
             }
-            // Exact 1000x1000 backdrop/55 SVG contours from mapa-classico.js.
-            canvas.save()
-            canvas.clipPath(Path().apply { addCircle(0f, 0f, 500f, Path.Direction.CW) })
-            icon("galaxy", Offset.Zero, 1000f)
-            paint.style = Paint.Style.FILL; paint.color = Color.Black.copy(alpha=.35f).toArgb()
-            canvas.drawCircle(0f, 0f, 500f, paint)
-            outlines.forEach { (key, path) ->
-                val enemies = enemySectors[key].orEmpty()
-                if (territories && enemies.isNotEmpty()) {
-                    paint.style = Paint.Style.FILL; paint.color = mapColor(enemies.first()).copy(alpha=.20f).toArgb()
-                    if (enemies.size > 1) {
-                        val bounds = RectF(); path.computeBounds(bounds, true)
-                        paint.shader = android.graphics.LinearGradient(bounds.left,bounds.top,bounds.right,bounds.bottom,
-                            enemies.map { mapColor(it).copy(alpha=.20f).toArgb() }.toIntArray(), null, android.graphics.Shader.TileMode.CLAMP)
-                    }
-                    canvas.drawPath(path,paint); paint.shader=null
-                }
-                if (sectors) {
-                    paint.style=Paint.Style.STROKE; paint.strokeWidth=.8f/unit
-                    paint.color=(enemies.firstOrNull()?.let { mapColor(it).copy(alpha=.48f) } ?: Color(0xFF59606C).copy(alpha=.4f)).toArgb()
-                    canvas.drawPath(path,paint)
-                }
-            }
-            canvas.restore()
+            paint.shader = null; paint.style = Paint.Style.FILL; paint.color = android.graphics.Color.WHITE
+            canvas.drawBitmap(backdrop, null, RectF(-500f,-500f,500f,500f), paint)
             listOf(Triple("automaton",215f,45f),Triple("terminid",280f,45f),Triple("illuminate",113f,-46f)).forEach { (key,start,sweep) ->
                 val path=Path().apply { addArc(RectF(-535f,-535f,535f,535f),start,sweep) }
                 val title=when(key){"automaton"->"AUTÔMATOS";"terminid"->"TERMINÍDEOS";else->"ILUMINADOS"}
@@ -181,19 +211,14 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 canvas.drawTextOnPath(title,path,(length-textPaint.measureText(title))/2f,0f,textPaint)
                 textPaint.textAlign=Paint.Align.CENTER
             }
-            val indexed = positioned.associate { it.first.index to it.first }
-            if (routes) {
-                val drawn = mutableSetOf<Pair<Long,Long>>()
-                positioned.forEach { (p,a) -> p.waypoints.forEach { id ->
-                    val edge = min(p.index,id) to max(p.index,id)
-                    val b = positions[id]
-                    if (b != null && drawn.add(edge)) {
-                        val front=mapFaction(p.currentOwner)!=mapFaction(indexed.getValue(id).currentOwner)
-                        paint.style=Paint.Style.STROKE; paint.strokeWidth=(if(front) 1f else .65f)/unit
-                        paint.color=(if(front) Color(0xFF91B7C7) else Color(0xFF526577)).copy(alpha=.6f).toArgb()
-                        canvas.drawLine(a.x,a.y,b.x,b.y,paint)
-                    }
-                } }
+            if (routes) edges.forEach { (a, b, front) ->
+                val sa = origin + a * unit; val sb = origin + b * unit
+                if (max(sa.x,sb.x) >= 0 && min(sa.x,sb.x) <= size.width &&
+                    max(sa.y,sb.y) >= 0 && min(sa.y,sb.y) <= size.height) {
+                    paint.style = Paint.Style.STROKE; paint.strokeWidth = (if (front) 1f else .65f) / unit
+                    paint.color = (if (front) Color(0x9991B7C7) else Color(0x40526577)).toArgb()
+                    canvas.drawLine(a.x,a.y,b.x,b.y,paint)
+                }
             }
             if (invasions) positioned.forEach { (source,a) ->
                 val attacker=mapFaction(source.currentOwner)
@@ -212,13 +237,15 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     }
                 }
             }
-            positioned.sortedBy { mapEarth(it.first) }.forEach { (p,at) ->
+            drawOrder.forEach { (p,at) ->
                 val screen = origin + at * unit
                 if(screen.x < -100 || screen.y < -100 || screen.x > size.width+100 || screen.y > size.height+100) return@forEach
                 val special=mapSpecial(p);val capital=mapEarth(p);val key=mapFaction(p.currentOwner)
                 val defense=special==null&&p.event!=null;val offensive=mapOffensive(p,active)
-                val r=max(1000f/260f,1.8.dp.toPx()/unit)*(if(capital)1.9f else 1f)
-                val color=mapColor(key);val detail=zoom>=2.3f || selected==p.index || positioned.size<=12
+                val r = max(1000f / 260f, (if (defense || offensive) 3.4.dp else 1.8.dp).toPx() / unit) * (if (capital) 1.9f else 1f)
+                val quiet = key == "human" && !defense && !offensive && selected != p.index
+                val color = if (quiet) Color(0xFF617984) else mapColor(key)
+                val detail = selected == p.index || zoom >= (if (quiet) 5f else if (defense || offensive) 1.6f else 2.3f)
                 if(mapName(p)=="cyberstan") {
                     paint.style=Paint.Style.FILL;paint.shader=android.graphics.RadialGradient(at.x,at.y,r*6f,intArrayOf(0x339BD589,0x009BD589),null,android.graphics.Shader.TileMode.CLAMP)
                     canvas.drawOval(at.x-r*6,at.y-r*3,at.x+r*6,at.y+r*3,paint);paint.shader=null
@@ -229,14 +256,13 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 if(defense) arc(at,r*2.72f,mapInvasionProgress(p,now),mapColor(mapFaction(p.event!!.faction)),r*.32f)
                 val dotR=if(defense||offensive)r*1.38f else r
                 paint.style=Paint.Style.FILL
-                paint.shader=android.graphics.RadialGradient(at.x-dotR*.3f,at.y-dotR*.35f,dotR*1.7f,
-                    intArrayOf(color.copy(alpha=1f).toArgb(),(if(key=="human"&&!capital)Color(0xFF5089A2)else color).toArgb(),Color(0xFF111820).toArgb()),null,android.graphics.Shader.TileMode.CLAMP)
-                canvas.drawCircle(at.x,at.y,dotR,paint);paint.shader=null
+                paint.shader = null; paint.color = color.toArgb()
+                canvas.drawCircle(at.x, at.y, dotR, paint)
                 val iconSize=r*(if(key=="human") {if(defense||offensive)2.76f else 2f} else {if(defense||offensive)2.05f else 1.55f})
                 if(capital) { if(!icon("earth",at,r*2)) icon("human",at,iconSize) }
                 else if(special!=null) {
                     if(!icon(special,at,r*5)) {circle(at,r*1.7f,Color.Black);circle(at,r*1.8f,color,.7f/unit)}
-                } else icon(if(key=="unknown")"human" else key,at,iconSize)
+                } else icon(if(key=="unknown")"human" else key,at,iconSize, alpha = if (quiet && zoom < 5f) 95 else 255)
                 if(defense||offensive) icon(if (defense) "defense" else "liberation",at+Offset(-r*3.1f,-r*3.9f),r*2.2f)
                 if(defense) {
                     val attacker=mapFaction(p.event!!.faction); val badge=at+Offset(r*2.65f,-r*2.65f)
@@ -249,14 +275,28 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     paint.style=Paint.Style.FILL;paint.color=Color(0xFFFFD23F).toArgb();canvas.drawPath(diamond,paint)
                     if(detail) label("DSS",dssAt+Offset(0f,-d*1.9f),Color(0xFFFFD23F),true)
                 }
+                if (p.regions.isNotEmpty() && (zoom >= 2.3f || selected == p.index)) {
+                    circle(at + Offset(r * 2.3f, r * 1.8f), 2.dp.toPx() / unit, Color(0xFFB1C6CD))
+                }
                 if(selected==p.index) circle(at,r*3.4f,Color.White,1.3f/unit)
-                if(detail) {
-                    val gap=12.sp.toPx()/unit
-                    label(if (capital) "Super Terra" else p.nameText,at+Offset(0f,r*3.2f+gap),Color.White)
-                    label("${mapPlayerCount(p.statistics.playerCount)} HD",at+Offset(0f,r*3.2f+gap*2),Color(0xFFADB7C5),true)
-                    if(defense||offensive) {
-                        label(mapPercent(mapProgress(p)),at+Offset(0f,-r*3.5f),if(defense)Color(0xFF4DA6FF)else mapColor("human"))
-                        if(defense) label("INVASÃO ${mapPercent(mapInvasionProgress(p,now))}",at+Offset(0f,-r*3.5f-gap),mapColor(mapFaction(p.event!!.faction)),true)
+                if (detail) {
+                    val gap = (if (quiet) 11.sp else 13.sp).toPx() / unit
+                    val caption = captions.getValue(p.index)
+                    val progress = if (defense || offensive) mapPercent(mapProgress(p)) else null
+                    val regionText = if (p.regions.isNotEmpty()) "${p.regions.size} regiões" else null
+                    textPaint.textSize = (if (quiet) 8.sp else 11.sp).toPx() / unit
+                    val width = max(textPaint.measureText(caption.first), textPaint.measureText(regionText ?: caption.second))
+                    val bounds = RectF(at.x-width/2-3f/unit, at.y-r*4f-gap*2,
+                        at.x+width/2+3f/unit, at.y+r*3.2f+gap*(if(regionText != null) 3.4f else 2.4f))
+                    if (selected == p.index || occupied.none { RectF.intersects(it, bounds) }) {
+                        occupied.add(bounds)
+                        label(caption.first,at+Offset(0f,r*3.2f+gap),if(quiet) Color(0xFF94A4AB) else Color.White, quiet)
+                        label(caption.second,at+Offset(0f,r*3.2f+gap*2),Color(0xFFADB7C5),true)
+                        regionText?.let { label(it,at+Offset(0f,r*3.2f+gap*3),Color(0xFFADB7C5),true) }
+                        if (progress != null) {
+                            label(progress,at+Offset(0f,-r*3.5f),if(defense) Color(0xFF4DA6FF) else mapColor("human"))
+                            if (defense) label("INVASÃO ${mapPercent(mapInvasionProgress(p,now))}",at+Offset(0f,-r*3.5f-gap),mapColor(mapFaction(p.event!!.faction)),true)
+                        }
                     }
                 }
             }
