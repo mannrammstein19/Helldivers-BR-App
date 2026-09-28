@@ -1,6 +1,6 @@
 {
-  "versionCode": 1,
-  "versionName": "1.0.0",
-  "apkUrl": "https://github.com/mannrammstein19/Helldivers-BR/releases/latest/download/Helldivers-BR.apk",
-  "notes": "Primeira versão nativa do app."
+  "versionCode": 2,
+  "versionName": "2.0.0",
+  "apkUrl": "https://github.com/mannrammstein19/Helldivers-BR-App/releases/latest/download/Helldivers-BR.apk",
+  "notes": "Nova Home nativa e primeira Central de Guerra funcional, com telemetria, Ordem Maior, frentes e despachos."
 }

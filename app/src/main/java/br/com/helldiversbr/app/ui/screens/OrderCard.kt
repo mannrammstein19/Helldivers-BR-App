@@ -22,7 +22,6 @@ import java.text.NumberFormat
 import java.util.Locale
 
 private val ptBr = Locale("pt", "BR")
-
 private fun fmt(n: Long): String = NumberFormat.getInstance(ptBr).format(n)
 
 @Composable
@@ -36,119 +35,153 @@ fun OrderCard(data: HomeData) {
         else -> HD.Gold
     }
     val stateLabel = when (ui.state) {
-        "completed" -> "ORDEM CONCLUÍDA"
-        "failed" -> "ORDEM NÃO CUMPRIDA"
+        "completed" -> "VITÓRIA"
+        "failed" -> "FALHA"
         "active" -> "EM ANDAMENTO"
-        else -> "AGUARDANDO ORDENS"
+        else -> "AGUARDANDO"
     }
 
-    HdCard(accent = accent.copy(alpha = 0.6f)) {
+    HdCard(accent = accent) {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SectionLabel("Ordem Maior", accent)
+            Column {
+                SectionLabel("◆ Ordem Maior", accent)
+                Text("ALTO COMANDO DA SUPER TERRA", color = HD.TextMuted, fontSize = 9.sp, letterSpacing = 0.8.sp)
+            }
             Chip(stateLabel, accent)
         }
 
         if (order == null) {
             Text(
-                "Nenhuma Ordem Maior ativa no momento. Aguarde novas instruções do Alto Comando.",
+                "Nenhuma Ordem Maior registrada no momento. Aguardando novas instruções do Alto Comando.",
                 color = HD.TextDim,
-                fontSize = 14.sp,
+                fontSize = 13.sp,
+                lineHeight = 19.sp,
             )
             return@HdCard
         }
 
         val title = translateKnown(order.titleText).ifBlank { "ORDEM MAIOR" }
-        Text(title, color = HD.Text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text(title, color = HD.Text, fontSize = 22.sp, lineHeight = 25.sp, fontWeight = FontWeight.Black)
 
         if (order.briefingText.isNotBlank()) {
-            Text(order.briefingText, color = HD.TextDim, fontSize = 14.sp, lineHeight = 20.sp)
-        }
-        if (order.descriptionText.isNotBlank()) {
-            Text(order.descriptionText, color = HD.TextDim, fontSize = 13.sp, lineHeight = 19.sp)
+            Text(order.briefingText, color = HD.TextDim, fontSize = 13.sp, lineHeight = 19.sp)
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OrderMiniStat(
+                label = "TEMPO RESTANTE",
+                value = if (ui.state == "active") OrderRepository.remaining(order.expiration) else "ENCERRADA",
+                modifier = Modifier.weight(1f),
+            )
+            OrderMiniStat(
+                label = "RECOMPENSA",
+                value = order.mainReward?.amount?.takeIf { it > 0 }?.let { "${fmt(it)} MEDALHAS" } ?: "—",
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Progresso geral", color = HD.TextDim, fontSize = 12.sp)
+                Text("PROGRESSO GERAL", color = HD.TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 Text(
                     "${"%.1f".format(ptBr, ui.percent)}%",
                     color = accent,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
                 )
             }
             ProgressBar(ui.percent, accent)
         }
 
+        if (order.tasks.isNotEmpty()) {
+            SectionLabel("Objetivos da ordem", HD.TextDim)
+        }
         order.tasks.forEachIndexed { index, task ->
+            val orderPlanetName = task.planetId?.let { data.planetNames[it] }
+            val campaign = task.planetId?.let { planetId ->
+                data.campaigns.firstOrNull { it.planet.index == planetId && planetId != 0L }
+                    ?: orderPlanetName?.let { wanted ->
+                        data.campaigns.firstOrNull { it.planet.nameText.equals(wanted, ignoreCase = true) }
+                    }
+            }
+            val livePercent = if (campaign != null && task.type in listOf(11, 12, 13)) {
+                OrderRepository.campaignPercent(campaign)
+            } else null
             TaskRow(
                 index = index,
                 task = task,
                 progress = order.progress.getOrNull(index) ?: 0L,
-                planetName = task.planetId?.let { data.planetNames[it] },
-                accent = accent,
+                planetName = orderPlanetName ?: campaign?.planet?.nameText,
+                accent = campaign?.let { factionColor(OrderRepository.campaignFaction(it), it.planet.event != null) } ?: accent,
+                livePercent = livePercent,
             )
-        }
-
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            val reward = order.mainReward
-            Text(
-                text = if (reward != null && reward.amount > 0) "Recompensa: ${fmt(reward.amount)} medalhas" else "Recompensa: —",
-                color = HD.Yellow,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            if (ui.state == "active") {
-                Text(
-                    "Restam ${OrderRepository.remaining(order.expiration)}",
-                    color = HD.TextDim,
-                    fontSize = 13.sp,
-                )
-            }
         }
 
         if (ui.fromSnapshot && ui.state == "active") {
             Text(
-                "Exibindo o último registro salvo da ordem.",
-                color = HD.TextDim,
-                fontSize = 11.sp,
+                "ÚLTIMO REGISTRO SALVO // A telemetria ao vivo da ordem está temporariamente indisponível.",
+                color = HD.TextMuted,
+                fontSize = 9.sp,
+                lineHeight = 13.sp,
+                fontWeight = FontWeight.Bold,
             )
         }
     }
 }
 
 @Composable
-private fun TaskRow(index: Int, task: OrderTask, progress: Long, planetName: String?, accent: Color) {
+private fun OrderMiniStat(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Text(label, color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp)
+        Text(value, color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 2.dp))
+    }
+}
+
+@Composable
+private fun TaskRow(
+    index: Int,
+    task: OrderTask,
+    progress: Long,
+    planetName: String?,
+    accent: Color,
+    livePercent: Double?,
+) {
     val goal = task.goal
     val title: String
     val detail: String
-    val fraction: Double
+    val percent: Double
 
-    if (goal != null && goal > 0) {
-        title = "Objetivo ${index + 1}"
+    if (livePercent != null && goal == null) {
+        title = when (task.type) {
+            11 -> planetName?.let { "Liberar $it" } ?: "Objetivo de libertação"
+            12 -> planetName?.let { "Defender $it" } ?: "Objetivo de defesa"
+            13 -> planetName?.let { "Controlar $it" } ?: "Objetivo de controle"
+            else -> planetName ?: "Objetivo ${index + 1}"
+        }
+        detail = if (progress > 0) "CONCLUÍDO" else "${"%.2f".format(ptBr, livePercent)}%"
+        percent = if (progress > 0) 100.0 else livePercent
+    } else if (goal != null && goal > 0) {
+        title = when (task.type) {
+            3 -> "Eliminar forças inimigas"
+            else -> "Objetivo ${index + 1}"
+        }
         detail = "${fmt(progress)} / ${fmt(goal)}"
-        fraction = (progress.toDouble() / goal * 100.0)
+        percent = (progress.toDouble() / goal * 100.0).coerceIn(0.0, 100.0)
     } else {
-        // Tarefas de planeta: o progresso é 0/1 (não concluído / concluído).
         title = planetName?.let { "Planeta: $it" } ?: "Objetivo ${index + 1}"
-        detail = if (progress > 0) "Concluído" else "Em andamento"
-        fraction = if (progress > 0) 100.0 else 0.0
+        detail = if (progress > 0) "CONCLUÍDO" else "EM ANDAMENTO"
+        percent = if (progress > 0) 100.0 else 0.0
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(title, color = HD.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Text(detail, color = HD.TextDim, fontSize = 12.sp)
+            Text(title, color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(detail, color = accent, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 10.dp))
         }
-        ProgressBar(fraction, accent)
+        ProgressBar(percent, accent)
     }
 }

@@ -32,7 +32,7 @@ data class OrderTask(
 /** Ordem Maior (item de /assignments). Textos podem vir como string ou como mapa de idiomas. */
 @Serializable
 data class Assignment(
-    val id: Long = 0,
+    val id: JsonElement? = null,
     val progress: List<Long> = emptyList(),
     val title: JsonElement? = null,
     val briefing: JsonElement? = null,
@@ -74,6 +74,63 @@ data class Dispatch(
 ) {
     val text: String get() = localizedText(message)
 }
+
+/** Estatísticas agregadas que acompanham cada planeta retornado por /campaigns. */
+@Serializable
+data class PlanetStatistics(
+    val playerCount: Long = 0,
+    val missionsWon: Long? = null,
+    val missionsLost: Long? = null,
+)
+
+/** Evento ativo de um planeta. Quando presente, normalmente representa uma defesa. */
+@Serializable
+data class PlanetEvent(
+    val id: Long = 0,
+    val eventType: Int = 0,
+    val faction: String = "",
+    val health: Long = 0,
+    val maxHealth: Long = 0,
+    val startTime: String? = null,
+    val endTime: String? = null,
+)
+
+/** Regiões internas dos planetas mais recentes. */
+@Serializable
+data class PlanetRegion(
+    val name: String? = null,
+    val health: Long? = null,
+    val maxHealth: Long = 0,
+    val regenPerSecond: Double? = null,
+    val isAvailable: Boolean? = null,
+    val players: Long? = null,
+)
+
+/** Planeta agregado pela API comunitária. Mantemos apenas os campos usados no app. */
+@Serializable
+data class Planet(
+    val index: Long = 0,
+    val name: JsonElement? = null,
+    val sector: String = "",
+    val health: Long = 0,
+    val maxHealth: Long = 0,
+    val regenPerSecond: Double = 0.0,
+    val currentOwner: String = "",
+    val initialOwner: String = "",
+    val statistics: PlanetStatistics = PlanetStatistics(),
+    val event: PlanetEvent? = null,
+    val regions: List<PlanetRegion> = emptyList(),
+) {
+    val nameText: String get() = localizedText(name).ifBlank { "PLANETA #$index" }
+}
+
+/** Campanha ativa retornada por /campaigns. */
+@Serializable
+data class Campaign(
+    val id: JsonElement? = null,
+    val planet: Planet = Planet(),
+    val faction: String = "",
+)
 
 /** Converte string simples ou mapa de idiomas ({"pt-BR": "...", "en-US": "..."}) em texto limpo. */
 fun localizedText(value: JsonElement?): String {

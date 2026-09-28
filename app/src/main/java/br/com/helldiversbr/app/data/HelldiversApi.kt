@@ -11,8 +11,8 @@ import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
 /**
- * Acesso às mesmas fontes que o site usa:
- *  - api.helldivers2.dev/api/v1 (ao vivo)
+ * Acesso às mesmas fontes públicas usadas pelo HELLDIVERS-BR:
+ *  - api.helldivers2.dev/api/v1 (telemetria ao vivo)
  *  - dados/major-order.json no GitHub (snapshot que sobrevive ao fim da ordem)
  */
 object HelldiversApi {
@@ -21,7 +21,9 @@ object HelldiversApi {
         "https://raw.githubusercontent.com/mannrammstein19/Helldivers-BR/main/dados/major-order.json"
     private const val PLANETS_URL =
         "https://raw.githubusercontent.com/helldivers-2/json/master/planets/planets.json"
-    const val SITE_BASE = "https://mannrammstein19.github.io/Helldivers-BR"
+
+    // Site público atual. As telas nativas usam este endereço apenas em links externos/fallbacks.
+    const val SITE_BASE = "https://helldivers-br.pages.dev"
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -37,9 +39,9 @@ object HelldiversApi {
     private fun get(url: String, withHeaders: Boolean): String {
         val builder = Request.Builder().url(url)
         if (withHeaders) {
-            // Identificação exigida pela API pública (mesmos headers do site).
-            builder.header("X-Super-Client", "mannrammstein19.github.io/Helldivers-BR")
-            builder.header("X-Super-Contact", "https://github.com/mannrammstein19/Helldivers-BR")
+            // Identificação solicitada pela API comunitária.
+            builder.header("X-Super-Client", "helldivers-br.pages.dev")
+            builder.header("X-Super-Contact", "https://github.com/mannrammstein19/Helldivers-BR-App")
             builder.header("Accept-Language", "pt-BR,pt;q=0.9,en;q=0.5")
         }
         client.newCall(builder.build()).execute().use { resp ->
@@ -66,8 +68,14 @@ object HelldiversApi {
     }
 
     suspend fun dispatches(): List<Dispatch> = withContext(Dispatchers.IO) {
-        parseList(get("$API/dispatches", true)) {
+        parseList(get("https://api.helldivers2.dev/api/v2/dispatches", true)) {
             json.decodeFromJsonElement(ListSerializer(Dispatch.serializer()), it)
+        }
+    }
+
+    suspend fun campaigns(): List<Campaign> = withContext(Dispatchers.IO) {
+        parseList(get("$API/campaigns", true)) {
+            json.decodeFromJsonElement(ListSerializer(Campaign.serializer()), it)
         }
     }
 
@@ -88,9 +96,11 @@ object HelldiversApi {
             runCatching {
                 val root = json.parseToJsonElement(get(PLANETS_URL, false)) as JsonObject
                 root.mapNotNull { (id, value) ->
-                    val name = ((value as? JsonObject)?.get("name") as? kotlinx.serialization.json.JsonPrimitive)
-                        ?.content
-                    id.toLongOrNull()?.let { key -> name?.let { key to it } }
+                    val obj = value as? JsonObject
+                    val directName = obj?.get("name")
+                    val names = obj?.get("names")
+                    val resolved = localizedText(directName).ifBlank { localizedText(names) }
+                    id.toLongOrNull()?.let { key -> resolved.takeIf { it.isNotBlank() }?.let { key to it } }
                 }.toMap()
             }.getOrDefault(emptyMap()).also { if (it.isNotEmpty()) planetNames = it }
         }

@@ -1,27 +1,35 @@
-# Helldivers BR — App Android nativo (Kotlin + Jetpack Compose)
+# HELLDIVERS-BR — App Android nativo
 
-## Fase 1 (esta versão)
-- Estrutura do app, tema visual do site (amarelo `#D7D52C` sobre `#090909`)
-- Navegação inferior: Início · Guerra · Mapa · Arsenal
-- **Início**: Ordem Maior (ao vivo + snapshot do `dados/major-order.json`) e Despachos
-- Atualização automática dos dados a cada 60 s
-- **Aviso de nova versão do APK** (lê `versao-app.json` do seu site)
-- Guerra / Mapa / Arsenal: telas provisórias que abrem a página equivalente do site
+Versão **2.0.0** do aplicativo Android do HELLDIVERS-BR, feita em **Kotlin + Jetpack Compose**.
 
-## Como gerar o APK (sem instalar nada no PC)
-1. Crie um repositório novo no GitHub (ex.: `Helldivers-BR-App`) e envie **todo o conteúdo desta pasta**.
-2. Aba **Actions → Build APK Helldivers BR → Run workflow**.
-3. Ao terminar (5-10 min), baixe o `Helldivers-BR-apk` em *Artifacts*.
-4. Para ter um link fixo de download (para WhatsApp/Discord): crie uma tag `v1.0.0`
-   (`git tag v1.0.0 && git push origin v1.0.0`) — o APK vai para **Releases**.
+## O que já está funcional nesta versão
+- Home redesenhada com identidade do HELLDIVERS-BR.
+- Terminais de acesso rápido: Central de Guerra, Mapa, Estratagemas, Warbonds e Facções.
+- Ordem Maior com progresso, objetivos, recompensa e prazo.
+- Resumo da Guerra Galáctica na Home.
+- **Central de Guerra nativa** com telemetria, Helldivers no front, liberações, defesas e frentes ativas.
+- Lista nativa das campanhas/planetas com progresso, facção, jogadores e prazo/regeneração.
+- Filtros `TODAS`, `LIBERAÇÃO` e `DEFESA`.
+- Despachos recentes do Alto Comando.
+- Atualização automática a cada 60 segundos.
+- Barra inferior com a seção ativa destacada em amarelo.
+- Sistema de aviso de atualização do APK.
+- Mapa e Arsenal continuam como etapa seguinte; por enquanto abrem a área correspondente do site.
 
-## Aviso de atualização dentro do app
-O app consulta `https://mannrammstein19.github.io/Helldivers-BR/versao-app.json`.
-1. Copie o arquivo `versao-app.json` desta pasta para a **raiz do repositório do site** (`Helldivers-BR`).
-2. Ao lançar uma versão nova: aumente `versionCode`/`versionName` em `app/build.gradle.kts`,
-   gere o APK e atualize o `versao-app.json` do site com o novo `versionCode`, `versionName` e `notes`.
-3. Quem já tem o app instalado verá o banner "Nova versão disponível" e baixa o APK novo.
+## Dados
+O app consome a API comunitária `api.helldivers2.dev` com os cabeçalhos de identificação recomendados e usa o snapshot público da Ordem Maior do projeto HELLDIVERS-BR como fallback.
 
-## Ainda não testado
-Este código foi escrito sem poder compilar no ambiente de desenvolvimento.
-O primeiro build no GitHub Actions pode acusar erros de compilação; envie o log e eu corrijo.
+## Gerar o APK pelo GitHub
+1. Substitua o conteúdo do repositório `Helldivers-BR-App` pelos arquivos desta versão.
+2. Abra **Actions → Build APK Helldivers BR → Run workflow**.
+3. Quando o workflow terminar com o sinal verde, baixe **Helldivers-BR-apk** na área de Artifacts.
+4. Dentro estará `Helldivers-BR.apk`.
+
+## Releases e atualização automática
+Ao publicar uma tag no formato `v2.0.0`, o workflow também anexa `Helldivers-BR.apk` à Release.
+O aplicativo consulta o `versao-app.json` deste próprio repositório para detectar novas versões.
+
+Para uma próxima versão, aumente `versionCode` e `versionName` em `app/build.gradle.kts` e atualize `versao-app.json`.
+
+## Próxima etapa
+Transformar **Mapa Galáctico** e **Arsenal/Estratagemas** em telas nativas, mantendo a mesma linguagem visual desta V2.

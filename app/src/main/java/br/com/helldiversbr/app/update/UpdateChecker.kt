@@ -1,7 +1,6 @@
 package br.com.helldiversbr.app.update
 
 import br.com.helldiversbr.app.BuildConfig
-import br.com.helldiversbr.app.data.HelldiversApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -10,15 +9,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
-/**
- * Formato de versao-app.json (publicado na raiz do site, junto do APK):
- * {
- *   "versionCode": 2,
- *   "versionName": "1.1.0",
- *   "apkUrl": "https://.../Helldivers-BR.apk",
- *   "notes": "O que mudou nesta versão"
- * }
- */
+/** Metadados da versão publicada do app. */
 @Serializable
 data class RemoteVersion(
     val versionCode: Int = 0,
@@ -28,6 +19,9 @@ data class RemoteVersion(
 )
 
 object UpdateChecker {
+    private const val VERSION_URL =
+        "https://raw.githubusercontent.com/mannrammstein19/Helldivers-BR-App/main/versao-app.json"
+
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -37,8 +31,7 @@ object UpdateChecker {
     /** Retorna a versão remota se ela for mais nova que a instalada; senão null. Nunca lança exceção. */
     suspend fun check(): RemoteVersion? = withContext(Dispatchers.IO) {
         runCatching {
-            // "?t=" evita cache de CDN/GitHub Pages devolver um arquivo antigo.
-            val url = "${HelldiversApi.SITE_BASE}/versao-app.json?t=${System.currentTimeMillis() / 60000}"
+            val url = "$VERSION_URL?t=${System.currentTimeMillis() / 60000}"
             val request = Request.Builder().url(url).build()
             client.newCall(request).execute().use { resp ->
                 if (!resp.isSuccessful) return@runCatching null
