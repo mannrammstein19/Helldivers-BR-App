@@ -5,11 +5,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -18,6 +20,7 @@ import br.com.helldiversbr.app.data.OrderRepository
 import br.com.helldiversbr.app.data.OrderTask
 import br.com.helldiversbr.app.data.translateKnown
 import br.com.helldiversbr.app.ui.theme.HD
+import coil.compose.AsyncImage
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -111,12 +114,19 @@ fun OrderCard(data: HomeData) {
             val livePercent = if (campaign != null && task.type in listOf(11, 12, 13)) {
                 OrderRepository.campaignPercent(campaign)
             } else null
+            val decodedTaskFaction = OrderRepository.taskFaction(task)
+            val taskFaction = decodedTaskFaction
+                .takeIf { it.isNotBlank() && !OrderRepository.isHumanFaction(it) }
+                ?: campaign?.let { OrderRepository.enemyFaction(it) }.orEmpty()
             TaskRow(
                 index = index,
                 task = task,
                 progress = order.progress.getOrNull(index) ?: 0L,
                 planetName = orderPlanetName ?: campaign?.planet?.nameText,
-                accent = campaign?.let { factionColor(OrderRepository.campaignFaction(it), it.planet.event != null) } ?: accent,
+                factionRaw = taskFaction,
+                accent = taskFaction.takeIf { it.isNotBlank() }?.let { factionColor(it) }
+                    ?: campaign?.let { factionColor(OrderRepository.enemyFaction(it), it.planet.event != null) }
+                    ?: accent,
                 livePercent = livePercent,
             )
         }
@@ -147,6 +157,7 @@ private fun TaskRow(
     task: OrderTask,
     progress: Long,
     planetName: String?,
+    factionRaw: String,
     accent: Color,
     livePercent: Double?,
 ) {
@@ -166,7 +177,9 @@ private fun TaskRow(
         percent = if (progress > 0) 100.0 else livePercent
     } else if (goal != null && goal > 0) {
         title = when (task.type) {
-            3 -> "Eliminar forças inimigas"
+            3 -> factionRaw.takeIf { it.isNotBlank() }
+                ?.let { "Eliminar ${OrderRepository.factionLabel(it)}" }
+                ?: "Eliminar forças inimigas"
             else -> "Objetivo ${index + 1}"
         }
         detail = "${fmt(progress)} / ${fmt(goal)}"
@@ -177,7 +190,24 @@ private fun TaskRow(
         percent = if (progress > 0) 100.0 else 0.0
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (factionRaw.isNotBlank() && !OrderRepository.isHumanFaction(factionRaw)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                AsyncImage(
+                    model = PlanetVisuals.factionLogo(factionRaw),
+                    contentDescription = OrderRepository.factionLabel(factionRaw),
+                    modifier = Modifier.size(19.dp),
+                    contentScale = ContentScale.Fit,
+                )
+                Text(
+                    "ALVO // ${OrderRepository.factionLabel(factionRaw).uppercase()}",
+                    color = accent,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.8.sp,
+                )
+            }
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(title, color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             Text(detail, color = accent, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 10.dp))

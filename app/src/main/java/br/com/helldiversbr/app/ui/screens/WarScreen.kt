@@ -16,12 +16,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,6 +32,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -124,14 +129,27 @@ private fun WarList(
     onOpenMap: () -> Unit,
     contentPadding: PaddingValues,
 ) {
-    var filter by rememberSaveable { mutableStateOf("all") }
+    var modeFilter by rememberSaveable { mutableStateOf("all") }
+    var factionFilter by rememberSaveable { mutableStateOf("all") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedPlanetIndex by rememberSaveable { mutableStateOf<Long?>(null) }
-    val filtered = data.campaigns.filter {
-        when (filter) {
-            "attack" -> it.planet.event == null
-            "defense" -> it.planet.event != null
+
+    val normalizedQuery = searchQuery.trim().lowercase()
+    val filtered = data.campaigns.filter { campaign ->
+        val modeOk = when (modeFilter) {
+            "attack" -> campaign.planet.event == null
+            "defense" -> campaign.planet.event != null
             else -> true
         }
+        val enemyFaction = OrderRepository.enemyFaction(campaign)
+        val factionOk = factionFilter == "all" || OrderRepository.factionKey(enemyFaction) == factionFilter
+        val catalog = data.planetCatalog[campaign.planet.index]
+        val sector = campaign.planet.sector.ifBlank { catalog?.sector.orEmpty() }
+        val textOk = normalizedQuery.isBlank() ||
+            campaign.planet.nameText.lowercase().contains(normalizedQuery) ||
+            sector.lowercase().contains(normalizedQuery) ||
+            OrderRepository.factionLabel(enemyFaction).lowercase().contains(normalizedQuery)
+        modeOk && factionOk && textOk
     }
     val selected = selectedPlanetIndex?.let { index -> data.campaigns.firstOrNull { it.planet.index == index } }
 
@@ -191,10 +209,45 @@ private fun WarList(
                     }
                     Text("${filtered.size} EXIBIDAS", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 }
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = HD.TextMuted) },
+                    trailingIcon = {
+                        if (searchQuery.isNotBlank()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Filled.Clear, contentDescription = "Limpar pesquisa", tint = HD.TextMuted)
+                            }
+                        }
+                    },
+                    placeholder = { Text("BUSCAR PLANETA OU SETOR", color = HD.TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = HD.Yellow,
+                        unfocusedBorderColor = HD.Border,
+                        focusedTextColor = HD.Text,
+                        unfocusedTextColor = HD.Text,
+                        cursorColor = HD.Yellow,
+                        focusedContainerColor = HD.Surface,
+                        unfocusedContainerColor = HD.Surface,
+                    ),
+                )
+
+                SectionLabel("Tipo de operação", HD.TextMuted)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    WarFilter("all", "TODAS", filter, { filter = it }, Modifier.weight(1f))
-                    WarFilter("attack", "LIBERAÇÃO", filter, { filter = it }, Modifier.weight(1f))
-                    WarFilter("defense", "DEFESA", filter, { filter = it }, Modifier.weight(1f))
+                    WarFilter("all", "TODAS", modeFilter, { modeFilter = it }, Modifier.weight(1f))
+                    WarFilter("attack", "LIBERTAÇÃO", modeFilter, { modeFilter = it }, Modifier.weight(1f))
+                    WarFilter("defense", "DEFESA", modeFilter, { modeFilter = it }, Modifier.weight(1f))
+                }
+
+                SectionLabel("Facção inimiga", HD.TextMuted)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item { FactionFilter("all", "TODAS", HD.Yellow, factionFilter) { factionFilter = it } }
+                    item { FactionFilter("terminids", "TERMINÍDEOS", HD.TerminidOrange, factionFilter) { factionFilter = it } }
+                    item { FactionFilter("automatons", "AUTÔMATOS", HD.AutomatonRed, factionFilter) { factionFilter = it } }
+                    item { FactionFilter("illuminates", "ILUMINADOS", HD.IlluminatePurple, factionFilter) { factionFilter = it } }
                 }
             }
         }
@@ -268,13 +321,36 @@ private fun WarFilter(id: String, label: String, selected: String, onSelect: (St
 }
 
 @Composable
+private fun FactionFilter(id: String, label: String, accent: Color, selected: String, onSelect: (String) -> Unit) {
+    val active = selected == id
+    Card(
+        modifier = Modifier.clickable { onSelect(id) },
+        shape = RoundedCornerShape(50.dp),
+        colors = CardDefaults.cardColors(containerColor = if (active) accent.copy(alpha = 0.18f) else HD.Surface),
+        border = BorderStroke(1.dp, if (active) accent else HD.Border),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(accent))
+            Text(label, color = if (active) accent else HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.45.sp)
+        }
+    }
+}
+
+@Composable
 private fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
     val planet = campaign.planet
     val catalog = data.planetCatalog[planet.index]
     val defense = planet.event != null
-    val rawFaction = OrderRepository.campaignFaction(campaign)
-    val faction = OrderRepository.factionLabel(rawFaction)
-    val accent = factionColor(rawFaction, defense)
+    val ownerFactionRaw = OrderRepository.ownerFaction(campaign)
+    val enemyFactionRaw = OrderRepository.enemyFaction(campaign)
+    val ownerFaction = OrderRepository.factionLabel(ownerFactionRaw)
+    val enemyFaction = OrderRepository.factionLabel(enemyFactionRaw)
+    val accent = factionColor(enemyFactionRaw, defense)
+    val modeColor = if (defense) HD.DefenseBlue else accent
     val percent = OrderRepository.campaignPercent(campaign)
     val rate = OrderRepository.campaignRate(data, campaign)
     val enemyPressure = if (defense) OrderRepository.defenseEnemyRate(planet.event) else OrderRepository.liberationEnemyPressure(campaign)
@@ -322,7 +398,7 @@ private fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit)
                         modifier = Modifier.size(18.dp),
                         contentScale = ContentScale.Fit,
                     )
-                    Text(if (defense) "DEFESA" else "LIBERTAÇÃO", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                    Text(if (defense) "DEFESA" else "LIBERTAÇÃO", color = modeColor, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                 }
                 Text(status, color = statusColor, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.7.sp)
                 Text(headerEta ?: "—", color = HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -333,9 +409,19 @@ private fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit)
                     Text(planet.nameText.uppercase(), color = HD.Text, fontSize = 25.sp, lineHeight = 26.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(sector.uppercase(), color = HD.TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, modifier = Modifier.padding(top = 3.dp))
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    AsyncImage(model = PlanetVisuals.factionLogo(rawFaction, defense), contentDescription = null, modifier = Modifier.size(26.dp), contentScale = ContentScale.Fit)
-                    Text((if (defense) "SUPER TERRA" else faction.uppercase()), color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        AsyncImage(
+                            model = PlanetVisuals.factionLogo(ownerFactionRaw, defense),
+                            contentDescription = ownerFaction,
+                            modifier = Modifier.size(26.dp),
+                            contentScale = ContentScale.Fit,
+                        )
+                        Text(ownerFaction.uppercase(), color = factionColor(ownerFactionRaw, defense), fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                    }
+                    if (defense && enemyFactionRaw.isNotBlank() && !OrderRepository.isHumanFaction(enemyFactionRaw)) {
+                        Text("ATACANTE: ${enemyFaction.uppercase()}", color = accent, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = 0.6.sp)
+                    }
                 }
             }
 
@@ -352,7 +438,7 @@ private fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit)
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
                 if (defense) {
                     ProgressBlock("DEFESA HELLDIVERS", percent, HD.DefenseBlue)
-                    ProgressBlock("INVASÃO INIMIGA", invasionProgress ?: 0.0, HD.Red, valueOverride = invasionProgress?.let(::pct) ?: "—")
+                    ProgressBlock("INVASÃO ${enemyFaction.uppercase()}", invasionProgress ?: 0.0, accent, valueOverride = invasionProgress?.let(::pct) ?: "—")
                 } else {
                     ProgressBlock("CONTROLE PLANETÁRIO", percent, accent)
                 }
@@ -362,7 +448,7 @@ private fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit)
                     TacticalMetric("■ ${if (defense) "AVANÇO DA DEFESA / HORA" else "AVANÇO LÍQUIDO / HORA"}", rateText(rate), if (rate == null) "aguardando nova amostra" else "saldo planetário observado", if ((rate ?: 0.0) >= 0) HD.DefenseBlue else HD.Red, Modifier.weight(1f))
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    TacticalMetric(if (defense) "PRESSÃO INIMIGA" else "PRESSÃO ${faction.uppercase()}", rateText(enemyPressure), if (defense) "ritmo do relógio da invasão" else "regeneração registrada na API", if (defense) HD.Red else factionColor(rawFaction), Modifier.weight(1f))
+                    TacticalMetric("PRESSÃO ${enemyFaction.uppercase()}", rateText(enemyPressure), if (defense) "ritmo do relógio da invasão" else "regeneração registrada na API", accent, Modifier.weight(1f))
                     TacticalMetric(if (defense) "🏁 TEMPO DA DEFESA" else "🏁 VITÓRIA ESTIMADA", if (defense) etaWin ?: "calculando" else etaWin ?: "calculando", if (defense) "prazo inimigo: ${etaDeadline ?: "—"}" else "projeção no ritmo atual", HD.Text, Modifier.weight(1f))
                 }
 
@@ -424,9 +510,10 @@ private fun HazardBadge(item: PlanetVisuals.HazardVisual) {
 private fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: () -> Unit) {
     val p = campaign.planet
     val catalog = data.planetCatalog[p.index]
-    val rawFaction = OrderRepository.campaignFaction(campaign)
     val defense = p.event != null
-    val accent = factionColor(rawFaction, defense)
+    val ownerFactionRaw = OrderRepository.ownerFaction(campaign)
+    val enemyFactionRaw = OrderRepository.enemyFaction(campaign)
+    val accent = factionColor(enemyFactionRaw, defense)
     val image = PlanetVisuals.planetImage(p.index, p.nameText, catalog)
     val sector = p.sector.ifBlank { catalog?.sector.orEmpty() }.ifBlank { "Setor desconhecido" }
     val biome = PlanetVisuals.biomeLabel(catalog)
@@ -454,8 +541,12 @@ private fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: (
                 }
                 Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        DossierFact("FACÇÃO", if (defense) "SUPER TERRA" else OrderRepository.factionLabel(rawFaction).uppercase(), Modifier.weight(1f))
+                        DossierFact("CONTROLE ATUAL", OrderRepository.factionLabel(ownerFactionRaw).uppercase(), Modifier.weight(1f))
                         DossierFact("BIOMA", biome, Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        DossierFact(if (defense) "ATACANTE" else "FACÇÃO INIMIGA", OrderRepository.factionLabel(enemyFactionRaw).uppercase(), Modifier.weight(1f))
+                        DossierFact("SETOR", sector.uppercase(), Modifier.weight(1f))
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         DossierFact("HELLDIVERS", fmtWar(p.statistics.playerCount), Modifier.weight(1f))

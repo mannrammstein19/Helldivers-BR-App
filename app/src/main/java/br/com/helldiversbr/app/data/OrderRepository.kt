@@ -223,20 +223,72 @@ object OrderRepository {
 
     fun campaignMode(campaign: Campaign): String = if (campaign.planet.event != null) "defense" else "attack"
 
-    fun campaignFaction(campaign: Campaign): String {
-        return campaign.planet.event?.faction
-            ?.takeIf { it.isNotBlank() }
-            ?: campaign.faction.takeIf { it.isNotBlank() }
-            ?: campaign.planet.currentOwner
+    /**
+     * Facção que efetivamente controla o planeta. Em libertações, esta é a informação
+     * que precisa aparecer no card (o planeta ainda pertence ao inimigo).
+     */
+    fun ownerFaction(campaign: Campaign): String {
+        val current = campaign.planet.currentOwner.trim()
+        if (current.isNotBlank()) return current
+        return if (campaign.planet.event != null) "Humans"
+        else campaign.faction.takeIf { it.isNotBlank() } ?: campaign.planet.initialOwner
     }
 
-    fun factionLabel(raw: String): String {
+    /**
+     * Facção inimiga da frente. Em defesa vem do atacante do evento; em libertação
+     * vem do dono atual do planeta. Isto também alimenta filtro, cor e pressão inimiga.
+     */
+    fun enemyFaction(campaign: Campaign): String {
+        val eventFaction = campaign.planet.event?.faction?.trim().orEmpty()
+        if (eventFaction.isNotBlank() && !isHumanFaction(eventFaction)) return eventFaction
+
+        val current = campaign.planet.currentOwner.trim()
+        if (current.isNotBlank() && !isHumanFaction(current)) return current
+
+        val campaignFaction = campaign.faction.trim()
+        if (campaignFaction.isNotBlank() && !isHumanFaction(campaignFaction)) return campaignFaction
+
+        val initial = campaign.planet.initialOwner.trim()
+        if (initial.isNotBlank() && !isHumanFaction(initial)) return initial
+
+        return eventFaction.ifBlank { current.ifBlank { campaignFaction.ifBlank { initial } } }
+    }
+
+    /** Compatibilidade com os componentes já existentes: facção de campanha = inimigo da frente. */
+    fun campaignFaction(campaign: Campaign): String = enemyFaction(campaign)
+
+    fun isHumanFaction(raw: String): Boolean {
+        val n = raw.lowercase()
+        return "human" in n || "super" in n || n == "1"
+    }
+
+    fun factionKey(raw: String): String {
         val n = raw.lowercase()
         return when {
-            "terminid" in n -> "Terminídeos"
-            "automaton" in n -> "Autômatos"
-            "illuminate" in n -> "Iluminados"
-            "human" in n || "super" in n -> "Super Terra"
+            "terminid" in n || n == "2" -> "terminids"
+            "automaton" in n || "cyborg" in n || n == "3" -> "automatons"
+            "illuminate" in n || "squid" in n || n == "4" -> "illuminates"
+            isHumanFaction(raw) -> "humans"
+            else -> "unknown"
+        }
+    }
+
+    fun factionFromRaceId(id: Int?): String = when (id) {
+        1 -> "Humans"
+        2 -> "Terminids"
+        3 -> "Automatons"
+        4 -> "Illuminate"
+        else -> ""
+    }
+
+    fun taskFaction(task: OrderTask): String = factionFromRaceId(task.factionId)
+
+    fun factionLabel(raw: String): String {
+        return when (factionKey(raw)) {
+            "terminids" -> "Terminídeos"
+            "automatons" -> "Autômatos"
+            "illuminates" -> "Iluminados"
+            "humans" -> "Super Terra"
             else -> raw.ifBlank { "Desconhecida" }
         }
     }

@@ -100,14 +100,14 @@ object PlanetVisuals {
         "${HelldiversApi.SITE_BASE}/imagens/ui/efeito-planeta/${it.replace(" ", "%20")}" 
     }
 
-    fun factionLogo(raw: String, defense: Boolean): String {
-        if (defense) return "${HelldiversApi.SITE_BASE}/imagens/ui/federacao.png"
+    fun factionLogo(raw: String, defense: Boolean = false): String {
         val n = raw.lowercase()
         val file = when {
-            "terminid" in n -> "logo%20terminids.png"
-            "automaton" in n -> "logo%20automatons.png"
-            "illuminate" in n -> "logo%20illuminats.png"
-            else -> return "${HelldiversApi.SITE_BASE}/imagens/ui/federacao.png"
+            "terminid" in n || n == "2" -> "logo%20terminids.png"
+            "automaton" in n || "cyborg" in n || n == "3" -> "logo%20automatons.png"
+            "illuminate" in n || "squid" in n || n == "4" -> "logo%20illuminats.png"
+            "human" in n || "super" in n || n == "1" -> return "${HelldiversApi.SITE_BASE}/imagens/ui/federacao.png"
+            else -> return if (defense) "${HelldiversApi.SITE_BASE}/imagens/ui/federacao.png" else "${HelldiversApi.SITE_BASE}/imagens/ui/federacao.png"
         }
         return "${HelldiversApi.SITE_BASE}/imagens/guerra/faccoes/$file"
     }

@@ -26,6 +26,10 @@ data class OrderTask(
     }
 
     val goal: Long? get() = valueOf(3)
+    /** Raça/facção alvo codificada pela API: 1 Humanos, 2 Terminídeos, 3 Autômatos, 4 Iluminados. */
+    val factionId: Int? get() = valueOf(1)?.toInt()
+    /** Identificador interno do alvo/unidade quando a ordem é de eliminação. */
+    val targetUnitId: Long? get() = valueOf(4)?.takeIf { it != 0L }
     val planetId: Long? get() = valueOf(12)?.takeIf { it != 0L }
 }
 

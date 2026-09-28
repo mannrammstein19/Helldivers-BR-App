@@ -177,12 +177,13 @@ fun DispatchCard(dispatch: Dispatch, modifier: Modifier = Modifier) {
 }
 
 fun factionColor(raw: String, defense: Boolean = false): Color {
-    if (defense) return HD.DefenseBlue
     val n = raw.lowercase()
     return when {
-        "terminid" in n -> HD.TerminidOrange
-        "automaton" in n -> HD.AutomatonRed
-        "illuminate" in n -> HD.IlluminatePurple
-        else -> HD.DefenseBlue
+        "terminid" in n || n == "2" -> HD.TerminidOrange
+        "automaton" in n || "cyborg" in n || n == "3" -> HD.AutomatonRed
+        "illuminate" in n || "squid" in n || n == "4" -> HD.IlluminatePurple
+        "human" in n || "super" in n || n == "1" -> HD.DefenseBlue
+        defense -> HD.DefenseBlue
+        else -> HD.TextDim
     }
 }

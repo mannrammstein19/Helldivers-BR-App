@@ -470,8 +470,22 @@ private fun FrontSpotlightCard(data: HomeData, campaign: Campaign, onOpenWar: ()
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.88f)))))
                 Column(Modifier.align(Alignment.BottomStart).padding(14.dp)) {
                     SectionLabel("FRENTE EM DESTAQUE // ${if (defense) "DEFESA" else "LIBERTAÇÃO"}", accent)
-                    Text(p.nameText.uppercase(), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
-                    Text(sector.uppercase(), color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AsyncImage(
+                            model = PlanetVisuals.factionLogo(factionRaw),
+                            contentDescription = OrderRepository.factionLabel(factionRaw),
+                            modifier = Modifier.size(24.dp),
+                            contentScale = ContentScale.Fit,
+                        )
+                        Text(p.nameText.uppercase(), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    }
+                    Text(
+                        "${sector.uppercase()}  •  ${OrderRepository.factionLabel(factionRaw).uppercase()}",
+                        color = accent,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                    )
                 }
             }
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
