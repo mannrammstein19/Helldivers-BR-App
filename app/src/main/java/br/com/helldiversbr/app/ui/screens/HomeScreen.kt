@@ -71,7 +71,7 @@ fun HomeScreen(
     onOpenArsenal: () -> Unit,
     contentPadding: PaddingValues,
 ) {
-    Box(Modifier.fillMaxSize().background(HD.Bg)) {
+    Box(Modifier.fillMaxSize().background(Color.Transparent)) {
         when (state) {
             HomeState.Loading -> Column(
                 Modifier.fillMaxSize().statusBarsPadding(),
@@ -340,7 +340,7 @@ private fun HomeList(
 
 @Composable
 private fun HomeHero(onRefresh: () -> Unit) {
-    Column(Modifier.statusBarsPadding().padding(top = 6.dp)) {
+    Column(Modifier.padding(top = 6.dp)) {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

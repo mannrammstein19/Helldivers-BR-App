@@ -1,27 +1,54 @@
 package br.com.helldiversbr.app.ui.theme
 
+import android.content.Context
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-/** Paleta oficial usada pelo HELLDIVERS-BR. */
+enum class HdThemeMode { DEFAULT, MERIDIA }
+
+object ThemePreferences {
+    private const val PREFS = "helldivers_br_prefs"
+    private const val KEY_THEME = "theme_mode"
+
+    fun load(context: Context): HdThemeMode {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_THEME, HdThemeMode.DEFAULT.name)
+        return runCatching { HdThemeMode.valueOf(raw ?: HdThemeMode.DEFAULT.name) }
+            .getOrDefault(HdThemeMode.DEFAULT)
+    }
+
+    fun save(context: Context, mode: HdThemeMode) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_THEME, mode.name)
+            .apply()
+    }
+}
+
+/** Paleta compartilhada pelo HELLDIVERS-BR. O tema Meridia troca o cromado sem alterar cores de facção. */
 object HD {
-    val Bg = Color(0xFF090909)
-    val BgDeep = Color(0xFF050607)
-    val Surface = Color(0xFF141414)
-    val SurfaceHigh = Color(0xFF202020)
-    val SurfaceSoft = Color(0xFF191919)
-    val Yellow = Color(0xFFD7D52C)
-    val YellowBright = Color(0xFFFFE800)
+    @Volatile
+    var mode: HdThemeMode = HdThemeMode.DEFAULT
+
+    val Bg: Color get() = if (mode == HdThemeMode.MERIDIA) Color(0xFF080711) else Color(0xFF090909)
+    val BgDeep: Color get() = if (mode == HdThemeMode.MERIDIA) Color(0xFF05040B) else Color(0xFF050607)
+    val Surface: Color get() = if (mode == HdThemeMode.MERIDIA) Color(0xFF11101A) else Color(0xFF141414)
+    val SurfaceHigh: Color get() = if (mode == HdThemeMode.MERIDIA) Color(0xFF1C1928) else Color(0xFF202020)
+    val SurfaceSoft: Color get() = if (mode == HdThemeMode.MERIDIA) Color(0xFF171420) else Color(0xFF191919)
+
+    val Yellow: Color get() = if (mode == HdThemeMode.MERIDIA) Color(0xFF8F7CFF) else Color(0xFFD7D52C)
+    val YellowBright: Color get() = if (mode == HdThemeMode.MERIDIA) Color(0xFFB7AAFF) else Color(0xFFFFE800)
+
     val Text = Color(0xFFFFFFFF)
-    val TextDim = Color(0xFFB5B5B5)
-    val TextMuted = Color(0xFF7E858C)
+    val TextDim: Color get() = if (mode == HdThemeMode.MERIDIA) Color(0xFFC7C1DA) else Color(0xFFB5B5B5)
+    val TextMuted: Color get() = if (mode == HdThemeMode.MERIDIA) Color(0xFF8E879F) else Color(0xFF7E858C)
     val Green = Color(0xFF55DB7D)
     val Red = Color(0xFFFF4242)
     val Gold = Color(0xFFE0B84D)
-    val Border = Color(0xFF30343A)
-    val BorderSoft = Color(0xFF24282D)
+    val Border: Color get() = if (mode == HdThemeMode.MERIDIA) Color(0xFF393247) else Color(0xFF30343A)
+    val BorderSoft: Color get() = if (mode == HdThemeMode.MERIDIA) Color(0xFF282232) else Color(0xFF24282D)
     val SignalBlue = Color(0xFF00CFFF)
     val DefenseBlue = Color(0xFF3D9DFF)
     val TerminidOrange = Color(0xFFFF9900)
@@ -30,20 +57,20 @@ object HD {
     val Orange = Color(0xFFFF7B00)
 }
 
-private val Scheme = darkColorScheme(
-    primary = HD.Yellow,
-    onPrimary = Color.Black,
-    background = HD.Bg,
-    onBackground = HD.Text,
-    surface = HD.Surface,
-    onSurface = HD.Text,
-    surfaceVariant = HD.SurfaceHigh,
-    onSurfaceVariant = HD.TextDim,
-    outline = HD.Border,
-    error = HD.Red,
-)
-
 @Composable
-fun HelldiversTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = Scheme, content = content)
+fun HelldiversTheme(mode: HdThemeMode = HdThemeMode.DEFAULT, content: @Composable () -> Unit) {
+    HD.mode = mode
+    val scheme = darkColorScheme(
+        primary = HD.Yellow,
+        onPrimary = Color.Black,
+        background = HD.Bg,
+        onBackground = HD.Text,
+        surface = HD.Surface,
+        onSurface = HD.Text,
+        surfaceVariant = HD.SurfaceHigh,
+        onSurfaceVariant = HD.TextDim,
+        outline = HD.Border,
+        error = HD.Red,
+    )
+    MaterialTheme(colorScheme = scheme, content = content)
 }

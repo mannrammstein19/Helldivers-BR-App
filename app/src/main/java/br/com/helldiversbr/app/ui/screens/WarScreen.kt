@@ -80,7 +80,7 @@ fun WarScreen(
     onOpenMap: () -> Unit,
     contentPadding: PaddingValues,
 ) {
-    Box(Modifier.fillMaxSize().background(HD.Bg)) {
+    Box(Modifier.fillMaxSize().background(Color.Transparent)) {
         when (state) {
             HomeState.Loading -> Column(
                 Modifier.fillMaxSize().statusBarsPadding(),
@@ -290,7 +290,7 @@ private fun WarList(
 
 @Composable
 private fun WarHeader(data: HomeData, onRefresh: () -> Unit) {
-    Column(Modifier.statusBarsPadding().padding(top = 6.dp)) {
+    Column(Modifier.padding(top = 6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 SectionLabel("COMANDO E CONTROLE // SUPREMA AUTORIDADE", HD.Yellow)
