@@ -84,25 +84,29 @@ object HelldiversApi {
     }
 
     @Volatile
-    private var planetNames: Map<Long, String>? = null
+    private var planetCatalogCache: Map<Long, PlanetCatalogEntry>? = null
 
     /**
-     * Catálogo id -> nome do planeta (mesma fonte do site). Guardado em memória;
-     * em caso de falha devolve mapa vazio e tenta de novo na próxima chamada.
+     * Catálogo completo de planetas usado também pelo site. Além do nome, traz
+     * bioma e condições ambientais para que o app possa renderizar os mesmos
+     * fundos e chips visuais da Central de Guerra web.
      */
-    suspend fun planetNames(): Map<Long, String> {
-        planetNames?.let { return it }
+    suspend fun planetCatalog(): Map<Long, PlanetCatalogEntry> {
+        planetCatalogCache?.let { return it }
         return withContext(Dispatchers.IO) {
             runCatching {
                 val root = json.parseToJsonElement(get(PLANETS_URL, false)) as JsonObject
                 root.mapNotNull { (id, value) ->
-                    val obj = value as? JsonObject
-                    val directName = obj?.get("name")
-                    val names = obj?.get("names")
-                    val resolved = localizedText(directName).ifBlank { localizedText(names) }
-                    id.toLongOrNull()?.let { key -> resolved.takeIf { it.isNotBlank() }?.let { key to it } }
+                    val key = id.toLongOrNull() ?: return@mapNotNull null
+                    val item = runCatching { json.decodeFromJsonElement(PlanetCatalogEntry.serializer(), value) }.getOrNull()
+                    item?.let { key to it }
                 }.toMap()
-            }.getOrDefault(emptyMap()).also { if (it.isNotEmpty()) planetNames = it }
+            }.getOrDefault(emptyMap()).also { if (it.isNotEmpty()) planetCatalogCache = it }
         }
     }
+
+    /** Compatibilidade para a Ordem Maior, que só precisa de id -> nome. */
+    suspend fun planetNames(): Map<Long, String> = planetCatalog()
+        .mapValues { (_, p) -> p.displayName }
+        .filterValues { it.isNotBlank() }
 }

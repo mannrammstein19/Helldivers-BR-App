@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -44,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.helldiversbr.app.data.HelldiversApi
 import br.com.helldiversbr.app.data.HomeData
+import br.com.helldiversbr.app.data.Campaign
+import br.com.helldiversbr.app.data.OrderRepository
 import br.com.helldiversbr.app.ui.HomeState
 import br.com.helldiversbr.app.ui.theme.HD
 import br.com.helldiversbr.app.update.RemoteVersion
@@ -268,6 +272,10 @@ private fun HomeList(
 
         item { OrderCard(data) }
 
+        data.campaigns.maxByOrNull { it.planet.statistics.playerCount }?.let { spotlight ->
+            item { FrontSpotlightCard(data, spotlight, onOpenWar) }
+        }
+
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
@@ -433,6 +441,48 @@ private fun MissionCard(
                         letterSpacing = 0.8.sp,
                         modifier = Modifier.padding(top = 8.dp),
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FrontSpotlightCard(data: HomeData, campaign: Campaign, onOpenWar: () -> Unit) {
+    val p = campaign.planet
+    val catalog = data.planetCatalog[p.index]
+    val defense = p.event != null
+    val factionRaw = OrderRepository.campaignFaction(campaign)
+    val accent = factionColor(factionRaw, defense)
+    val progress = OrderRepository.campaignPercent(campaign)
+    val image = PlanetVisuals.planetImage(p.index, p.nameText, catalog)
+    val sector = p.sector.ifBlank { catalog?.sector.orEmpty() }.ifBlank { "Setor desconhecido" }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenWar),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = HD.Surface),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.75f)),
+    ) {
+        Column {
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 7.2f)) {
+                AsyncImage(model = image, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.88f)))))
+                Column(Modifier.align(Alignment.BottomStart).padding(14.dp)) {
+                    SectionLabel("FRENTE EM DESTAQUE // ${if (defense) "DEFESA" else "LIBERTAÇÃO"}", accent)
+                    Text(p.nameText.uppercase(), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    Text(sector.uppercase(), color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                }
+            }
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("CONTROLE PLANETÁRIO", color = HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("%.2f%%".format(ptBrHome, progress), color = accent, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                }
+                ProgressBar(progress, accent)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("${fmtHome(p.statistics.playerCount)} HELLDIVERS OPERANDO", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("ABRIR CENTRAL  →", color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.7.sp)
                 }
             }
         }

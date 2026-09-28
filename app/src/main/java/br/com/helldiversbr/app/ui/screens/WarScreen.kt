@@ -8,16 +8,26 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -28,16 +38,22 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import br.com.helldiversbr.app.data.Campaign
 import br.com.helldiversbr.app.data.HomeData
 import br.com.helldiversbr.app.data.OrderRepository
 import br.com.helldiversbr.app.ui.HomeState
 import br.com.helldiversbr.app.ui.theme.HD
+import coil.compose.AsyncImage
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -45,6 +61,12 @@ import java.util.Locale
 
 private val ptBrWar = Locale("pt", "BR")
 private fun fmtWar(n: Long): String = NumberFormat.getInstance(ptBrWar).format(n)
+private fun pct(value: Double): String = "%.2f%%".format(ptBrWar, value)
+private fun rateText(rate: Double?): String = when {
+    rate == null || !rate.isFinite() -> "—"
+    rate > 0 -> "+%.2f%%/h".format(ptBrWar, rate)
+    else -> "%.2f%%/h".format(ptBrWar, rate)
+}
 
 @Composable
 fun WarScreen(
@@ -103,6 +125,7 @@ private fun WarList(
     contentPadding: PaddingValues,
 ) {
     var filter by rememberSaveable { mutableStateOf("all") }
+    var selectedPlanetIndex by rememberSaveable { mutableStateOf<Long?>(null) }
     val filtered = data.campaigns.filter {
         when (filter) {
             "attack" -> it.planet.event == null
@@ -110,12 +133,13 @@ private fun WarList(
             else -> true
         }
     }
+    val selected = selectedPlanetIndex?.let { index -> data.campaigns.firstOrNull { it.planet.index == index } }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
+            start = 14.dp,
+            end = 14.dp,
             top = contentPadding.calculateTopPadding() + 8.dp,
             bottom = contentPadding.calculateBottomPadding() + 22.dp,
         ),
@@ -126,7 +150,7 @@ private fun WarList(
         if (refreshing) {
             item {
                 LinearProgressIndicator(
-                    Modifier.fillMaxWidth(),
+                    Modifier.fillMaxWidth().height(2.dp),
                     color = HD.Yellow,
                     trackColor = HD.SurfaceHigh,
                 )
@@ -145,38 +169,14 @@ private fun WarList(
 
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile(
-                    "Helldivers no front",
-                    fmtWar(data.helldiversOnFront),
-                    "efetivo em campanhas",
-                    HD.YellowBright,
-                    Modifier.weight(1f),
-                )
-                StatTile(
-                    "Frentes ativas",
-                    data.activeFronts.toString(),
-                    "campanhas detectadas",
-                    HD.SignalBlue,
-                    Modifier.weight(1f),
-                )
+                StatTile("Helldivers no front", fmtWar(data.helldiversOnFront), "efetivo em campanhas", HD.YellowBright, Modifier.weight(1f))
+                StatTile("Frentes ativas", data.activeFronts.toString(), "campanhas detectadas", HD.SignalBlue, Modifier.weight(1f))
             }
         }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile(
-                    "Liberações",
-                    data.liberationCount.toString(),
-                    "ofensivas da Super Terra",
-                    HD.Green,
-                    Modifier.weight(1f),
-                )
-                StatTile(
-                    "Defesas",
-                    data.defenseCount.toString(),
-                    "planetas sob ataque",
-                    HD.Red,
-                    Modifier.weight(1f),
-                )
+                StatTile("Liberações", data.liberationCount.toString(), "ofensivas da Super Terra", HD.Green, Modifier.weight(1f))
+                StatTile("Defesas", data.defenseCount.toString(), "planetas sob ataque", HD.Red, Modifier.weight(1f))
             }
         }
 
@@ -200,17 +200,13 @@ private fun WarList(
         }
 
         if (filtered.isEmpty()) {
-            item {
-                HdCard {
-                    Text("Nenhuma frente corresponde ao filtro selecionado.", color = HD.TextDim, fontSize = 13.sp)
-                }
-            }
+            item { HdCard { Text("Nenhuma frente corresponde ao filtro selecionado.", color = HD.TextDim, fontSize = 13.sp) } }
         } else {
             itemsIndexed(
                 filtered,
                 key = { index, campaign -> "${campaign.id ?: campaign.planet.nameText}-${campaign.planet.event?.id ?: 0}-$index" },
             ) { _, campaign ->
-                CampaignCard(campaign)
+                CampaignCard(data, campaign) { selectedPlanetIndex = campaign.planet.index }
             }
         }
 
@@ -218,12 +214,7 @@ private fun WarList(
             HdCard(accent = HD.SignalBlue) {
                 SectionLabel("Mapa tático", HD.SignalBlue)
                 Text("MAPA GALÁCTICO COMPLETO", color = HD.Text, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                Text(
-                    "Visualize setores, planetas e linhas de suprimento no terminal do Mapa Galáctico.",
-                    color = HD.TextDim,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                )
+                Text("Visualize setores, planetas e linhas de suprimento no terminal do Mapa Galáctico.", color = HD.TextDim, fontSize = 12.sp, lineHeight = 18.sp)
                 YellowButton("ABRIR MAPA GALÁCTICO  →", onOpenMap, Modifier.fillMaxWidth())
             }
         }
@@ -235,11 +226,12 @@ private fun WarList(
                     Text("COMUNICAÇÕES RECENTES", color = HD.Text, fontSize = 20.sp, fontWeight = FontWeight.Black)
                 }
             }
-            itemsIndexed(
-                data.dispatches.take(5),
-                key = { index, dispatch -> "dispatch-${dispatch.id}-$index" },
-            ) { _, dispatch -> DispatchCard(dispatch) }
+            itemsIndexed(data.dispatches.take(5), key = { index, dispatch -> "dispatch-${dispatch.id}-$index" }) { _, dispatch -> DispatchCard(dispatch) }
         }
+    }
+
+    if (selected != null) {
+        PlanetDossierDialog(data, selected, onDismiss = { selectedPlanetIndex = null })
     }
 }
 
@@ -247,37 +239,23 @@ private fun WarList(
 private fun WarHeader(data: HomeData, onRefresh: () -> Unit) {
     Column(Modifier.statusBarsPadding().padding(top = 6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
+            Column(Modifier.weight(1f)) {
                 SectionLabel("COMANDO E CONTROLE // SUPREMA AUTORIDADE", HD.Yellow)
                 Text("CENTRAL DE GUERRA", color = HD.Text, fontSize = 27.sp, lineHeight = 29.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 5.dp))
             }
-            TextButton(onClick = onRefresh) {
-                Text("ATUALIZAR", color = HD.Yellow, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp)
-            }
+            TextButton(onClick = onRefresh) { Text("ATUALIZAR", color = HD.Yellow, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp) }
         }
-        Text(
-            "Monitoramento das frentes ativas, efetivo Helldiver, Ordem Maior e comunicações do Alto Comando.",
-            color = HD.TextDim,
-            fontSize = 12.sp,
-            lineHeight = 18.sp,
-            modifier = Modifier.padding(top = 8.dp),
-        )
+        Text("Monitoramento das frentes ativas, efetivo Helldiver, Ordem Maior e comunicações do Alto Comando.", color = HD.TextDim, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 8.dp))
         val time = SimpleDateFormat("HH:mm:ss", ptBrWar).format(Date(data.updatedAtMillis))
         Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.background(HD.Green, RoundedCornerShape(50)).padding(4.dp))
+            Box(Modifier.clip(RoundedCornerShape(50)).background(HD.Green).size(7.dp))
             Text("  TELEMETRIA ONLINE // $time", color = HD.Green, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.7.sp)
         }
     }
 }
 
 @Composable
-private fun WarFilter(
-    id: String,
-    label: String,
-    selected: String,
-    onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun WarFilter(id: String, label: String, selected: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
     val active = selected == id
     Card(
         modifier = modifier.clickable { onSelect(id) },
@@ -285,69 +263,226 @@ private fun WarFilter(
         colors = CardDefaults.cardColors(containerColor = if (active) HD.Yellow else HD.Surface),
         border = BorderStroke(1.dp, if (active) HD.Yellow else HD.Border),
     ) {
-        Text(
-            label,
-            color = if (active) Color.Black else HD.TextDim,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = 0.5.sp,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-        )
+        Text(label, color = if (active) Color.Black else HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp), textAlign = TextAlign.Center)
     }
 }
 
 @Composable
-private fun CampaignCard(campaign: Campaign) {
+private fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
     val planet = campaign.planet
+    val catalog = data.planetCatalog[planet.index]
     val defense = planet.event != null
     val rawFaction = OrderRepository.campaignFaction(campaign)
     val faction = OrderRepository.factionLabel(rawFaction)
     val accent = factionColor(rawFaction, defense)
     val percent = OrderRepository.campaignPercent(campaign)
-    val mode = if (defense) "DEFESA" else "LIBERTAÇÃO"
+    val rate = OrderRepository.campaignRate(data, campaign)
+    val enemyPressure = if (defense) OrderRepository.defenseEnemyRate(planet.event) else OrderRepository.liberationEnemyPressure(campaign)
+    val invasionProgress = if (defense) OrderRepository.defenseEnemyProgress(planet.event) else null
+    val etaWin = OrderRepository.etaFromRate(percent, rate)
+    val etaDeadline = if (defense) OrderRepository.remaining(planet.event?.endTime) else null
+    val headerEta = if (defense) etaDeadline else etaWin
+    val totalPlayers = data.helldiversOnFront.coerceAtLeast(1L)
+    val share = planet.statistics.playerCount.toDouble() / totalPlayers.toDouble() * 100.0
+    val sector = planet.sector.ifBlank { catalog?.sector.orEmpty() }.ifBlank { "Setor desconhecido" }
+    val image = PlanetVisuals.planetImage(planet.index, planet.nameText, catalog)
+    val hazards = PlanetVisuals.hazards(catalog).take(4)
+    val biome = PlanetVisuals.biomeLabel(catalog)
+    val status = when {
+        defense && invasionProgress != null && percent > invasionProgress + 0.15 -> "▲ VENCENDO"
+        defense && invasionProgress != null && invasionProgress > percent + 0.15 -> "▼ PERDENDO"
+        defense -> "◆ EQUILIBRADO"
+        rate == null -> "◌ COLETANDO"
+        rate > 0.005 -> "▲ AVANÇO"
+        rate < -0.005 -> "▼ RECUO"
+        else -> "◆ ESTÁVEL"
+    }
+    val statusColor = when {
+        "VENCENDO" in status || "AVANÇO" in status -> HD.Green
+        "PERDENDO" in status || "RECUO" in status -> HD.Red
+        else -> HD.TextDim
+    }
 
-    HdCard(accent = accent) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(mode, color = accent, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                Text(
-                    planet.nameText.uppercase(),
-                    color = HD.Text,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = HD.BgDeep),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.85f)),
+    ) {
+        Column {
+            Row(
+                Modifier.fillMaxWidth().background(HD.Surface).padding(horizontal = 13.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    AsyncImage(
+                        model = if (defense) "https://helldivers-br.pages.dev/imagens/guerra/operacoes/defesa.png" else "https://helldivers-br.pages.dev/imagens/guerra/operacoes/libertacao.png",
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        contentScale = ContentScale.Fit,
+                    )
+                    Text(if (defense) "DEFESA" else "LIBERTAÇÃO", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                }
+                Text(status, color = statusColor, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.7.sp)
+                Text(headerEta ?: "—", color = HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
-            Chip(faction.uppercase(), accent)
-        }
 
-        if (planet.sector.isNotBlank()) {
-            Text("SETOR ${planet.sector.uppercase()}", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
-        }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(planet.nameText.uppercase(), color = HD.Text, fontSize = 25.sp, lineHeight = 26.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(sector.uppercase(), color = HD.TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, modifier = Modifier.padding(top = 3.dp))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    AsyncImage(model = PlanetVisuals.factionLogo(rawFaction, defense), contentDescription = null, modifier = Modifier.size(26.dp), contentScale = ContentScale.Fit)
+                    Text((if (defense) "SUPER TERRA" else faction.uppercase()), color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                }
+            }
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("PROGRESSO", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-            Text("${"%.2f".format(ptBrWar, percent)}%", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
-        }
-        ProgressBar(percent, accent)
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 7.2f)) {
+                AsyncImage(model = image, contentDescription = "${planet.nameText} — $biome", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.36f)))))
+                if (hazards.isNotEmpty()) {
+                    Row(Modifier.align(Alignment.BottomStart).padding(11.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        hazards.forEach { HazardBadge(it) }
+                    }
+                }
+            }
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CampaignMiniStat("HELLDIVERS", fmtWar(planet.statistics.playerCount), Modifier.weight(1f))
-            CampaignMiniStat(
-                if (defense) "PRAZO" else "REGENERAÇÃO",
-                if (defense) OrderRepository.remaining(planet.event?.endTime) else if (planet.regenPerSecond > 0) "+${"%.1f".format(ptBrWar, planet.regenPerSecond)}/s" else "—",
-                Modifier.weight(1f),
-            )
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                if (defense) {
+                    ProgressBlock("DEFESA HELLDIVERS", percent, HD.DefenseBlue)
+                    ProgressBlock("INVASÃO INIMIGA", invasionProgress ?: 0.0, HD.Red, valueOverride = invasionProgress?.let(::pct) ?: "—")
+                } else {
+                    ProgressBlock("CONTROLE PLANETÁRIO", percent, accent)
+                }
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    TacticalMetric("👥 HELLDIVERS OPERANDO", fmtWar(planet.statistics.playerCount), "%.1f%% do efetivo ativo".format(ptBrWar, share), HD.Text, Modifier.weight(1f))
+                    TacticalMetric("■ ${if (defense) "AVANÇO DA DEFESA / HORA" else "AVANÇO LÍQUIDO / HORA"}", rateText(rate), if (rate == null) "aguardando nova amostra" else "saldo planetário observado", if ((rate ?: 0.0) >= 0) HD.DefenseBlue else HD.Red, Modifier.weight(1f))
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    TacticalMetric(if (defense) "PRESSÃO INIMIGA" else "PRESSÃO ${faction.uppercase()}", rateText(enemyPressure), if (defense) "ritmo do relógio da invasão" else "regeneração registrada na API", if (defense) HD.Red else factionColor(rawFaction), Modifier.weight(1f))
+                    TacticalMetric(if (defense) "🏁 TEMPO DA DEFESA" else "🏁 VITÓRIA ESTIMADA", if (defense) etaWin ?: "calculando" else etaWin ?: "calculando", if (defense) "prazo inimigo: ${etaDeadline ?: "—"}" else "projeção no ritmo atual", HD.Text, Modifier.weight(1f))
+                }
+
+                HorizontalDivider(color = HD.BorderSoft)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("BIOMA: $biome", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(status, color = statusColor, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                }
+                Text("↗ TOQUE PARA ABRIR DOSSIÊ TÁTICO", color = HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+            }
         }
     }
 }
 
 @Composable
-private fun CampaignMiniStat(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier) {
-        Text(label, color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp)
-        Text(value, color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 2.dp))
+private fun ProgressBlock(label: String, value: Double, color: Color, valueOverride: String? = null) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = HD.TextDim, fontSize = 10.sp)
+        Text(valueOverride ?: pct(value), color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.Black)
+    }
+    ProgressBar(value, color)
+}
+
+@Composable
+private fun TacticalMetric(label: String, value: String, detail: String, valueColor: Color, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.height(112.dp),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = HD.Surface),
+        border = BorderStroke(1.dp, HD.Border),
+    ) {
+        Column(Modifier.fillMaxSize().padding(11.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Text(label, color = HD.TextDim, fontSize = 8.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+            Text(value, color = valueColor, fontSize = 18.sp, lineHeight = 19.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(detail, color = HD.TextMuted, fontSize = 9.sp, lineHeight = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun HazardBadge(item: PlanetVisuals.HazardVisual) {
+    Card(
+        shape = RoundedCornerShape(9.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.74f)),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.55f)),
+    ) {
+        Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+            val url = PlanetVisuals.hazardIconUrl(item)
+            if (url != null) {
+                AsyncImage(model = url, contentDescription = item.label, modifier = Modifier.size(29.dp), contentScale = ContentScale.Fit)
+            } else {
+                Text(item.symbol, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Black)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: () -> Unit) {
+    val p = campaign.planet
+    val catalog = data.planetCatalog[p.index]
+    val rawFaction = OrderRepository.campaignFaction(campaign)
+    val defense = p.event != null
+    val accent = factionColor(rawFaction, defense)
+    val image = PlanetVisuals.planetImage(p.index, p.nameText, catalog)
+    val sector = p.sector.ifBlank { catalog?.sector.orEmpty() }.ifBlank { "Setor desconhecido" }
+    val biome = PlanetVisuals.biomeLabel(catalog)
+    val hazards = PlanetVisuals.hazards(catalog)
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = HD.BgDeep),
+            border = BorderStroke(1.dp, accent),
+        ) {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Box(Modifier.fillMaxWidth().aspectRatio(16f / 7f)) {
+                    AsyncImage(model = image, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.05f), HD.BgDeep))))
+                    IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).background(Color.Black.copy(alpha = 0.58f), RoundedCornerShape(50))) {
+                        Icon(Icons.Filled.Close, contentDescription = "Fechar", tint = Color.White)
+                    }
+                    Column(Modifier.align(Alignment.BottomStart).padding(15.dp)) {
+                        SectionLabel(if (defense) "DEFESA // DOSSIÊ TÁTICO" else "LIBERTAÇÃO // DOSSIÊ TÁTICO", accent)
+                        Text(p.nameText.uppercase(), color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                        Text(sector.uppercase(), color = HD.TextDim, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                    }
+                }
+                Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        DossierFact("FACÇÃO", if (defense) "SUPER TERRA" else OrderRepository.factionLabel(rawFaction).uppercase(), Modifier.weight(1f))
+                        DossierFact("BIOMA", biome, Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        DossierFact("HELLDIVERS", fmtWar(p.statistics.playerCount), Modifier.weight(1f))
+                        DossierFact("CONTROLE", pct(OrderRepository.campaignPercent(campaign)), Modifier.weight(1f))
+                    }
+                    if (hazards.isNotEmpty()) {
+                        HorizontalDivider(color = HD.BorderSoft)
+                        SectionLabel("Condições planetárias", HD.TextDim)
+                        hazards.forEach { item ->
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                HazardBadge(item)
+                                Text(item.label.uppercase(), color = HD.Text, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    HorizontalDivider(color = HD.BorderSoft)
+                    Text("TELEMETRIA NATIVA // DADOS SINCRONIZADOS COM A CENTRAL DE GUERRA", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DossierFact(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier.padding(end = 8.dp)) {
+        Text(label, color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
+        Text(value, color = HD.Text, fontSize = 13.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }

@@ -124,6 +124,20 @@ data class Planet(
     val nameText: String get() = localizedText(name).ifBlank { "PLANETA #$index" }
 }
 
+
+@Serializable
+data class PlanetCatalogEntry(
+    val name: JsonElement? = null,
+    val names: JsonElement? = null,
+    val sector: String = "",
+    val biome: String = "",
+    val type: String = "",
+    val environmentals: List<String> = emptyList(),
+    val weather_effects: List<String> = emptyList(),
+) {
+    val displayName: String get() = localizedText(names).ifBlank { localizedText(name) }
+}
+
 /** Campanha ativa retornada por /campaigns. */
 @Serializable
 data class Campaign(

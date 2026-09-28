@@ -33,3 +33,6 @@ Para uma próxima versão, aumente `versionCode` e `versionName` em `app/build.g
 
 ## Próxima etapa
 Transformar **Mapa Galáctico** e **Arsenal/Estratagemas** em telas nativas, mantendo a mesma linguagem visual desta V2.
+
+## V3 — Central de Guerra visual
+A V3 aproxima a experiência nativa da Central de Guerra do visual do site: campanhas com imagem do bioma, facção, condições ambientais, progresso, telemetria 2x2 e dossiê tático. A Home também ganhou uma frente em destaque com imagem e progresso. Consulte `CHANGES-V3.md` para os detalhes.

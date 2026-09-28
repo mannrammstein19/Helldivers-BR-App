@@ -17,7 +17,9 @@ data class HomeData(
     val order: OrderUi,
     val dispatches: List<Dispatch>,
     val planetNames: Map<Long, String>,
+    val planetCatalog: Map<Long, PlanetCatalogEntry>,
     val campaigns: List<Campaign>,
+    val campaignRates: Map<String, Double>,
     val updatedAtMillis: Long,
 ) {
     val helldiversOnFront: Long get() = campaigns.sumOf { it.planet.statistics.playerCount.coerceAtLeast(0) }
@@ -28,6 +30,14 @@ data class HomeData(
 
 object OrderRepository {
 
+    private data class RateSnapshot(
+        val progress: Double,
+        val timeMillis: Long,
+        val ratePerHour: Double? = null,
+    )
+
+    private val rateHistory = mutableMapOf<String, RateSnapshot>()
+
     /**
      * Carrega as fontes em paralelo para a Home e a Central de Guerra.
      * Mantém a mesma lógica do site: API ao vivo primeiro e snapshot para a Ordem Maior.
@@ -37,13 +47,13 @@ object OrderRepository {
         val snapshotDeferred = async { runCatching { HelldiversApi.orderSnapshot() } }
         val dispatchDeferred = async { runCatching { HelldiversApi.dispatches().sortedByDescending { it.published.orEmpty() }.take(10) } }
         val campaignsDeferred = async { runCatching { HelldiversApi.campaigns() } }
-        val planetNamesDeferred = async { runCatching { HelldiversApi.planetNames() } }
+        val planetCatalogDeferred = async { runCatching { HelldiversApi.planetCatalog() } }
 
         val live = liveDeferred.await()
         val snapshot = snapshotDeferred.await()
         val dispatchesResult = dispatchDeferred.await()
         val campaignsResult = campaignsDeferred.await()
-        val planetNamesResult = planetNamesDeferred.await()
+        val planetCatalogResult = planetCatalogDeferred.await()
 
         val liveOrder = live.getOrNull()
         val snap = snapshot.getOrNull()
@@ -82,13 +92,91 @@ object OrderRepository {
             else -> OrderUi(order = null, state = "pending", percent = 0.0, fromSnapshot = false)
         }
 
+        val now = System.currentTimeMillis()
+        val catalog = planetCatalogResult.getOrDefault(emptyMap())
+        val names = catalog.mapValues { (_, p) -> p.displayName }.filterValues { it.isNotBlank() }
+        val rates = updateCampaignRates(campaigns, now)
+
         HomeData(
             order = ui,
             dispatches = dispatches,
-            planetNames = planetNamesResult.getOrDefault(emptyMap()),
+            planetNames = names,
+            planetCatalog = catalog,
             campaigns = campaigns,
-            updatedAtMillis = System.currentTimeMillis(),
+            campaignRates = rates,
+            updatedAtMillis = now,
         )
+    }
+
+    fun campaignKey(campaign: Campaign): String {
+        val p = campaign.planet
+        val mode = if (p.event != null) "defense" else "attack"
+        return "${p.index}:$mode:${p.event?.id ?: 0}"
+    }
+
+    private fun updateCampaignRates(campaigns: List<Campaign>, now: Long): Map<String, Double> {
+        val activeKeys = mutableSetOf<String>()
+        campaigns.forEach { campaign ->
+            val key = campaignKey(campaign)
+            activeKeys += key
+            val progress = campaignPercent(campaign)
+            val previous = rateHistory[key]
+            val elapsed = previous?.let { now - it.timeMillis } ?: 0L
+            val nextRate = if (previous != null && elapsed >= 30_000L) {
+                val hours = elapsed / 3_600_000.0
+                if (hours > 0.0) (progress - previous.progress) / hours else previous.ratePerHour
+            } else previous?.ratePerHour
+
+            // Em menos de 30 s preservamos a amostra anterior para evitar ruído.
+            if (previous == null || elapsed >= 30_000L) {
+                rateHistory[key] = RateSnapshot(progress, now, nextRate)
+            }
+        }
+        rateHistory.keys.retainAll(activeKeys)
+        return rateHistory.mapNotNull { (key, snap) -> snap.ratePerHour?.let { key to it } }.toMap()
+    }
+
+    fun campaignRate(data: HomeData, campaign: Campaign): Double? = data.campaignRates[campaignKey(campaign)]
+
+    /** Pressão inimiga de libertação convertida para % por hora, como no site. */
+    fun liberationEnemyPressure(campaign: Campaign): Double? {
+        val p = campaign.planet
+        if (p.maxHealth <= 0 || p.regenPerSecond < 0) return null
+        return (p.regenPerSecond * 3600.0 / p.maxHealth.toDouble()) * 100.0
+    }
+
+    /** Relógio da invasão em uma defesa, de 0 a 100%. */
+    fun defenseEnemyProgress(event: PlanetEvent?): Double? {
+        if (event == null) return null
+        val start = event.startTime?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return null
+        val end = event.endTime?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return null
+        val total = end.toEpochMilli() - start.toEpochMilli()
+        if (total <= 0L) return null
+        return (((System.currentTimeMillis() - start.toEpochMilli()).toDouble() / total) * 100.0).coerceIn(0.0, 100.0)
+    }
+
+    fun defenseEnemyRate(event: PlanetEvent?): Double? {
+        if (event == null) return null
+        val start = event.startTime?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return null
+        val end = event.endTime?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return null
+        val hours = (end.toEpochMilli() - start.toEpochMilli()) / 3_600_000.0
+        return if (hours > 0.0) 100.0 / hours else null
+    }
+
+    fun etaFromRate(progress: Double, rate: Double?): String? {
+        if (rate == null || !rate.isFinite() || rate <= 0.0 || progress >= 100.0) return null
+        val hours = (100.0 - progress) / rate
+        if (!hours.isFinite() || hours <= 0.0) return null
+        if (hours > 24.0 * 365.0) return ">1 ano"
+        val minutes = kotlin.math.max(1L, kotlin.math.round(hours * 60.0).toLong())
+        val days = minutes / 1440L
+        val h = (minutes % 1440L) / 60L
+        val m = minutes % 60L
+        return when {
+            days > 0 -> "~${days}d ${h}h"
+            h > 0 -> "~${h}h ${m}min"
+            else -> "~${m}min"
+        }
     }
 
     /** Progresso médio das tarefas em % (progress[i] / meta da tarefa i). */
