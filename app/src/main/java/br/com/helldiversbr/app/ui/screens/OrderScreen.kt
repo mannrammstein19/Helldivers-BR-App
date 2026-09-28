@@ -143,8 +143,7 @@ private fun OrderContent(
                             val completed = if (ui.state == "completed") order.tasks.size else order.tasks.indices.count { i ->
                                 val task = order.tasks[i]
                                 val progress = order.progress.getOrNull(i) ?: 0L
-                                var showForecast by rememberSaveable(data.order.order?.id, data.order.order?.expiration, index) { mutableStateOf(false) }
-    val goal = task.goal
+                                val goal = task.goal
                                 if (goal != null && goal > 0) progress >= goal else progress > 0
                             }
                             Text(
@@ -232,6 +231,7 @@ private fun OrderHeaderStat(label: String, value: String, modifier: Modifier = M
 
 @Composable
 private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, progress: Long) {
+    var showForecast by rememberSaveable(data.order.order?.id, data.order.order?.expiration, index) { mutableStateOf(false) }
     val goal = task.goal
     val planetName = task.planetId?.let { data.planetNames[it] }
     val campaign = task.planetId?.let { id -> data.campaigns.firstOrNull { it.planet.index == id } }
