@@ -237,7 +237,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 else if(special!=null) {
                     if(!icon(special,at,r*5)) {circle(at,r*1.7f,Color.Black);circle(at,r*1.8f,color,.7f/unit)}
                 } else icon(if(key=="unknown")"human" else key,at,iconSize)
-                if(defense||offensive) icon(if(defense)"defense"else"liberation",at+Offset(-r*3.1f,-r*3.9f),r*2.2f)
+                if(defense||offensive) icon(if (defense) "defense" else "liberation",at+Offset(-r*3.1f,-r*3.9f),r*2.2f)
                 if(defense) {
                     val attacker=mapFaction(p.event!!.faction); val badge=at+Offset(r*2.65f,-r*2.65f)
                     circle(badge,r*1.05f,Color(0xFF090D12));circle(badge,r*1.05f,mapColor(attacker),.6f/unit);icon(attacker,badge,r*1.8f)
@@ -252,7 +252,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 if(selected==p.index) circle(at,r*3.4f,Color.White,1.3f/unit)
                 if(detail) {
                     val gap=12.sp.toPx()/unit
-                    label(if(capital)"Super Terra"else p.nameText,at+Offset(0f,r*3.2f+gap),Color.White)
+                    label(if (capital) "Super Terra" else p.nameText,at+Offset(0f,r*3.2f+gap),Color.White)
                     label("${mapPlayerCount(p.statistics.playerCount)} HD",at+Offset(0f,r*3.2f+gap*2),Color(0xFFADB7C5),true)
                     if(defense||offensive) {
                         label(mapPercent(mapProgress(p)),at+Offset(0f,-r*3.5f),if(defense)Color(0xFF4DA6FF)else mapColor("human"))
