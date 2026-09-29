@@ -6,7 +6,6 @@ import android.graphics.Path
 import android.graphics.RectF
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
@@ -16,7 +15,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
@@ -51,10 +52,11 @@ private data class MapArt(val bitmaps: Map<String, Bitmap> = emptyMap(), val fai
 
 @Composable
 fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sectors: Boolean, territories: Boolean,
-                 invasions: Boolean, selected: Long?, active: Set<Long>, dssHost: Long?, onSelect: (Long) -> Unit) {
+                 invasions: Boolean, selected: Long?, active: Set<Long>, dssHost: Long?, onSelect: (Long) -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var zoom by remember { mutableStateOf(1f) }
     var pan by remember { mutableStateOf(Offset.Zero) }
+    var viewport by remember { mutableStateOf(IntSize.Zero) }
     val art by produceState(MapArt(), context) {
         val keys = listOf("human", "automaton", "terminid", "illuminate", "earth", "defense", "liberation",
             "galaxy", "penta", "meridia", "wreckage", "hive_lord", "draco_barata")
@@ -143,12 +145,20 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
     val captions = remember(positioned) { positioned.associate { (p, _) ->
         p.index to (p.nameText to "${mapPlayerCount(p.statistics.playerCount)} HD")
     } }
+    // Selecting a search result or marker brings it below the floating summary.
+    // Live API updates do not reset the camera.
+    LaunchedEffect(selected, viewport) {
+        val point = selected?.let { positions[it] }
+        if (point != null && viewport.width > 0 && viewport.height > 0) {
+            zoom = max(zoom, 2.5f)
+            val unit = min(viewport.width, viewport.height) / 1120f * zoom
+            pan = Offset(-point.x * unit, -point.y * unit + viewport.height * .18f)
+        }
+    }
     val paint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true } }
     val textPaint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER } }
-    Column {
-        Box {
-        Canvas(Modifier.fillMaxWidth().height(430.dp).clip(RoundedCornerShape(14.dp))
-            .border(1.dp, HD.Border, RoundedCornerShape(14.dp)).background(Color(0xFF050810))
+    Box(modifier.clipToBounds()) {
+        Canvas(Modifier.fillMaxSize().onSizeChanged { viewport = it }.background(Color(0xFF050810))
             .pointerInput(Unit) {
                 detectTransformGestures { centroid, move, scale, _ ->
                     val next = (zoom * scale).coerceIn(1f, 10f)
@@ -320,13 +330,14 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 canvas.drawText(caption.text, anchor.x, anchor.y, textPaint)
             }
         }
-        Row(Modifier.align(Alignment.TopEnd).background(Color(0xCC050810), RoundedCornerShape(10.dp))) {
+        Row(Modifier.align(Alignment.BottomEnd).padding(8.dp).background(Color(0xCC050810), RoundedCornerShape(10.dp))) {
             TextButton(onClick = { zoom = (zoom / 1.4f).coerceAtLeast(1f) }, modifier = Modifier.width(48.dp)) { Text("−") }
             TextButton(onClick = { zoom = 1f; pan = Offset.Zero }, modifier = Modifier.width(48.dp)) { Text("↺") }
             TextButton(onClick = { zoom = (zoom * 1.4f).coerceAtMost(10f) }, modifier = Modifier.width(48.dp)) { Text("+") }
         }
-        }
-        if(art.done&&art.failed>0) Text("${art.failed} imagens do mapa não carregaram. Verifique a conexão e os arquivos do site.",color=HD.Gold,fontSize=11.sp)
-        if(positioned.isEmpty()) Text("Sem coordenadas válidas para este filtro.",color=HD.TextDim,fontSize=12.sp)
+        if(art.done && art.failed > 0) Text("${art.failed} imagens indisponíveis", color=HD.Gold, fontSize=10.sp,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom=62.dp))
+        if(positioned.isEmpty()) Text("Sem planetas neste filtro. Abra BUSCAR ou FILTROS.",color=HD.TextDim,fontSize=12.sp,
+            modifier = Modifier.align(Alignment.Center).padding(24.dp))
     }
 }

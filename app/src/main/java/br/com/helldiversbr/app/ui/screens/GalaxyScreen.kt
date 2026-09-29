@@ -1,25 +1,18 @@
 package br.com.helldiversbr.app.ui.screens
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -32,10 +25,7 @@ import br.com.helldiversbr.app.data.*
 import br.com.helldiversbr.app.ui.*
 import br.com.helldiversbr.app.ui.theme.HD
 import kotlinx.coroutines.delay
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
-import kotlin.math.abs
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +46,8 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     }
     var query by rememberSaveable { mutableStateOf("") }
     var activeOnly by rememberSaveable { mutableStateOf(false) }
+    var allPlanets by rememberSaveable { mutableStateOf(false) }
+    var listOpen by rememberSaveable { mutableStateOf(false) }
     var filtersOpen by rememberSaveable { mutableStateOf(false) }
     var routes by rememberSaveable { mutableStateOf(true) }
     var sectors by rememberSaveable { mutableStateOf(true) }
@@ -64,20 +56,35 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     var faction by rememberSaveable { mutableStateOf("Todas") }
     var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var dossierId by rememberSaveable { mutableStateOf<Long?>(null) }
-    val filtered = remember(planets, query, activeOnly, faction, campaigns) {
+    val contextIds = remember(planets, campaigns, state.dssHost) {
+        val core = planets.filter { it.index in campaigns || it.event != null || mapFaction(it.currentOwner) != "human" }
+            .map { it.index }.toSet()
+        val nearby = planets.filter { it.index in core }.flatMap { it.waypoints + it.attacking }.toSet()
+        core + nearby + planets.filter { p -> p.waypoints.any { it in core } || p.attacking.any { it in core } ||
+            mapEarth(p) || mapSpecial(p) != null || p.index == state.dssHost }.map { it.index }
+    }
+    val filtered = remember(planets, query, activeOnly, allPlanets, faction, campaigns, contextIds) {
         planets.filter {
-            (!activeOnly || it.index in campaigns) &&
+            (!activeOnly || it.index in campaigns || it.event != null) &&
+                (allPlanets || activeOnly || query.isNotBlank() || faction != "Todas" || it.index in contextIds) &&
                 (faction == "Todas" || galaxyFaction(it) == faction) &&
                 searchKey("${it.nameText} ${it.sector}").contains(searchKey(query.trim()))
         }
     }
-    val selected = planets.firstOrNull { it.index == selectedId }
-    val listPlanets = if (query.isNotBlank() || activeOnly || faction != "Todas") filtered
-        else filtered.filter { it.index in campaigns }
+    val selected = filtered.firstOrNull { it.index == selectedId }
+    LaunchedEffect(filtered, selectedId) {
+        if (selectedId != null && selected == null) selectedId = null
+    }
     val dossierPlanet = planets.firstOrNull { it.index == dossierId }
     if (dossierPlanet != null && data != null) PlanetDossierDialog(data, campaigns[dossierPlanet.index] ?: Campaign(planet = dossierPlanet)) { dossierId = null }
     if (filtersOpen) ModalBottomSheet(onDismissRequest = { filtersOpen = false }, containerColor = HD.Surface) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Text("VISIBILIDADE", color = HD.Yellow, fontSize = 12.sp)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Todos os planetas", color = HD.Text, modifier = Modifier.weight(1f))
+                Switch(checked = allPlanets, onCheckedChange = { allPlanets = it; activeOnly = false })
+            }
+            Text("Desligado: preserva inimigos, frentes, vizinhos das rotas e locais especiais. A busca e o filtro de facção também encontram planetas fora desse recorte.", color = HD.TextDim, fontSize = 11.sp)
             Text("CAMADAS DO MAPA", color = HD.TextMuted, fontSize = 11.sp)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(activeOnly, { activeOnly = !activeOnly }, label = { Text("Frentes ativas") })
@@ -92,75 +99,85 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
                     FilterChip(faction == label, { faction = label }, label = { Text(label) })
                 }
             }
+            TextButton(onClick = vm::refresh, enabled = !state.loading) { Text("ATUALIZAR TELEMETRIA") }
+            TextButton(onClick = onOpenFullMap) { Text("MAPA DO SITE ↗") }
             TextButton(onClick = { filtersOpen = false }, modifier = Modifier.align(Alignment.End)) { Text("CONCLUÍDO") }
         }
     }
-    LazyColumn(Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(14.dp, contentPadding.calculateTopPadding() + 12.dp, 14.dp, contentPadding.calculateBottomPadding() + 20.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item {
-            SectionLabel("Super Terra // Reconhecimento orbital")
-            Text("MAPA GALÁCTICO", color = HD.Text, fontSize = 27.sp, fontWeight = FontWeight.Black)
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                val time = state.updatedAtMillis?.let { SimpleDateFormat("HH:mm:ss", Locale("pt", "BR")).format(Date(it)) }
-                Text(time?.let { "Leitura às $it" } ?: "Aguardando telemetria", color = HD.TextDim, fontSize = 11.sp)
-                TextButton(onClick = vm::refresh, enabled = !state.loading) { Text("ATUALIZAR") }
-            }
-            if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth(), color = HD.Yellow)
-            state.error?.let { Text(it, color = HD.Gold, fontSize = 12.sp) }
-            if (home is HomeState.Error) Text("Frentes ativas sem atualização. ${home.message}", color = HD.Gold, fontSize = 12.sp)
-        }
-        item {
+    androidx.activity.compose.BackHandler(enabled = selectedId != null && !filtersOpen && !listOpen && dossierId == null) {
+        selectedId = null
+    }
+    if (listOpen) ModalBottomSheet(onDismissRequest = { listOpen = false }, containerColor = HD.Surface) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(.85f).padding(horizontal = 14.dp)) {
+            Text("LOCALIZAR PLANETA", color = HD.Yellow, fontWeight = FontWeight.Bold)
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
-                label = { Text("Buscar planeta ou setor") },
+                label = { Text("Nome ou setor") },
                 trailingIcon = { if (query.isNotBlank()) TextButton(onClick = { query = "" }) { Text("Limpar") } })
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                FilterChip(activeOnly, { activeOnly = !activeOnly }, label = { Text("Frentes ativas") })
-                TextButton(onClick = { filtersOpen = true }) { Text("FILTROS · $faction ▾", fontSize = 12.sp) }
+            Text("${filtered.size} planetas • toque para localizar no mapa", color = HD.TextDim, fontSize = 12.sp,
+                modifier = Modifier.padding(vertical = 8.dp))
+            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (filtered.isEmpty()) item { Text("Nenhum resultado. Ajuste a busca ou os filtros.", color = HD.TextDim) }
+                items(filtered, key = { it.index }) { planet ->
+                    Surface(color = HD.BgDeep, shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            selectedId = planet.index; listOpen = false
+                        }) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SiteImage(mapFaction(planet.currentOwner), galaxyFaction(planet), Modifier.size(28.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(planet.nameText, color = HD.Text, fontWeight = FontWeight.Bold)
+                                Text(planet.sector, color = HD.TextDim, fontSize = 11.sp)
+                            }
+                            Text("${mapPlayerCount(planet.statistics.playerCount)} HD", color = HD.Yellow, fontSize = 12.sp)
+                        }
+                    }
+                }
+                item { Spacer(Modifier.height(20.dp)) }
             }
         }
-        item {
-            GalaxyCanvas(filtered, planets, routes, sectors, territories, invasions, selectedId, campaigns.keys, state.dssHost, onSelect = { selectedId = it })
-            Text("Arraste para mover • Use dois dedos para ampliar • Toque num planeta", color = HD.TextDim, fontSize = 11.sp)
-            Text("${filtered.size} planetas no filtro. A lista abaixo também permite selecionar as frentes.", color = HD.TextMuted, fontSize = 11.sp)
-        }
-        if (selected != null) item {
-            HdCard(accent = factionColor(selected.currentOwner)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(selected.nameText, color = HD.Text, fontSize = 21.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { selectedId = null }) { Text("FECHAR") }
+    }
+    // The map owns the whole available destination, including the space behind overlays.
+    BoxWithConstraints(Modifier.fillMaxSize().padding(contentPadding).background(Color(0xFF050810))) {
+        val panelMaxHeight = (maxHeight * .52f).coerceAtMost(310.dp)
+        val visibilityButtonWidth = (maxWidth - 176.dp).coerceAtLeast(48.dp)
+        GalaxyCanvas(filtered, planets, routes, sectors, territories, invasions, selectedId,
+            campaigns.keys, state.dssHost, onSelect = { selectedId = it }, modifier = Modifier.fillMaxSize())
+        Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Surface(color = Color(0xE6090D12), shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)) {
+                Column(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("MAPA GALÁCTICO", color = HD.Yellow, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                            Text("${filtered.size} planetas visíveis",
+                                color = HD.TextDim, fontSize = 10.sp)
+                        }
+                        TextButton(onClick = { listOpen = true }) { Text("BUSCAR", fontSize = 11.sp) }
+                        TextButton(onClick = { filtersOpen = true }) { Text("FILTROS", fontSize = 11.sp) }
+                    }
+                    if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp), color = HD.Yellow)
+                    if (state.error != null || home is HomeState.Error || data?.staleSources?.isNotEmpty() == true) {
+                        Text("Dados sem atualização • exibindo a última leitura disponível", color = HD.Gold, fontSize = 10.sp)
+                    }
                 }
-                Text("${selected.sector} • ${galaxyFaction(selected)}", color = HD.TextDim)
-                Text("Helldivers: ${java.text.NumberFormat.getInstance(Locale("pt", "BR")).format(selected.statistics.playerCount)}", color = HD.Text)
-                campaigns[selected.index]?.let { campaign ->
-                    val percent = OrderRepository.campaignPercent(campaign)
-                    Text("${if (selected.event != null) "Defendendo" else "Libertação"}: ${"%.2f".format(Locale("pt", "BR"), percent)}%", color = HD.Yellow)
-                    ProgressBar(percent, HD.Yellow)
-                }
-                data?.planetCatalog?.get(selected.index)?.let { Text(PlanetVisuals.biomeLabel(it), color = HD.TextDim) }
-                PlanetRegions(selected)
-                if (data != null) YellowButton("DOSSIÊ TÁTICO COMPLETO", { dossierId = selected.index })
-                if (mapName(selected) == "omicron") Text("Hive Lord · Draco Barata — marcações editoriais do portal, sem confirmação ao vivo da API.", color = HD.Gold, fontSize = 11.sp)
             }
-        }
-        item { SectionLabel(if (query.isNotBlank() || faction != "Todas") "Planetas encontrados" else "Frentes em operação") }
-        if (listPlanets.isEmpty()) item { Text("Nenhum planeta nesta lista. Pesquise um nome ou ajuste os filtros.", color = HD.TextDim) }
-        items(listPlanets, key = { it.index }) { planet ->
-            val campaign = campaigns[planet.index]
-            if (data != null && campaign != null) {
-                CampaignCard(data, campaign) { dossierId = planet.index }
-            } else {
-                HdCard(modifier = Modifier.clickable { dossierId = planet.index }, accent = factionColor(planet.currentOwner)) {
-                    Text(planet.nameText, color = HD.Text, fontWeight = FontWeight.Bold)
-                    Text("${planet.sector} • ${galaxyFaction(planet)}", color = HD.TextDim)
-                    Text("${mapPlayerCount(planet.statistics.playerCount)} Helldivers", color = HD.Text)
-                    val count = planet.regions.count { it.isAvailable == true }
-                    if (count > 0) Text("$count regiões disponíveis", color = HD.TextDim, fontSize = 12.sp)
-                    Text("TOQUE PARA ABRIR DOSSIÊ", color = HD.Yellow, fontSize = 11.sp)
+            if (selected != null) {
+                Surface(color = Color(0xF2090D12), shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, factionColor(selected.currentOwner)),
+                    modifier = Modifier.fillMaxWidth().heightIn(max = panelMaxHeight)) {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        FloatingPlanetCard(selected, campaigns[selected.index], data, stale = home is HomeState.Error,
+                            onClose = { selectedId = null }, onDossier = { dossierId = selected.index })
+                    }
                 }
             }
         }
-        item { TextButton(onClick = onOpenFullMap) { Text("MAPA COMPLETO DO SITE ↗") } }
+        TextButton(onClick = { allPlanets = !(allPlanets && !activeOnly); activeOnly = false; query = ""; faction = "Todas" },
+            modifier = Modifier.align(Alignment.BottomStart).padding(8.dp).widthIn(max = visibilityButtonWidth)
+                .background(Color(0xE6090D12), androidx.compose.foundation.shape.RoundedCornerShape(12.dp))) {
+            Text(if (allPlanets && !activeOnly) "TODOS ✓" else "TODOS OS PLANETAS", fontSize = 10.sp)
+        }
     }
 }
 
@@ -170,4 +187,64 @@ private fun galaxyFaction(p: Planet): String = when (p.currentOwner.lowercase())
     "automaton", "automatons", "cyborg", "3" -> "Autômatos"
     "illuminate", "illuminates", "4" -> "Iluminados"
     else -> p.currentOwner.ifBlank { "Desconhecida" }
+}
+
+
+@Composable
+private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeData?, stale: Boolean, onClose: () -> Unit, onDossier: () -> Unit) {
+    var expanded by rememberSaveable(planet.index) { mutableStateOf(true) }
+    val defense = planet.event != null
+    val percent = campaign?.let { OrderRepository.campaignPercent(it) }
+    val fresh = !stale && data != null && "campanhas" !in data.staleSources
+    val rate = if (fresh && data != null && campaign != null) OrderRepository.campaignRate(data, campaign) else null
+    val eta = if (percent != null) OrderRepository.etaFromRate(percent, rate) else null
+    val accent = if (defense) HD.DefenseBlue else factionColor(planet.currentOwner)
+    val count = planet.regions.count { it.isAvailable == true }
+    Column(Modifier.padding(horizontal = 12.dp, vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            SiteImage(mapFaction(planet.currentOwner), galaxyFaction(planet), Modifier.size(26.dp))
+            Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                Text(planet.nameText, color = HD.Text, fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 2)
+                Text("${planet.sector} • ${if (defense) "DEFESA" else if (campaign != null) "LIBERTAÇÃO" else galaxyFaction(planet)}",
+                    color = accent, fontSize = 10.sp)
+            }
+            IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(48.dp)) { Text(if (expanded) "−" else "+") }
+            IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) { Text("✕") }
+        }
+        if (expanded) {
+            if (percent != null) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(if (defense) "Progresso da defesa" else "Libertação", color = HD.TextDim, fontSize = 11.sp)
+                    Text(mapPercent(percent), color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+                ProgressBar(percent, accent)
+                if (defense) OrderRepository.defenseEnemyProgress(planet.event)?.let { invasion ->
+                    Text("Invasão: ${mapPercent(invasion)} • prazo ${OrderRepository.remaining(planet.event?.endTime) ?: "—"}", color = HD.Gold, fontSize = 11.sp)
+                    ProgressBar(invasion, HD.Red)
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        SiteImage("reward_capacete", "Helldivers", Modifier.size(17.dp))
+                        Text(mapPlayerCount(planet.statistics.playerCount), color = HD.Yellow, fontWeight = FontWeight.Bold)
+                    }
+                    Text("HELLDIVERS", color = HD.TextDim, fontSize = 9.sp)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(rate?.let { "%+.2f%%/h".format(Locale("pt", "BR"), it) } ?: "—", color = HD.DefenseBlue, fontWeight = FontWeight.Bold)
+                    Text("RITMO LÍQUIDO", color = HD.TextDim, fontSize = 9.sp)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(eta ?: "—", color = HD.Text, fontWeight = FontWeight.Bold)
+                    Text("PREVISÃO", color = HD.TextDim, fontSize = 9.sp)
+                }
+            }
+            if (campaign != null && eta == null) Text(if (!fresh) "Previsão suspensa: aguardando dados atualizados." else if (rate == null) "Aguardando amostras para calcular o ritmo." else "Sem previsão de vitória no ritmo atual.", color = HD.TextMuted, fontSize = 10.sp)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (count > 0) "$count regiões disponíveis" else "${galaxyFaction(planet)}", color = HD.TextDim, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                TextButton(onClick = onDossier, enabled = data != null) { Text("DOSSIÊ ↗", fontSize = 11.sp) }
+            }
+        }
+    }
 }
