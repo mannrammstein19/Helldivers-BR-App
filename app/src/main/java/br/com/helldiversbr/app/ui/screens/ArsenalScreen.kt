@@ -126,7 +126,6 @@ private fun permissionAccent(permission: String) = when {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StratagemCard(entry: StratagemEntry, favorite: Boolean, loader: ImageLoader, onFavorite: () -> Unit, onOpen: () -> Unit) {
-    var expanded by rememberSaveable(entry.name) { mutableStateOf(false) }
     val accent = when {
         "Ofensiva" in entry.permission -> HD.Red
         "Suprimento" in entry.permission -> HD.SignalBlue
@@ -135,17 +134,15 @@ private fun StratagemCard(entry: StratagemEntry, favorite: Boolean, loader: Imag
     }
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = HD.Surface), border = BorderStroke(1.dp, accent.copy(alpha = 0.5f))) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 AsyncImage("${HelldiversApi.SITE_BASE}/${entry.icon}", null, imageLoader = loader,
-                    modifier = Modifier.size(44.dp), contentScale = ContentScale.Fit)
-                Column(Modifier.weight(1f).padding(horizontal = 10.dp).clickable { expanded = !expanded }) {
-                    Text(entry.category.uppercase(), color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    modifier = Modifier.size(34.dp), contentScale = ContentScale.Fit)
+                Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
                     Text(entry.name, color = HD.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
-                TextButton(onClick = onFavorite) { Text(if (favorite) "★" else "☆", fontSize = 24.sp) }
+                IconButton(onClick = onFavorite, modifier = Modifier.size(48.dp)) { Text(if (favorite) "★" else "☆", fontSize = 23.sp) }
             }
-            Text("CÓDIGO DE ATIVAÇÃO", color = HD.TextMuted, fontSize = 10.sp)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 entry.code.forEach { direction ->
                     val key = when (direction) {
@@ -153,7 +150,7 @@ private fun StratagemCard(entry: StratagemEntry, favorite: Boolean, loader: Imag
                         '←' -> "arrow_left"; '→' -> "arrow_right"
                         else -> null
                     }
-                    if (key != null) SiteImage(key, direction.toString(), Modifier.size(23.dp))
+                    if (key != null) SiteImage(key, direction.toString(), Modifier.size(20.dp))
                 }
             }
             if (entry.code.none { it in "↑↓←→" }) Text(entry.code.ifBlank { "Sem código informado" }, color = HD.TextDim)
@@ -163,13 +160,13 @@ private fun StratagemCard(entry: StratagemEntry, favorite: Boolean, loader: Imag
                 Text(entry.cost, color = HD.Text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
             Text("Recarga: ${entry.cooldown}   •   Nível: ${entry.level}", color = HD.TextDim, fontSize = 12.sp)
-            TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "OCULTAR AQUISIÇÃO −" else "VER AQUISIÇÃO +") }
-            if (expanded) {
-                HorizontalDivider(color = HD.Border)
-                Text("Fonte: ${entry.source}", color = HD.TextDim, fontSize = 13.sp)
-            }
-            if (entry.path.isNotBlank() && entry.path != "#") {
-                YellowButton("FICHA COMPLETA NO SITE ↗", onOpen, Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Aquisição: ${entry.source}", color = HD.TextDim, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                if (entry.path.isNotBlank() && entry.path != "#") {
+                    TextButton(onClick = onOpen, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                        Text("DETALHES ↗", color = HD.Yellow, fontSize = 11.sp)
+                    }
+                }
             }
         }
     }

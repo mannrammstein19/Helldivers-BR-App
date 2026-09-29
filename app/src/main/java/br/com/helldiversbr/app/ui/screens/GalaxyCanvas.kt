@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -145,11 +146,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
     val paint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true } }
     val textPaint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER } }
     Column {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = { zoom = (zoom / 1.4f).coerceAtLeast(1f) }) { Text("−") }
-            TextButton(onClick = { zoom = 1f; pan = Offset.Zero }) { Text("CENTRALIZAR") }
-            TextButton(onClick = { zoom = (zoom * 1.4f).coerceAtMost(10f) }) { Text("+") }
-        }
+        Box {
         Canvas(Modifier.fillMaxWidth().height(430.dp).clip(RoundedCornerShape(14.dp))
             .border(1.dp, HD.Border, RoundedCornerShape(14.dp)).background(Color(0xFF050810))
             .pointerInput(Unit) {
@@ -209,7 +206,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
             listOf(Triple("automaton",215f,45f),Triple("terminid",280f,45f),Triple("illuminate",113f,-46f)).forEach { (key,start,sweep) ->
                 val path=Path().apply { addArc(RectF(-535f,-535f,535f,535f),start,sweep) }
                 val title=when(key){"automaton"->"AUTÔMATOS";"terminid"->"TERMINÍDEOS";else->"ILUMINADOS"}
-                textPaint.color=mapColor(key).toArgb();textPaint.textSize=12f;textPaint.textAlign=Paint.Align.LEFT
+                textPaint.color=mapColor(key).toArgb();textPaint.textSize=11.sp.toPx()/unit;textPaint.textAlign=Paint.Align.LEFT
                 val length=android.graphics.PathMeasure(path,false).length
                 canvas.drawTextOnPath(title,path,(length-textPaint.measureText(title))/2f,0f,textPaint)
                 textPaint.textAlign=Paint.Align.CENTER
@@ -283,7 +280,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 }
                 if(selected==p.index) circle(at,r*3.4f,Color.White,1.3f/unit)
                 if (detail) {
-                    val gap = (if (quiet) 11.sp else 13.sp).toPx() / unit
+                    val gap = 17.sp.toPx() / unit
                     val caption = captions.getValue(p.index)
                     val progress = if (defense || offensive) mapPercent(mapProgress(p)) else null
                     val regionText = if (p.regions.any { it.isAvailable == true }) "${p.regions.count { it.isAvailable == true }} regiões" else null
@@ -297,12 +294,13 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     }
                     if (dssHost == p.index) lines += MapCaption("DSS",at+Offset(0f,-r*3.5f-gap*2),Color(0xFFFFD23F),true)
                     val boxes = lines.map { line ->
-                        textPaint.textSize = (if(line.small) 8.sp else 11.sp).toPx()/unit
+                        textPaint.textSize = (if(line.small) 8.sp else 11.sp).toPx()
                         val half = textPaint.measureText(line.text)/2
                         val metrics = textPaint.fontMetrics
-                        val margin = 3.dp.toPx()/unit
-                        RectF(line.at.x-half-margin,line.at.y+metrics.top-margin,
-                            line.at.x+half+margin,line.at.y+metrics.bottom+margin)
+                        val margin = 3.dp.toPx()
+                        val anchor = origin + line.at * unit
+                        RectF(anchor.x-half-margin,anchor.y+metrics.top-margin,
+                            anchor.x+half+margin,anchor.y+metrics.bottom+margin)
                     }
                     // Selection gets priority through drawOrder, without bypassing collision checks.
                     if (boxes.none { box -> occupied.any { RectF.intersects(it,box) } }) {
@@ -311,8 +309,22 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     }
                 }
             }
-            pendingLabels.forEach { label(it.text, it.at, it.color, it.small) }
             canvas.restore()
+            // Text is rendered in screen pixels, outside the galaxy transform.
+            textPaint.setShadowLayer(2.dp.toPx(), 0f, 1.dp.toPx(), android.graphics.Color.BLACK)
+            pendingLabels.forEach { caption ->
+                val anchor = origin + caption.at * unit
+                textPaint.textSize = (if (caption.small) 8.sp else 11.sp).toPx()
+                textPaint.color = caption.color.toArgb()
+                textPaint.textAlign = Paint.Align.CENTER
+                canvas.drawText(caption.text, anchor.x, anchor.y, textPaint)
+            }
+        }
+        Row(Modifier.align(Alignment.TopEnd).background(Color(0xCC050810), RoundedCornerShape(10.dp))) {
+            TextButton(onClick = { zoom = (zoom / 1.4f).coerceAtLeast(1f) }, modifier = Modifier.width(48.dp)) { Text("−") }
+            TextButton(onClick = { zoom = 1f; pan = Offset.Zero }, modifier = Modifier.width(48.dp)) { Text("↺") }
+            TextButton(onClick = { zoom = (zoom * 1.4f).coerceAtMost(10f) }, modifier = Modifier.width(48.dp)) { Text("+") }
+        }
         }
         if(art.done&&art.failed>0) Text("${art.failed} imagens do mapa não carregaram. Verifique a conexão e os arquivos do site.",color=HD.Gold,fontSize=11.sp)
         if(positioned.isEmpty()) Text("Sem coordenadas válidas para este filtro.",color=HD.TextDim,fontSize=12.sp)

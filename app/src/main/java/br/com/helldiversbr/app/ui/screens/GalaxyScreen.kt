@@ -37,7 +37,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: () -> Unit, vm: GalaxyViewModel = viewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -56,6 +56,7 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     }
     var query by rememberSaveable { mutableStateOf("") }
     var activeOnly by rememberSaveable { mutableStateOf(false) }
+    var filtersOpen by rememberSaveable { mutableStateOf(false) }
     var routes by rememberSaveable { mutableStateOf(true) }
     var sectors by rememberSaveable { mutableStateOf(true) }
     var territories by rememberSaveable { mutableStateOf(true) }
@@ -75,6 +76,25 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
         else filtered.filter { it.index in campaigns }
     val dossierPlanet = planets.firstOrNull { it.index == dossierId }
     if (dossierPlanet != null && data != null) PlanetDossierDialog(data, campaigns[dossierPlanet.index] ?: Campaign(planet = dossierPlanet)) { dossierId = null }
+    if (filtersOpen) ModalBottomSheet(onDismissRequest = { filtersOpen = false }, containerColor = HD.Surface) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Text("CAMADAS DO MAPA", color = HD.TextMuted, fontSize = 11.sp)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(activeOnly, { activeOnly = !activeOnly }, label = { Text("Frentes ativas") })
+                FilterChip(routes, { routes = !routes }, label = { Text("Rotas") })
+                FilterChip(invasions, { invasions = !invasions }, label = { Text("Invasão") })
+                FilterChip(territories, { territories = !territories }, label = { Text("Territórios") })
+                FilterChip(sectors, { sectors = !sectors }, label = { Text("Setores") })
+            }
+            Text("FACÇÕES", color = HD.TextMuted, fontSize = 11.sp)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Todas", "Super Terra", "Terminídeos", "Autômatos", "Iluminados").forEach { label ->
+                    FilterChip(faction == label, { faction = label }, label = { Text(label) })
+                }
+            }
+            TextButton(onClick = { filtersOpen = false }, modifier = Modifier.align(Alignment.End)) { Text("CONCLUÍDO") }
+        }
+    }
     LazyColumn(Modifier.fillMaxSize(),
         contentPadding = PaddingValues(14.dp, contentPadding.calculateTopPadding() + 12.dp, 14.dp, contentPadding.calculateBottomPadding() + 20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -94,19 +114,9 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
                 label = { Text("Buscar planeta ou setor") },
                 trailingIcon = { if (query.isNotBlank()) TextButton(onClick = { query = "" }) { Text("Limpar") } })
-            Text("EXIBIÇÃO", color = HD.TextMuted, fontSize = 11.sp)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 FilterChip(activeOnly, { activeOnly = !activeOnly }, label = { Text("Frentes ativas") })
-                FilterChip(routes, { routes = !routes }, label = { Text("Rotas") })
-                FilterChip(invasions, { invasions = !invasions }, label = { Text("Invasão") })
-                FilterChip(territories, { territories = !territories }, label = { Text("Territórios") })
-                FilterChip(sectors, { sectors = !sectors }, label = { Text("Setores") })
-            }
-            Text("FACÇÕES", color = HD.TextMuted, fontSize = 11.sp)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Todas", "Super Terra", "Terminídeos", "Autômatos", "Iluminados").forEach { label ->
-                    FilterChip(faction == label, { faction = label }, label = { Text(label) })
-                }
+                TextButton(onClick = { filtersOpen = true }) { Text("FILTROS · $faction ▾", fontSize = 12.sp) }
             }
         }
         item {

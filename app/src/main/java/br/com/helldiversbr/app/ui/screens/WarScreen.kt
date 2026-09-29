@@ -395,10 +395,10 @@ fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
                 Text(headerEta ?: "—", color = HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
 
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(planet.nameText.uppercase(), color = HD.Text, fontSize = 25.sp, lineHeight = 26.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(sector.uppercase(), color = HD.TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, modifier = Modifier.padding(top = 1.dp))
+                    Text(planet.nameText.uppercase(), color = HD.Text, fontSize = 23.sp, lineHeight = 24.sp, style = androidx.compose.ui.text.TextStyle(platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)), fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(sector.uppercase(), color = HD.TextMuted, fontSize = 10.sp, lineHeight = 12.sp, style = androidx.compose.ui.text.TextStyle(platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)), fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 }
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {

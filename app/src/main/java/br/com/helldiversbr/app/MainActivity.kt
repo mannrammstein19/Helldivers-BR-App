@@ -175,6 +175,7 @@ private fun App(
                             onRefresh = vm::refresh,
                             onDismissUpdate = vm::dismissUpdate,
                             onOpenWar = { navigate("guerra") },
+                            onOpenOrder = { navigate("ordem") },
                             onOpenMap = { navigate("mapa") },
                             onOpenArsenal = { navigate("arsenal") },
                             onOpenFactions = { navigate("faccoes") },

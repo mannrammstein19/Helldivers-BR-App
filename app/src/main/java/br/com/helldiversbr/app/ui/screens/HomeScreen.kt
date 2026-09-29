@@ -31,7 +31,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.foundation.lazy.rememberLazyListState
+import kotlinx.coroutines.launch
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,6 +72,7 @@ fun HomeScreen(
     onRefresh: () -> Unit,
     onDismissUpdate: () -> Unit,
     onOpenWar: () -> Unit,
+    onOpenOrder: () -> Unit,
     onOpenMap: () -> Unit,
     onOpenArsenal: () -> Unit,
     onOpenFactions: () -> Unit,
@@ -98,6 +104,7 @@ fun HomeScreen(
                 onRefresh = onRefresh,
                 onDismissUpdate = onDismissUpdate,
                 onOpenWar = onOpenWar,
+                onOpenOrder = onOpenOrder,
                 onOpenMap = onOpenMap,
                 onOpenArsenal = onOpenArsenal,
                 onOpenFactions = onOpenFactions,
@@ -115,6 +122,7 @@ fun HomeScreen(
                         onRefresh = onRefresh,
                         onDismissUpdate = onDismissUpdate,
                         onOpenWar = onOpenWar,
+                onOpenOrder = onOpenOrder,
                         onOpenMap = onOpenMap,
                         onOpenArsenal = onOpenArsenal,
                         onOpenFactions = onOpenFactions,
@@ -159,11 +167,14 @@ private fun HomeList(
     onRefresh: () -> Unit,
     onDismissUpdate: () -> Unit,
     onOpenWar: () -> Unit,
+    onOpenOrder: () -> Unit,
     onOpenMap: () -> Unit,
     onOpenArsenal: () -> Unit,
     onOpenFactions: () -> Unit,
     contentPadding: PaddingValues,
 ) {
+    val carousel = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
     fun openExternal(path: String) {
@@ -207,7 +218,6 @@ private fun HomeList(
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 Column {
-                    SectionLabel("Terminais de comando", HD.TextDim)
                     Text("SEU PRÓXIMO DESTINO", color = HD.Text, fontSize = 20.sp, fontWeight = FontWeight.Black)
                 }
                 Text("DESLIZE →", color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
@@ -215,7 +225,7 @@ private fun HomeList(
         }
 
         item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyRow(state = carousel, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     MissionCard(
                         number = "TERMINAL 01 / 05",
@@ -274,7 +284,30 @@ private fun HomeList(
             }
         }
 
-        item { OrderCard(data) }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                repeat(5) { index ->
+                    IconButton(onClick = { scope.launch { carousel.animateScrollToItem(index) } }) {
+                        Box(Modifier.width(if(carousel.firstVisibleItemIndex == index) 20.dp else 5.dp).height(5.dp)
+                            .clip(RoundedCornerShape(50)).background(if(carousel.firstVisibleItemIndex == index) HD.Yellow else HD.TextMuted))
+                    }
+                }
+            }
+        }
+        item { HomeOrderCard(data, onOpenOrder) }
+        item {
+            HdCard(accent = Color(0xFF7478F6)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AsyncImage("${HelldiversApi.SITE_BASE}/icons/discord.png", "Discord", Modifier.size(48.dp))
+                    Column {
+                        Text("DISCORD · HELLDIVERS BR", color = HD.TextDim, fontSize = 10.sp)
+                        Text("Encontre seu esquadrão.", color = HD.Text, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                Text("Combine partidas e lute pela Super Terra com a comunidade.", color = HD.TextDim, fontSize = 12.sp)
+                YellowButton("ENTRAR NO DISCORD ↗", { openExternal("discord/index.html") }, Modifier.fillMaxWidth())
+            }
+        }
 
         if (data.dispatches.isNotEmpty()) {
             item {
@@ -293,44 +326,14 @@ private fun HomeList(
 @Composable
 private fun HomeHero(onRefresh: () -> Unit) {
     Column(Modifier.padding(top = 6.dp)) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column {
-                SectionLabel("HELLDIVERS BR // COMANDO", HD.Yellow)
-                Text("TERMINAL OPERACIONAL", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(HD.Green)
-                        .width(7.dp)
-                        .height(7.dp)
-                )
-                Text(" ONLINE", color = HD.Green, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                IconButton(onClick = onRefresh) {
-                    Icon(Icons.Filled.Refresh, contentDescription = "Atualizar telemetria", tint = HD.Yellow)
-                }
-            }
-        }
-        Text(
-            "PRONTO PARA\nO PRÓXIMO MERGULHO?",
-            color = HD.Text,
-            fontSize = 30.sp,
-            lineHeight = 31.sp,
-            fontWeight = FontWeight.Black,
-            modifier = Modifier.padding(top = 16.dp),
-        )
-        Text(
-            "Informação, estratégia e guerra galáctica em um único terminal.",
-            color = HD.TextDim,
-            fontSize = 13.sp,
-            lineHeight = 19.sp,
-            modifier = Modifier.padding(top = 8.dp),
-        )
+        SectionLabel("HELLDIVERS BR // COMANDO", HD.Yellow)
+        Text(buildAnnotatedString {
+            append("PRONTO PARA\nO PRÓXIMO ")
+            withStyle(SpanStyle(color = HD.Yellow)) { append("MERGULHO?") }
+        }, color = HD.Text, fontSize = 29.sp, lineHeight = 31.sp, fontWeight = FontWeight.Black,
+            modifier = Modifier.padding(top = 12.dp))
+        Text("Escolha seu destino. Pela Super Terra.", color = HD.TextDim, fontSize = 13.sp,
+            modifier = Modifier.padding(top = 8.dp))
     }
 }
 
@@ -347,7 +350,7 @@ private fun MissionCard(
     Card(
         modifier = Modifier
             .width(292.dp)
-            .height(178.dp)
+            .height(240.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(7.dp),
         colors = CardDefaults.cardColors(containerColor = HD.Surface),
@@ -379,9 +382,10 @@ private fun MissionCard(
                     Text(
                         title,
                         color = Color.White,
-                        fontSize = 19.sp,
+                        fontSize = 25.sp,
+                        lineHeight = 27.sp,
                         fontWeight = FontWeight.Black,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(subtitle, color = Color.White.copy(alpha = 0.78f), fontSize = 11.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 2.dp))
