@@ -2,6 +2,9 @@ package br.com.helldiversbr.app.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,7 +60,7 @@ fun PlanetRegions(planet: Planet) {
             Json.decodeFromString(MapSerializer(String.serializer(), String.serializer()), it.readText())
         }
     }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         SectionLabel("Regiões do planeta · ${available.size}")
         available.forEachIndexed { index, region ->
             val info = regionPresentation(region)
@@ -69,20 +72,26 @@ fun PlanetRegions(planet: Planet) {
                 "MegaCity" -> "Megacidade"
                 else -> "Metrópole"
             }
-            HdCard(accent = if (info.percent == 100.0) HD.Green else HD.Border) {
-                Text(localizedText(region.name).ifBlank { "Região ${index + 1}" }, color = HD.Text, fontWeight = FontWeight.Bold)
-                if (type != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SiteImage(type, identity, Modifier.size(30.dp))
-                    Text(identity, color = HD.TextDim, fontSize = 12.sp)
+            Surface(color = HD.Surface, shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, if (info.percent == 100.0) HD.Green else HD.Border)) {
+            Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (type != null) SiteImage(type, identity, Modifier.size(28.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(localizedText(region.name).ifBlank { "Região ${index + 1}" }, color = HD.Text, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 18.sp)
+                        Text("$identity • ${info.status}", color = HD.TextDim, fontSize = 11.sp, lineHeight = 14.sp)
+                    }
                 }
-                Text(info.status, color = HD.TextDim, fontSize = 12.sp)
                 Text(info.percent?.let { "Progresso da região: ${"%.2f".format(Locale("pt", "BR"), it)}%" }
-                    ?: "Progresso indisponível", color = HD.Yellow, fontSize = 13.sp)
+                    ?: "Progresso indisponível", color = HD.Yellow, fontSize = 13.sp, lineHeight = 17.sp)
                 info.percent?.let { ProgressBar(it, HD.Yellow) }
-                info.players?.let { Text("${NumberFormat.getInstance(Locale("pt", "BR")).format(it)} Helldivers na região", color = HD.TextDim, fontSize = 12.sp) }
-                if (info.note.isNotEmpty()) Text(info.note, color = HD.TextMuted, fontSize = 11.sp)
+                info.players?.let { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SiteImage("helldivers_active", "Helldivers ativos", Modifier.size(17.dp))
+                    Text("${NumberFormat.getInstance(Locale("pt", "BR")).format(it)} Helldivers na região", color = HD.TextDim, fontSize = 12.sp, lineHeight = 16.sp) } }
+                if (info.note.isNotEmpty()) Text(info.note, color = HD.TextMuted, fontSize = 11.sp, lineHeight = 15.sp)
+            }
             }
         }
-        Text("Progresso regional independente do progresso do planeta. Dados da última leitura da API.", color = HD.TextMuted, fontSize = 11.sp)
+        Text("Progresso regional independente do progresso do planeta. Dados da última leitura da API.", color = HD.TextMuted, fontSize = 11.sp, lineHeight = 15.sp)
     }
 }

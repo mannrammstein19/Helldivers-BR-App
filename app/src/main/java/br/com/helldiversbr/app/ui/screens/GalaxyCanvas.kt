@@ -59,7 +59,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
     var viewport by remember { mutableStateOf(IntSize.Zero) }
     val art by produceState(MapArt(), context) {
         val keys = listOf("human", "automaton", "terminid", "illuminate", "earth", "defense", "liberation",
-            "galaxy", "penta", "meridia", "wreckage", "hive_lord", "draco_barata")
+            "helldivers_active", "galaxy", "penta", "meridia", "wreckage", "hive_lord", "draco_barata")
         val loaded = coroutineScope {
             keys.map { key -> async {
                 var bitmap: Bitmap? = null
@@ -305,7 +305,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     if (dssHost == p.index) lines += MapCaption("DSS",at+Offset(0f,-r*3.5f-gap*2),Color(0xFFFFD23F),true)
                     val boxes = lines.map { line ->
                         textPaint.textSize = (if(line.small) 8.sp else 11.sp).toPx()
-                        val half = textPaint.measureText(line.text)/2
+                        val half = textPaint.measureText(line.text)/2 + if (line.text.endsWith(" HD")) 13.dp.toPx() else 0f
                         val metrics = textPaint.fontMetrics
                         val margin = 3.dp.toPx()
                         val anchor = origin + line.at * unit
@@ -327,6 +327,12 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 textPaint.textSize = (if (caption.small) 8.sp else 11.sp).toPx()
                 textPaint.color = caption.color.toArgb()
                 textPaint.textAlign = Paint.Align.CENTER
+                if (caption.text.endsWith(" HD")) art.bitmaps["helldivers_active"]?.let { bitmap ->
+                    val side = 11.dp.toPx()
+                    val right = anchor.x - textPaint.measureText(caption.text) / 2f - 3.dp.toPx()
+                    paint.style = Paint.Style.FILL; paint.shader = null; paint.alpha = 255
+                    canvas.drawBitmap(bitmap, null, RectF(right-side, anchor.y-side, right, anchor.y), paint)
+                }
                 canvas.drawText(caption.text, anchor.x, anchor.y, textPaint)
             }
         }

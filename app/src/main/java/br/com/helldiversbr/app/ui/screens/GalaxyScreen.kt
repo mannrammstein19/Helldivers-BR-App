@@ -12,6 +12,11 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import coil.compose.AsyncImage
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -96,7 +101,20 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
             Text("FACÇÕES", color = HD.TextMuted, fontSize = 11.sp)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Todas", "Super Terra", "Terminídeos", "Autômatos", "Iluminados").forEach { label ->
-                    FilterChip(faction == label, { faction = label }, label = { Text(label) })
+                    val key = when (label) {
+                        "Super Terra" -> "human"
+                        "Terminídeos" -> "terminid"
+                        "Autômatos" -> "automaton"
+                        "Iluminados" -> "illuminate"
+                        else -> null
+                    }
+                    val color = key?.let { mapColor(it) } ?: HD.Yellow
+                    FilterChip(faction == label, { faction = label },
+                        label = { Text(label, fontWeight = FontWeight.Bold) },
+                        leadingIcon = { if (key != null) SiteImage(key, label, Modifier.size(22.dp), tint = color) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = HD.BgDeep, labelColor = HD.TextDim,
+                            selectedContainerColor = color.copy(alpha = .20f), selectedLabelColor = color))
                 }
             }
             TextButton(onClick = vm::refresh, enabled = !state.loading) { Text("ATUALIZAR TELEMETRIA") }
@@ -129,6 +147,7 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
                                 Text(planet.nameText, color = HD.Text, fontWeight = FontWeight.Bold)
                                 Text(planet.sector, color = HD.TextDim, fontSize = 11.sp)
                             }
+                            SiteImage("helldivers_active", "Helldivers ativos", Modifier.size(17.dp))
                             Text("${mapPlayerCount(planet.statistics.playerCount)} HD", color = HD.Yellow, fontSize = 12.sp)
                         }
                     }
@@ -154,7 +173,14 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
                                 color = HD.TextDim, fontSize = 10.sp)
                         }
                         TextButton(onClick = { listOpen = true }) { Text("BUSCAR", fontSize = 11.sp) }
-                        TextButton(onClick = { filtersOpen = true }) { Text("FILTROS", fontSize = 11.sp) }
+                        TextButton(onClick = { filtersOpen = true }) {
+                            val key = when (faction) { "Super Terra" -> "human"; "Terminídeos" -> "terminid"; "Autômatos" -> "automaton"; "Iluminados" -> "illuminate"; else -> null }
+                            if (key != null) {
+                                SiteImage(key, faction, Modifier.size(20.dp), tint = mapColor(key))
+                                Spacer(Modifier.width(4.dp))
+                            }
+                            Text("FILTROS", fontSize = 11.sp, color = key?.let { mapColor(it) } ?: HD.Yellow)
+                        }
                     }
                     if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp), color = HD.Yellow)
                     if (state.error != null || home is HomeState.Error || data?.staleSources?.isNotEmpty() == true) {
@@ -200,18 +226,35 @@ private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeDa
     val eta = if (percent != null) OrderRepository.etaFromRate(percent, rate) else null
     val accent = if (defense) HD.DefenseBlue else factionColor(planet.currentOwner)
     val count = planet.regions.count { it.isAvailable == true }
-    Column(Modifier.padding(horizontal = 12.dp, vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    val landscape = PlanetVisuals.planetImage(planet.index, planet.nameText, data?.planetCatalog?.get(planet.index))
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Box(Modifier.fillMaxWidth().heightIn(min = if (expanded) 92.dp else 58.dp)) {
+            if (expanded) {
+                AsyncImage(model = landscape, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+                Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = .2f), Color(0xFF090D12)))))
+            }
+        Row(Modifier.fillMaxWidth().align(Alignment.BottomStart).padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             SiteImage(mapFaction(planet.currentOwner), galaxyFaction(planet), Modifier.size(26.dp))
             Column(Modifier.weight(1f).padding(start = 8.dp)) {
                 Text(planet.nameText, color = HD.Text, fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 2)
                 Text("${planet.sector} • ${if (defense) "DEFESA" else if (campaign != null) "LIBERTAÇÃO" else galaxyFaction(planet)}",
                     color = accent, fontSize = 10.sp)
             }
-            IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(48.dp)) { Text(if (expanded) "−" else "+") }
-            IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) { Text("✕") }
+            IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(48.dp)
+                .semantics { contentDescription = if (expanded) "Recolher ficha" else "Expandir ficha" }
+                .background(Color(0xE629303A), androidx.compose.foundation.shape.CircleShape)) {
+                Text(if (expanded) "−" else "+", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.width(6.dp))
+            IconButton(onClick = onClose, modifier = Modifier.size(48.dp)
+                .semantics { contentDescription = "Fechar ficha do planeta" }
+                .background(Color(0xE629303A), androidx.compose.foundation.shape.CircleShape)) {
+                Text("×", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            }
+        }
         }
         if (expanded) {
+            Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             if (percent != null) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(if (defense) "Progresso da defesa" else "Libertação", color = HD.TextDim, fontSize = 11.sp)
@@ -226,7 +269,7 @@ private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeDa
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        SiteImage("reward_capacete", "Helldivers", Modifier.size(17.dp))
+                        SiteImage("helldivers_active", "Helldivers", Modifier.size(17.dp))
                         Text(mapPlayerCount(planet.statistics.playerCount), color = HD.Yellow, fontWeight = FontWeight.Bold)
                     }
                     Text("HELLDIVERS", color = HD.TextDim, fontSize = 9.sp)
@@ -244,6 +287,7 @@ private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeDa
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (count > 0) "$count regiões disponíveis" else "${galaxyFaction(planet)}", color = HD.TextDim, fontSize = 11.sp, modifier = Modifier.weight(1f))
                 TextButton(onClick = onDossier, enabled = data != null) { Text("DOSSIÊ ↗", fontSize = 11.sp) }
+            }
             }
         }
     }

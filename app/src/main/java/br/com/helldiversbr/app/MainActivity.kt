@@ -387,7 +387,7 @@ private fun AppDrawer(
                     .padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // Logo nativa do projeto: não depende de rede para aparecer no menu.
+                // Capa do menu indicada pelo portal; o ícone instalado do app permanece o mesmo.
                 Box(
                     Modifier
                         .fillMaxWidth()
@@ -398,10 +398,10 @@ private fun AppDrawer(
                     contentAlignment = Alignment.Center,
                 ) {
                     AsyncImage(
-                        model = R.drawable.ic_launcher_foreground,
-                        contentDescription = "HELLDIVERS-BR",
-                        modifier = Modifier.size(142.dp),
-                        contentScale = ContentScale.Fit,
+                        model = "${HelldiversApi.SITE_BASE}/imagens/fundos/site/wallpaper_principal_4_helldivers.png",
+                        contentDescription = "Helldivers — capa do menu",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
                     )
                 }
 

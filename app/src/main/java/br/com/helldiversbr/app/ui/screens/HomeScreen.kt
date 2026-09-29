@@ -451,6 +451,7 @@ private fun FrontSpotlightCard(data: HomeData, campaign: Campaign, onOpenWar: ()
                 }
                 ProgressBar(progress, accent)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    SiteImage("helldivers_active", "Helldivers ativos", Modifier.size(17.dp))
                     Text("${fmtHome(p.statistics.playerCount)} HELLDIVERS OPERANDO", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     Text("ABRIR CENTRAL  →", color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.7.sp)
                 }

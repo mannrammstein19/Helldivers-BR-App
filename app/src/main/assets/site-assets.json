@@ -110,5 +110,8 @@
   ],
   "arsenal_medals": [
     "imagens/ui/icons/medals.png"
+  ],
+  "helldivers_active": [
+    "imagens/ui/icons/helldiver.png"
   ]
 }

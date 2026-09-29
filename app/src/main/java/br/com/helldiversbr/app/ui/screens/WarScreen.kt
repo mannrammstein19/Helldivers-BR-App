@@ -435,7 +435,7 @@ fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
                 }
 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    TacticalMetric("👥 HELLDIVERS OPERANDO", fmtWar(planet.statistics.playerCount), "%.1f%% do efetivo ativo".format(ptBrWar, share), HD.Text, Modifier.weight(1f))
+                    TacticalMetric("HELLDIVERS OPERANDO", fmtWar(planet.statistics.playerCount), "%.1f%% do efetivo ativo".format(ptBrWar, share), HD.Text, Modifier.weight(1f))
                     TacticalMetric("■ ${if (defense) "AVANÇO DA DEFESA / HORA" else "AVANÇO LÍQUIDO / HORA"}", rateText(rate), if (rate == null) "aguardando nova amostra" else "saldo planetário observado", if ((rate ?: 0.0) >= 0) HD.DefenseBlue else HD.Red, Modifier.weight(1f))
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -474,7 +474,10 @@ private fun TacticalMetric(label: String, value: String, detail: String, valueCo
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(label, color = HD.TextDim, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.35.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (label == "HELLDIVERS OPERANDO") SiteImage("helldivers_active", "Helldivers ativos", Modifier.size(18.dp))
             Text(value, color = valueColor, fontSize = 18.sp, lineHeight = 20.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
             Text(detail, color = HD.TextMuted, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
@@ -531,7 +534,7 @@ fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: () -> Uni
                         Text(sector.uppercase(), color = HD.TextDim, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
                     }
                 }
-                Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         DossierFact("CONTROLE ATUAL", OrderRepository.factionLabel(ownerFactionRaw).uppercase(), Modifier.weight(1f))
                         DossierFact("BIOMA", biome, Modifier.weight(1f))
@@ -556,7 +559,7 @@ fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: () -> Uni
                     }
                     HorizontalDivider(color = HD.BorderSoft)
                     PlanetRegions(p)
-                    Text("TELEMETRIA NATIVA // DADOS SINCRONIZADOS COM A CENTRAL DE GUERRA", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+                    Text("TELEMETRIA NATIVA // DADOS SINCRONIZADOS COM A CENTRAL DE GUERRA", color = HD.TextMuted, fontSize = 8.sp, lineHeight = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
                 }
             }
         }
@@ -566,7 +569,10 @@ fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: () -> Uni
 @Composable
 private fun DossierFact(label: String, value: String, modifier: Modifier = Modifier) {
     Column(modifier.padding(end = 8.dp)) {
-        Text(label, color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
-        Text(value, color = HD.Text, fontSize = 13.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(label, color = HD.TextMuted, fontSize = 9.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (label == "HELLDIVERS") SiteImage("helldivers_active", "Helldivers ativos", Modifier.size(17.dp))
+        Text(value, color = HD.Text, fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
     }
 }

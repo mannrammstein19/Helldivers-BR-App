@@ -145,6 +145,7 @@ fun StatTile(
                 letterSpacing = 1.1.sp,
                 modifier = Modifier.padding(top = 10.dp),
             )
+            if (backgroundKey == "war_players") SiteImage("helldivers_active", "Helldivers ativos", Modifier.size(20.dp))
             Text(
                 value,
                 color = HD.Text,
