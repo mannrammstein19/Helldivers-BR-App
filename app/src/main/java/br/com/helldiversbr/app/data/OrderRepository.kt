@@ -21,6 +21,7 @@ data class HomeData(
     val dispatches: List<Dispatch>,
     val planetNames: Map<Long, String>,
     val planetCatalog: Map<Long, PlanetCatalogEntry>,
+    val planets: List<Planet> = emptyList(),
     val campaigns: List<Campaign>,
     val campaignRates: Map<String, Double>,
     val dss: DssReading,
@@ -51,7 +52,7 @@ object OrderRepository {
     /** Exibe instantaneamente o último estado salvo enquanto a rede é revalidada. */
     suspend fun loadCached(): HomeData? {
         val cached = lastGood ?: TelemetryCache.loadHome() ?: return null
-        val stale = (cached.staleSources + listOf("campanhas", "despachos", "Ordem Maior", "DSS")).distinct()
+        val stale = (cached.staleSources + listOf("campanhas", "planetas", "despachos", "Ordem Maior", "DSS")).distinct()
         return cached.copy(
             dss = cached.dss.copy(stale = true, source = "cache"),
             staleSources = stale,
@@ -72,6 +73,7 @@ object OrderRepository {
         val snapshotDeferred = async { runCatching { HelldiversApi.orderSnapshot() } }
         val dispatchDeferred = async { runCatching { HelldiversApi.dispatches().sortedByDescending { it.published.orEmpty() }.take(10) } }
         val campaignsDeferred = async { runCatching { HelldiversApi.campaigns() } }
+        val planetsDeferred = async { runCatching { HelldiversApi.planets() } }
         val planetCatalogDeferred = async { runCatching { HelldiversApi.planetCatalog() } }
         val dssDeferred = async { DssRepository.load() }
 
@@ -79,6 +81,7 @@ object OrderRepository {
         val snapshot = snapshotDeferred.await()
         val communityDispatches = dispatchDeferred.await()
         val communityCampaigns = campaignsDeferred.await()
+        val communityPlanets = planetsDeferred.await()
         val planetCatalogResult = planetCatalogDeferred.await()
         val dss = dssDeferred.await()
 
@@ -97,9 +100,13 @@ object OrderRepository {
         fun validCampaigns(items: List<Campaign>): Boolean =
             items.isNotEmpty() && items.any { it.planet.index >= 0L && it.planet.nameText.isNotBlank() }
 
+        fun validPlanets(items: List<Planet>): Boolean =
+            items.isNotEmpty() && items.count { it.index >= 0L } >= 10
+
         val communityOrderValue = communityOrder.getOrNull()?.takeIf { it.tasks.isNotEmpty() }
         val communityDispatchList = communityDispatches.getOrNull().orEmpty()
         val communityCampaignList = communityCampaigns.getOrNull().orEmpty()
+        val communityPlanetList = communityPlanets.getOrNull().orEmpty()
 
         val directOrderDeferred = async {
             if (communityOrderValue == null)
@@ -110,7 +117,7 @@ object OrderRepository {
                 runCatching { DirectGameApi.dispatches().take(10) } else Result.success(emptyList())
         }
         val directCampaignsDeferred = async {
-            if (!validCampaigns(communityCampaignList)) directWarData() else null
+            if (!validCampaigns(communityCampaignList) || !validPlanets(communityPlanetList)) directWarData() else null
         }
         val directOrder = directOrderDeferred.await()
         val directDispatches = directDispatchesDeferred.await()
@@ -118,7 +125,9 @@ object OrderRepository {
 
         val directOrderValue = directOrder.getOrNull()?.takeIf { it.tasks.isNotEmpty() }
         val directDispatchList = directDispatches.getOrNull().orEmpty()
-        val directCampaignList = directCampaigns?.getOrNull()?.campaigns.orEmpty()
+        val directWarValue = directCampaigns?.getOrNull()
+        val directCampaignList = directWarValue?.campaigns.orEmpty()
+        val directPlanetList = directWarValue?.planets.orEmpty()
 
         val liveOrder = communityOrderValue ?: directOrderValue
         val orderSource = when {
@@ -145,6 +154,13 @@ object OrderRepository {
             compareByDescending<Campaign> { it.planet.event != null }
                 .thenByDescending { it.planet.statistics.playerCount }
         )
+
+        val planetSource: String
+        val planets = when {
+            validPlanets(communityPlanetList) -> { planetSource = "community"; communityPlanetList }
+            validPlanets(directPlanetList) -> { planetSource = "direct"; directPlanetList }
+            else -> { planetSource = "cache"; fallback?.planets.orEmpty() }
+        }
 
         val snapOrder = snap?.order
         fun visibleState(state: String, order: Assignment): String {
@@ -195,6 +211,7 @@ object OrderRepository {
         val dataTimestamp = if (campaignsFresh) now else fallback?.updatedAtMillis ?: 0L
         val stale = buildList {
             if (campaignSource == "cache") add("campanhas")
+            if (planetSource == "cache") add("planetas")
             if (dispatchSource == "cache") add("despachos")
             if (orderSource == "cache" || (ui.fromSnapshot && ui.state == "active")) add("Ordem Maior")
             if (dss.stale) add("DSS")
@@ -202,6 +219,7 @@ object OrderRepository {
 
         val usedSources = buildSet {
             add(campaignSource)
+            add(planetSource)
             add(dispatchSource)
             add(orderSource)
             if (dss.source in setOf("community", "direct", "cache")) add(dss.source)
@@ -213,6 +231,7 @@ object OrderRepository {
             dispatches = dispatches,
             planetNames = names,
             planetCatalog = catalog,
+            planets = planets,
             campaigns = campaigns,
             campaignRates = rates,
             dss = dss,
@@ -223,7 +242,7 @@ object OrderRepository {
         ).also { result ->
             lastGood = result
             // Não regrava um fallback puro como se ele fosse novo.
-            val gotFreshNetworkData = campaignSource != "cache" || dispatchSource != "cache" || orderSource != "cache" || snapshot.isSuccess || !dss.stale
+            val gotFreshNetworkData = campaignSource != "cache" || planetSource != "cache" || dispatchSource != "cache" || orderSource != "cache" || snapshot.isSuccess || !dss.stale
             if (gotFreshNetworkData) TelemetryCache.saveHome(result)
         }
     }

@@ -11,14 +11,14 @@ class WarAlertWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
-        if (!WarAlertManager.isEnabled(applicationContext)) return Result.success()
+        if (!NotificationPreferences.isMasterEnabled(applicationContext)) return Result.success()
         return try {
             val data = OrderRepository.load()
-            if (data.telemetrySource != "cache" && "campanhas" !in data.staleSources) {
-                WarAlertManager.processCampaigns(applicationContext, data.campaigns)
-                Result.success()
-            } else {
+            if (data.telemetrySource == "cache") {
                 Result.retry()
+            } else {
+                WarAlertManager.processHomeData(applicationContext, data)
+                Result.success()
             }
         } catch (e: CancellationException) {
             throw e

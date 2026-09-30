@@ -91,6 +91,7 @@ import br.com.helldiversbr.app.ui.screens.ArsenalScreen
 import br.com.helldiversbr.app.ui.screens.GalaxyScreen
 import br.com.helldiversbr.app.ui.screens.FactionsScreen
 import br.com.helldiversbr.app.ui.screens.HomeScreen
+import br.com.helldiversbr.app.ui.screens.NotificationSettingsScreen
 import br.com.helldiversbr.app.ui.screens.OrderScreen
 import br.com.helldiversbr.app.ui.screens.SettingsScreen
 import br.com.helldiversbr.app.ui.screens.WarScreen
@@ -167,8 +168,8 @@ private fun App(
             is br.com.helldiversbr.app.ui.HomeState.Error -> currentHome.last
             else -> null
         }
-        if (data != null && data.telemetrySource != "cache" && "campanhas" !in data.staleSources) {
-            WarAlertManager.processCampaigns(context, data.campaigns)
+        if (data != null && data.telemetrySource != "cache") {
+            WarAlertManager.processHomeData(context, data)
         }
     }
 
@@ -273,6 +274,13 @@ private fun App(
                             contentPadding = padding,
                             themeMode = themeMode,
                             onThemeMode = onThemeMode,
+                            onOpenNotifications = { nav.navigate("notificacoes") { launchSingleTop = true } },
+                        )
+                    }
+                    composable("notificacoes") {
+                        NotificationSettingsScreen(
+                            contentPadding = padding,
+                            onBack = { nav.popBackStack() },
                         )
                     }
                 }
@@ -327,21 +335,24 @@ private fun navigateTab(nav: NavHostController, current: String, route: String) 
     if (current == route) return
 
     if (route == "inicio") {
-        // Reconstrói somente o destino raiz e não restaura um estado de navegação antigo.
-        // O ViewModel permanece o mesmo, portanto os últimos dados válidos continuam na tela.
-        nav.navigate("inicio") {
-            popUpTo("inicio") {
-                inclusive = true
-                saveState = false
+        // A Início é o destino raiz permanente. Em vez de removê-la e recriá-la,
+        // voltamos para a instância que já está no back stack. Isso evita o bug
+        // em que o botão Início parecia selecionado, mas a tela não era restaurada.
+        val returned = nav.popBackStack("inicio", inclusive = false)
+        if (!returned) {
+            nav.navigate("inicio") {
+                launchSingleTop = true
+                restoreState = false
             }
-            launchSingleTop = true
-            restoreState = false
         }
         return
     }
 
     nav.navigate(route) {
-        popUpTo("inicio") { saveState = false }
+        popUpTo("inicio") {
+            inclusive = false
+            saveState = false
+        }
         launchSingleTop = true
         restoreState = false
     }
@@ -415,9 +426,11 @@ private fun AppBottomBar(
     Surface(color = Color(0xFF090909).copy(alpha = 0.97f), shadowElevation = 16.dp) {
         Column(Modifier.navigationBarsPadding()) {
             HorizontalDivider(color = HD.Border, thickness = 1.dp)
-            Row(Modifier.fillMaxWidth().height(if (landscape) 58.dp else 80.dp)) {
+            Row(Modifier.fillMaxWidth().height(if (landscape) 54.dp else 68.dp)) {
                 tabs.forEach { tab ->
-                    val selected = current == tab.route || (tab.route == "arsenal" && current.startsWith("estratagema/"))
+                    val selected = current == tab.route ||
+                        (tab.route == "arsenal" && current.startsWith("estratagema/")) ||
+                        (tab.route == "configuracoes" && current == "notificacoes")
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -429,13 +442,13 @@ private fun AppBottomBar(
                             Modifier.fillMaxWidth().height(2.dp)
                                 .background(if (selected) HD.Yellow else Color.Transparent)
                         )
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(if (landscape) 34.dp else 40.dp).padding(top = if (landscape) 3.dp else 6.dp)) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(if (landscape) 31.dp else 34.dp).padding(top = if (landscape) 2.dp else 3.dp)) {
                             if (tab.iconFile != null) {
                                 // Ícones originais do HELLDIVERS-BR nas áreas principais.
                                 AsyncImage(
                                     model = "${HelldiversApi.SITE_BASE}/icons/${tab.iconFile}",
                                     contentDescription = tab.label,
-                                    modifier = Modifier.size(if (landscape) 30.dp else 34.dp),
+                                    modifier = Modifier.size(if (landscape) 28.dp else 31.dp),
                                     contentScale = ContentScale.Fit,
                                     colorFilter = ColorFilter.tint(if (selected) HD.Yellow else HD.TextDim),
                                 )
@@ -444,16 +457,16 @@ private fun AppBottomBar(
                                     Icons.Filled.Settings,
                                     contentDescription = tab.label,
                                     tint = if (selected) HD.Yellow else HD.TextDim,
-                                    modifier = Modifier.size(if (landscape) 27.dp else 31.dp),
+                                    modifier = Modifier.size(if (landscape) 26.dp else 29.dp),
                                 )
                             }
                         }
                         Text(
                             tab.label,
                             color = if (selected) HD.Yellow else HD.TextDim,
-                            fontSize = if (landscape) 9.sp else 10.sp,
+                            fontSize = if (landscape) 8.5.sp else 9.5.sp,
                             fontWeight = if (selected) FontWeight.Black else FontWeight.SemiBold,
-                            modifier = Modifier.padding(top = if (landscape) 1.dp else 2.dp),
+                            modifier = Modifier.padding(top = 0.dp),
                         )
                     }
                 }

@@ -18,6 +18,12 @@ data class RemoteVersion(
     val notes: String = "",
 )
 
+sealed interface UpdateCheckResult {
+    data class Available(val version: RemoteVersion) : UpdateCheckResult
+    data object Latest : UpdateCheckResult
+    data class Failed(val message: String) : UpdateCheckResult
+}
+
 object UpdateChecker {
     private const val VERSION_URL =
         "https://raw.githubusercontent.com/mannrammstein19/Helldivers-BR-App/main/versao-app.json"
@@ -28,16 +34,28 @@ object UpdateChecker {
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
 
-    /** Retorna a versão remota se ela for mais nova que a instalada; senão null. Nunca lança exceção. */
-    suspend fun check(): RemoteVersion? = withContext(Dispatchers.IO) {
-        runCatching {
+    suspend fun checkResult(): UpdateCheckResult = withContext(Dispatchers.IO) {
+        try {
             val url = "$VERSION_URL?t=${System.currentTimeMillis() / 60000}"
             val request = Request.Builder().url(url).build()
             client.newCall(request).execute().use { resp ->
-                if (!resp.isSuccessful) return@runCatching null
+                if (!resp.isSuccessful) return@withContext UpdateCheckResult.Failed("Servidor respondeu HTTP ${resp.code}.")
                 val remote = json.decodeFromString(RemoteVersion.serializer(), resp.body?.string().orEmpty())
-                if (remote.versionCode > BuildConfig.VERSION_CODE && remote.apkUrl.startsWith("https://")) remote else null
+                if (remote.versionCode > BuildConfig.VERSION_CODE && remote.apkUrl.startsWith("https://")) {
+                    UpdateCheckResult.Available(remote)
+                } else {
+                    UpdateCheckResult.Latest
+                }
             }
-        }.getOrNull()
+        } catch (error: Exception) {
+            UpdateCheckResult.Failed(error.message ?: "Não foi possível verificar a atualização.")
+        }
+    }
+
+    /** Retorna a versão remota se ela for mais nova que a instalada; senão null. Nunca lança exceção. */
+    suspend fun check(): RemoteVersion? = when (val result = checkResult()) {
+        is UpdateCheckResult.Available -> result.version
+        UpdateCheckResult.Latest -> null
+        is UpdateCheckResult.Failed -> null
     }
 }

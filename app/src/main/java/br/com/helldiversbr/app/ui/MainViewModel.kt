@@ -1,11 +1,13 @@
 package br.com.helldiversbr.app.ui
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import br.com.helldiversbr.app.data.HomeData
 import br.com.helldiversbr.app.data.OrderRepository
 import br.com.helldiversbr.app.update.RemoteVersion
 import br.com.helldiversbr.app.update.UpdateChecker
+import br.com.helldiversbr.app.update.UpdatePreferences
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -21,7 +23,7 @@ sealed interface HomeState {
     data class Error(val message: String, val last: HomeData? = null) : HomeState
 }
 
-class MainViewModel : ViewModel() {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _home = MutableStateFlow<HomeState>(HomeState.Loading)
     val home: StateFlow<HomeState> = _home.asStateFlow()
@@ -45,8 +47,10 @@ class MainViewModel : ViewModel() {
                 delay(60_000)
             }
         }
-        viewModelScope.launch {
-            _update.value = UpdateChecker.check()
+        if (UpdatePreferences.isAutoCheckEnabled(application)) {
+            viewModelScope.launch {
+                _update.value = UpdateChecker.check()
+            }
         }
     }
 
