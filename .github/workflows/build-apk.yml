@@ -62,10 +62,44 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          apk="app/build/outputs/apk/release/app-release.apk"
+          report="$RUNNER_TEMP/hd-apk-cert.txt"
+          if [ ! -f "$apk" ]; then
+            echo "::error::APK Release não encontrado em $apk. Confira a etapa de compilação."
+            exit 1
+          fi
           signer=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
-          "$signer" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk > "$RUNNER_TEMP/hd-apk-cert.txt"
-          grep -Fq "Signer #1 certificate SHA-256 digest: a5181edc2a9444b4a15aeca89c274809ae1e9f718239e10c08d925ee8546bd33" "$RUNNER_TEMP/hd-apk-cert.txt"
-          cp app/build/outputs/apk/release/app-release.apk Helldivers-BR.apk
+          if [ -z "$signer" ] || [ ! -x "$signer" ]; then
+            echo "::error::apksigner não encontrado no Android SDK."
+            exit 1
+          fi
+          echo "Ferramenta: $signer"
+          if ! "$signer" verify --verbose --print-certs "$apk" > "$report" 2>&1; then
+            cat "$report"
+            echo "::error::O apksigner rejeitou o APK; diagnóstico exibido acima."
+            exit 1
+          fi
+          # O relatório contém apenas os dados públicos do certificado.
+          cat "$report"
+          python3 - <<'PYCERT'
+          import os, re
+          from pathlib import Path
+          report = Path(os.environ['RUNNER_TEMP']) / 'hd-apk-cert.txt'
+          expected = 'a5181edc2a9444b4a15aeca89c274809ae1e9f718239e10c08d925ee8546bd33'
+          text = report.read_text(errors='replace')
+          digests = {
+              value.lower() for value in re.findall(
+                  r'certificate\s+SHA-256\s+digest:\s*([0-9a-fA-F]{64})(?![0-9a-fA-F])',
+                  text, flags=re.IGNORECASE,
+              )
+          }
+          if not digests:
+              raise SystemExit('::error::Não foi possível ler o SHA-256 do certificado no relatório acima.')
+          if digests != {expected}:
+              raise SystemExit('::error::O certificado do APK difere da chave permanente. SHA-256 observado: ' + ', '.join(sorted(digests)))
+          print('Certificado permanente do APK confirmado.')
+          PYCERT
+          cp "$apk" Helldivers-BR.apk
 
       - name: Guardar APK como Artifact
         uses: actions/upload-artifact@v4
