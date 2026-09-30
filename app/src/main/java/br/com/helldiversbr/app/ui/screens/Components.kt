@@ -1,10 +1,16 @@
 package br.com.helldiversbr.app.ui.screens
 
 import androidx.compose.material3.TextButton
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -127,46 +134,59 @@ fun StatTile(
     accent: Color,
     modifier: Modifier = Modifier,
     backgroundKey: String? = null,
+    pulse: Boolean = false,
 ) {
+    val transition = rememberInfiniteTransition(label = "stat-pulse-$label")
+    val pulseAlpha by transition.animateFloat(
+        initialValue = if (pulse) 0.45f else 0.90f,
+        targetValue = 0.95f,
+        animationSpec = infiniteRepeatable(animation = tween(650), repeatMode = RepeatMode.Reverse),
+        label = "stat-pulse-alpha-$label",
+    )
+    val accentAlpha = if (pulse) pulseAlpha else 0.9f
+
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(6.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = HD.Surface),
-        border = BorderStroke(1.dp, HD.Border),
+        border = BorderStroke(1.dp, HD.Border.copy(alpha = 0.72f)),
     ) {
         Box {
             if (backgroundKey != null) {
                 SiteImage(backgroundKey, label, Modifier.matchParentSize(), scale = androidx.compose.ui.layout.ContentScale.Crop)
-                Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.65f)))
+                Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.38f)))
             }
-        Column(Modifier.padding(10.dp)) {
-            Box(Modifier.fillMaxWidth().height(2.dp).background(accent))
-            Text(
-                label.uppercase(),
-                color = HD.TextDim,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.1.sp,
-                modifier = Modifier.padding(top = 10.dp),
-            )
-            Text(
-                value,
-                color = HD.Text,
-                fontSize = 25.sp,
-                fontWeight = FontWeight.Black,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-            Text(
-                detail,
-                color = HD.TextMuted,
-                fontSize = 10.sp,
-                lineHeight = 13.sp,
-                modifier = Modifier.padding(top = 2.dp),
-            )
+            if (pulse) {
+                Box(Modifier.matchParentSize().background(accent.copy(alpha = 0.07f * pulseAlpha)))
+            }
+            Box(Modifier.align(Alignment.TopStart).fillMaxWidth().height(2.dp).background(accent.copy(alpha = accentAlpha)))
+            Box(Modifier.align(Alignment.TopStart).fillMaxHeight().width(2.dp).background(accent.copy(alpha = accentAlpha)))
+            Column(Modifier.padding(horizontal = 11.dp, vertical = 11.dp)) {
+                Text(
+                    label.uppercase(),
+                    color = HD.TextDim,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.1.sp,
+                )
+                Text(
+                    value,
+                    color = if (pulse) accent else HD.Text,
+                    fontSize = 25.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 3.dp),
+                )
+                Text(
+                    detail,
+                    color = HD.TextMuted,
+                    fontSize = 10.sp,
+                    lineHeight = 13.sp,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
         }
-    }
     }
 }
 
@@ -175,18 +195,37 @@ fun DispatchCard(dispatch: Dispatch, modifier: Modifier = Modifier) {
     var expanded by androidx.compose.runtime.saveable.rememberSaveable(dispatch.id.toString()) { androidx.compose.runtime.mutableStateOf(false) }
     val text = dispatch.text
     if (text.isBlank()) return
-    HdCard(modifier = modifier, accent = HD.Border) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SectionLabel("Transmissão", HD.SignalBlue)
-            Text("ALTO COMANDO", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(15.dp),
+        colors = CardDefaults.cardColors(containerColor = HD.Surface),
+        border = BorderStroke(1.dp, HD.Border.copy(alpha = .78f)),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SectionLabel("Transmissão", HD.SignalBlue)
+                Text("ALTO COMANDO", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            }
+            LocalizedText(
+                text,
+                color = HD.Text,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                maxLines = if (expanded) Int.MAX_VALUE else 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                if (expanded) "RECOLHER  ▲" else "LER DESPACHO  →",
+                color = HD.Yellow,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.clickable { expanded = !expanded }.padding(vertical = 2.dp),
+            )
         }
-        LocalizedText(text, color = HD.Text, fontSize = 13.sp, lineHeight = 19.sp,
-            maxLines = if (expanded) Int.MAX_VALUE else 4, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-        TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "RECOLHER" else "LER DESPACHO", color = HD.Yellow, fontSize = 11.sp) }
     }
 }
 

@@ -8,6 +8,7 @@ import br.com.helldiversbr.app.ui.FirstRunDrawerHint
 import br.com.helldiversbr.app.ui.FirstRunPreferences
 import br.com.helldiversbr.app.ui.screens.AnthemControl
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -84,6 +85,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import br.com.helldiversbr.app.data.HelldiversApi
+import br.com.helldiversbr.app.notifications.WarAlertManager
 import br.com.helldiversbr.app.ui.MainViewModel
 import br.com.helldiversbr.app.ui.screens.ArsenalScreen
 import br.com.helldiversbr.app.ui.screens.GalaxyScreen
@@ -158,6 +160,17 @@ private fun App(
 
     val home by vm.home.collectAsState()
     val update by vm.update.collectAsState()
+
+    LaunchedEffect(home) {
+        val data = when (val currentHome = home) {
+            is br.com.helldiversbr.app.ui.HomeState.Ready -> currentHome.data
+            is br.com.helldiversbr.app.ui.HomeState.Error -> currentHome.last
+            else -> null
+        }
+        if (data != null && data.telemetrySource != "cache" && "campanhas" !in data.staleSources) {
+            WarAlertManager.processCampaigns(context, data.campaigns)
+        }
+    }
 
     fun navigate(route: String) {
         navigateTab(nav, current, route)
@@ -308,6 +321,14 @@ private fun DrawerEdgeSwipe(
 
 private fun navigateTab(nav: NavHostController, current: String, route: String) {
     if (current == route) return
+    if (route == "inicio") {
+        // Voltar para a raiz não depende de restaurar uma entrada salva. Isso evita o
+        // caso em que o botão Início deixa de responder após navegar entre outras abas.
+        if (!nav.popBackStack("inicio", inclusive = false)) {
+            nav.navigate("inicio") { launchSingleTop = true }
+        }
+        return
+    }
     nav.navigate(route) {
         popUpTo("inicio") { saveState = true }
         launchSingleTop = true

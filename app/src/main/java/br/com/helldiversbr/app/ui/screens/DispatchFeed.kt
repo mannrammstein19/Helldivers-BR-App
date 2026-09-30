@@ -14,7 +14,7 @@ import br.com.helldiversbr.app.ui.theme.HD
 @Composable
 fun DispatchFeed(dispatches: List<Dispatch>) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("DESPACHOS RECENTES", color = HD.Text, fontSize = 18.sp, fontWeight = FontWeight.Black)
         dispatches.take(if (expanded) dispatches.size else 3).forEach { dispatch ->
             key(dispatch.id.toString()) { DispatchCard(dispatch) }
