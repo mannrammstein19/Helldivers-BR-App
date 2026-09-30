@@ -45,6 +45,13 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     }
     val data = when (home) { is HomeState.Ready -> home.data; is HomeState.Error -> home.last; else -> null }
     val campaigns = data?.campaigns.orEmpty().associateBy { it.planet.index }
+    val dssStation = state.dss.station
+    val dssPlanetName = dssStation?.let { station ->
+        localizedText(station.planet.name)
+            .ifBlank { data?.planetCatalog?.get(station.planet.index)?.displayName.orEmpty() }
+            .ifBlank { state.planetCatalog[station.planet.index]?.displayName.orEmpty() }
+            .ifBlank { data?.campaigns?.firstOrNull { it.planet.index == station.planet.index }?.planet?.nameText.orEmpty() }
+    }.orEmpty()
     val planets = remember(state.planets, campaigns) {
         (state.planets.map { campaigns[it.index]?.planet?.copy(
             position = it.mapPosition, waypoints = it.waypoints, attacking = it.attacking, disabled = it.disabled) ?: it } +
@@ -62,6 +69,7 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     var faction by rememberSaveable { mutableStateOf("Todas") }
     var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var dossierId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var dssOpen by rememberSaveable { mutableStateOf(false) }
     val contextIds = remember(planets, campaigns, state.dssHost) {
         val core = planets.filter { it.index in campaigns || it.event != null || mapFaction(it.currentOwner) != "human" }
             .map { it.index }.toSet()
@@ -83,6 +91,14 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     }
     val dossierPlanet = planets.firstOrNull { it.index == dossierId }
     if (dossierPlanet != null && data != null) PlanetDossierDialog(data, campaigns[dossierPlanet.index] ?: Campaign(planet = dossierPlanet)) { dossierId = null }
+    if (dssOpen) ModalBottomSheet(onDismissRequest = { dssOpen = false }, containerColor = HD.Surface) {
+        DssPanel(
+            reading = state.dss,
+            planetCatalog = data?.planetCatalog ?: state.planetCatalog,
+            campaigns = data?.campaigns.orEmpty(),
+        )
+        Spacer(Modifier.height(24.dp))
+    }
     if (filtersOpen) ModalBottomSheet(onDismissRequest = { filtersOpen = false }, containerColor = HD.Surface) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text("VISIBILIDADE", color = HD.Yellow, fontSize = 12.sp)
@@ -190,6 +206,36 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
                     if (state.error != null || home is HomeState.Error || data?.staleSources?.isNotEmpty() == true) {
                         Text("Dados sem atualização • exibindo a última leitura disponível", color = HD.Gold, fontSize = 10.sp)
                     }
+                }
+            }
+            Surface(
+                color = Color(0xE6090D12),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (state.dss.hasStation) HD.Yellow.copy(alpha = .72f) else HD.Border),
+                modifier = Modifier.fillMaxWidth().clickable { dssOpen = true },
+            ) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 11.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val dssAccent = when {
+                        state.dss.stale -> HD.Gold
+                        state.dss.isLive -> HD.Green
+                        else -> HD.TextMuted
+                    }
+                    Box(Modifier.size(8.dp).clip(androidx.compose.foundation.shape.CircleShape).background(dssAccent))
+                    Column(Modifier.weight(1f).padding(start = 9.dp)) {
+                        Text("DSS // ESTAÇÃO ESPACIAL DA DEMOCRACIA", color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
+                        Text(
+                            when {
+                                dssPlanetName.isNotBlank() -> "ORBITANDO ${dssPlanetName.uppercase()}"
+                                state.dss.availability == DssAvailability.LOCATION_UNKNOWN -> "LOCALIZAÇÃO NÃO INFORMADA"
+                                state.dss.availability == DssAvailability.ABSENT -> "TEMPORARIAMENTE INDISPONÍVEL"
+                                else -> "TELEMETRIA INDISPONÍVEL"
+                            },
+                            color = if (state.dss.stale) HD.Gold else HD.Text,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    Text("ABRIR  ›", color = HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black)
                 }
             }
             if (selected != null) {

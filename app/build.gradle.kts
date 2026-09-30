@@ -14,8 +14,8 @@ android {
         targetSdk = 34
         // Incremente versionCode e versionName a cada novo APK publicado.
         // O app compara versionCode com o valor de versao-app.json para avisar de atualizações.
-        versionCode = 18
-        versionName = "18.0.0"
+        versionCode = 21
+        versionName = "21.0.0"
     }
 
     buildTypes {
@@ -52,6 +52,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
     implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")

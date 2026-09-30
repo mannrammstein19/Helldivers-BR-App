@@ -20,6 +20,7 @@ data class HomeData(
     val planetCatalog: Map<Long, PlanetCatalogEntry>,
     val campaigns: List<Campaign>,
     val campaignRates: Map<String, Double>,
+    val dss: DssReading,
     val updatedAtMillis: Long,
     val orderRates: Map<Int, Double> = emptyMap(),
     val staleSources: List<String> = emptyList(),
@@ -52,12 +53,14 @@ object OrderRepository {
         val dispatchDeferred = async { runCatching { HelldiversApi.dispatches().sortedByDescending { it.published.orEmpty() }.take(10) } }
         val campaignsDeferred = async { runCatching { HelldiversApi.campaigns() } }
         val planetCatalogDeferred = async { runCatching { HelldiversApi.planetCatalog() } }
+        val dssDeferred = async { DssRepository.load() }
 
         val live = liveDeferred.await()
         val snapshot = snapshotDeferred.await()
         val dispatchesResult = dispatchDeferred.await()
         val campaignsResult = campaignsDeferred.await()
         val planetCatalogResult = planetCatalogDeferred.await()
+        val dss = dssDeferred.await()
 
         val liveOrder = live.getOrNull()
         val snap = snapshot.getOrNull()
@@ -120,12 +123,14 @@ object OrderRepository {
             planetCatalog = catalog,
             campaigns = campaigns,
             campaignRates = rates,
+            dss = dss,
             updatedAtMillis = now,
             orderRates = if (live.isFailure && snapshot.isFailure) lastGood?.orderRates.orEmpty() else objectiveRates,
             staleSources = buildList {
                 if (campaignsResult.isFailure) add("campanhas")
                 if (dispatchesResult.isFailure) add("despachos")
                 if (live.isFailure || (ui.fromSnapshot && ui.state == "active")) add("Ordem Maior")
+                if (dss.stale) add("DSS")
             },
         ).also { lastGood = it }
     }
