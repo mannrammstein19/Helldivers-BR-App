@@ -236,11 +236,23 @@ private fun WarList(
                 }
 
                 SectionLabel("Facção inimiga", HD.TextMuted)
+<<<<<<< HEAD
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     FactionFilter("all", "TODAS", HD.Yellow, factionFilter, { factionFilter = it }, Modifier.weight(1f))
                     FactionFilter("terminids", "TERMINÍDEOS", HD.TerminidOrange, factionFilter, { factionFilter = it }, Modifier.weight(1f))
                     FactionFilter("automatons", "AUTÔMATOS", HD.AutomatonRed, factionFilter, { factionFilter = it }, Modifier.weight(1f))
                     FactionFilter("illuminates", "ILUMINADOS", HD.IlluminatePurple, factionFilter, { factionFilter = it }, Modifier.weight(1f))
+=======
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FactionFilter("all", "TODAS", HD.Yellow, factionFilter, { factionFilter = it }, Modifier.weight(1f))
+                        FactionFilter("terminids", "TERMINÍDEOS", HD.TerminidOrange, factionFilter, { factionFilter = it }, Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FactionFilter("automatons", "AUTÔMATOS", HD.AutomatonRed, factionFilter, { factionFilter = it }, Modifier.weight(1f))
+                        FactionFilter("illuminates", "ILUMINADOS", HD.IlluminatePurple, factionFilter, { factionFilter = it }, Modifier.weight(1f))
+                    }
+>>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
                 }
             }
         }
@@ -284,6 +296,7 @@ private fun WarHeader(data: HomeData, onRefresh: () -> Unit) {
             TextButton(onClick = onRefresh) { Text("ATUALIZAR", color = HD.Yellow, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp) }
         }
         Text("Monitoramento das frentes ativas, efetivo Helldiver, Ordem Maior, Estação Democracia e comunicações do Alto Comando.", color = HD.TextDim, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 8.dp))
+<<<<<<< HEAD
         val hasSavedTelemetry = data.telemetrySource == "cache" || "campanhas" in data.staleSources
         val time = if (data.updatedAtMillis > 0L) SimpleDateFormat("HH:mm:ss", ptBrWar).format(Date(data.updatedAtMillis)) else "SEM LEITURA"
         val sourceColor = when {
@@ -296,6 +309,9 @@ private fun WarHeader(data: HomeData, onRefresh: () -> Unit) {
             data.telemetrySource == "direct" -> "TELEMETRIA DIRETA"
             else -> "TELEMETRIA ONLINE"
         }
+=======
+        val time = SimpleDateFormat("HH:mm:ss", ptBrWar).format(Date(data.updatedAtMillis))
+>>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
         Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.clip(RoundedCornerShape(50)).background(sourceColor).size(7.dp))
             Text("  $sourceLabel // $time", color = sourceColor, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.7.sp)
@@ -326,7 +342,11 @@ private fun FactionFilter(id: String, label: String, accent: Color, selected: St
         border = BorderStroke(1.dp, if (active) accent else HD.Border),
     ) {
         Row(
+<<<<<<< HEAD
             modifier = Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 7.dp),
+=======
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
+>>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
@@ -335,10 +355,17 @@ private fun FactionFilter(id: String, label: String, accent: Color, selected: St
                     "terminids" -> "terminid"
                     "automatons" -> "automaton"
                     else -> "illuminate"
+<<<<<<< HEAD
                 }, label, Modifier.size(14.dp))
                 Box(Modifier.size(3.dp))
             }
             Text(label, color = if (active) accent else HD.TextDim, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = 0.sp)
+=======
+                }, label, Modifier.size(20.dp))
+                Box(Modifier.size(7.dp))
+            }
+            Text(label, color = if (active) accent else HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.45.sp)
+>>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
         }
     }
 }

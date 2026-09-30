@@ -245,7 +245,11 @@ private fun DssStatusDot(color: Color, pulse: Boolean) {
 }
 
 @Composable
+<<<<<<< HEAD
 private fun DssUnavailableCard(reading: DssReading, tall: Boolean = false) {
+=======
+private fun DssUnavailableCard(reading: DssReading) {
+>>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
     val (title, body) = dssUnavailableCopy(reading)
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -254,7 +258,11 @@ private fun DssUnavailableCard(reading: DssReading, tall: Boolean = false) {
         border = BorderStroke(1.dp, HD.Border),
     ) {
         Column {
+<<<<<<< HEAD
             Box(Modifier.fillMaxWidth().aspectRatio(if (tall) 16f / 10f else 16f / 7.2f)) {
+=======
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 7.2f)) {
+>>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
                 AsyncImage(
                     model = DSS_UNAVAILABLE,
                     contentDescription = "Estação Espacial da Democracia",
@@ -286,7 +294,11 @@ private fun DssUnavailableCard(reading: DssReading, tall: Boolean = false) {
 }
 
 @Composable
+<<<<<<< HEAD
 private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean, tall: Boolean = false) {
+=======
+private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean) {
+>>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -294,7 +306,11 @@ private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean
         border = BorderStroke(1.dp, HD.Yellow.copy(alpha = .62f)),
     ) {
         Column {
+<<<<<<< HEAD
             Box(Modifier.fillMaxWidth().aspectRatio(if (tall) 16f / 10f else 16f / 7.0f)) {
+=======
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 7.0f)) {
+>>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
                 AsyncImage(
                     model = location.image,
                     contentDescription = location.name,
@@ -516,6 +532,7 @@ fun DssWarCard(
         val station = reading.station
         val location = station?.let { resolveDssLocation(it, planetCatalog, campaigns) }
         if (station == null) {
+<<<<<<< HEAD
             DssUnavailableCard(reading, tall = true)
             return@HdCard
         }
@@ -525,6 +542,17 @@ fun DssWarCard(
         }
 
         DssHero(location, station, reading.stale, tall = true)
+=======
+            DssUnavailableCard(reading)
+            return@HdCard
+        }
+        if (location == null) {
+            DssUnavailableCard(reading.copy(availability = DssAvailability.LOCATION_UNKNOWN))
+            return@HdCard
+        }
+
+        DssHero(location, station, reading.stale)
+>>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
         if (station.tacticalActions.isEmpty()) {
             Text("Nenhuma ação tática ativa no momento.", color = HD.TextMuted, fontSize = 10.sp)
         } else {

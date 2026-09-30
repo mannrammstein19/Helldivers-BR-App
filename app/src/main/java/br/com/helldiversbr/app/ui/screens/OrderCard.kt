@@ -145,9 +145,12 @@ fun OrderCard(
                 val taskFaction = decodedTaskFaction
                     .takeIf { it.isNotBlank() && !OrderRepository.isHumanFaction(it) }
                     ?: campaign?.let { OrderRepository.enemyFaction(it) }.orEmpty()
+<<<<<<< HEAD
                 val taskRate = if (task.type in listOf(11, 12, 13) && campaign != null)
                     OrderRepository.campaignRate(data, campaign) else data.orderRates[index]
                 val taskStale = "Ordem Maior" in data.staleSources || (campaign != null && "campanhas" in data.staleSources)
+=======
+>>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
                 TaskRow(
                     index = index,
                     task = task,
@@ -158,9 +161,12 @@ fun OrderCard(
                         ?: campaign?.let { factionColor(OrderRepository.enemyFaction(it), it.planet.event != null) }
                         ?: accent,
                     livePercent = livePercent,
+<<<<<<< HEAD
                     rate = taskRate,
                     stale = taskStale,
                     active = ui.state == "active",
+=======
+>>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
                 )
             }
 

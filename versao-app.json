@@ -1,6 +1,13 @@
 {
+<<<<<<< HEAD
   "versionCode": 22,
   "versionName": "22.0.0",
   "apkUrl": "https://github.com/mannrammstein19/Helldivers-BR-App/releases/latest/download/Helldivers-BR.apk",
   "notes": "V22: paredão de dados Community -> API direta -> cache persistente, telemetria com horário real, correção do botão Início, ícone reenquadrado, launcher HD2 BR e refinamentos de Início/Guerra/DSS."
+=======
+  "versionCode": 21,
+  "versionName": "21.0.0",
+  "apkUrl": "https://github.com/mannrammstein19/Helldivers-BR-App/releases/latest/download/Helldivers-BR.apk",
+  "notes": "V21: DSS nativa alinhada à Central de Guerra do site, com os mesmos estados, imagens, ações táticas, painel na Guerra, painel completo no Mapa e identificação do planeta hospedeiro."
+>>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
 }
