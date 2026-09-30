@@ -2,12 +2,9 @@ name: Build APK Helldivers BR
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -27,24 +24,57 @@ jobs:
         with:
           gradle-version: "8.7"
 
-      - name: Verificar estados, recompensas e regioes
+      - name: Preparar assinatura permanente
+        shell: bash
+        env:
+          HD_SIGNING_KEYSTORE_BASE64: ${{ secrets.HD_SIGNING_KEYSTORE_BASE64 }}
+          HD_SIGNING_PASSWORD: ${{ secrets.HD_SIGNING_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$HD_SIGNING_KEYSTORE_BASE64" ] || [ -z "$HD_SIGNING_PASSWORD" ]; then
+            echo "Cadastre HD_SIGNING_KEYSTORE_BASE64 e HD_SIGNING_PASSWORD nos Secrets do repositório."
+            exit 1
+          fi
+          python3 - <<'PYKEY'
+          import base64, os
+          from pathlib import Path
+          dest = Path(os.environ['RUNNER_TEMP']) / 'hd2-br.p12'
+          dest.write_bytes(base64.b64decode(os.environ['HD_SIGNING_KEYSTORE_BASE64'].strip(), validate=True))
+          dest.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'], 'a') as stream:
+              stream.write(f'HD_SIGNING_STORE_FILE={dest}\n')
+          PYKEY
+          actual=$(keytool -exportcert -alias hd2-br -keystore "$RUNNER_TEMP/hd2-br.p12" -storepass:env HD_SIGNING_PASSWORD | sha256sum | cut -d ' ' -f 1)
+          if [ "$actual" != "a5181edc2a9444b4a15aeca89c274809ae1e9f718239e10c08d925ee8546bd33" ]; then
+            echo "A chave não corresponde à assinatura permanente deste projeto."
+            exit 1
+          fi
+
+      - name: Verificar estados, recompensas e regiões
         run: gradle :app:testDebugUnitTest --stacktrace
 
-      - name: Compilar APK (debug)
-        run: gradle :app:assembleDebug --stacktrace
+      - name: Compilar APK Release assinado
+        env:
+          HD_SIGNING_PASSWORD: ${{ secrets.HD_SIGNING_PASSWORD }}
+        run: gradle :app:assembleRelease --stacktrace
 
-      - name: Renomear APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Helldivers-BR.apk
+      - name: Verificar assinatura do APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          signer=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+          "$signer" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk > "$RUNNER_TEMP/hd-apk-cert.txt"
+          grep -Fq "Signer #1 certificate SHA-256 digest: a5181edc2a9444b4a15aeca89c274809ae1e9f718239e10c08d925ee8546bd33" "$RUNNER_TEMP/hd-apk-cert.txt"
+          cp app/build/outputs/apk/release/app-release.apk Helldivers-BR.apk
 
-      - name: Guardar APK como artifact
+      - name: Guardar APK como Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Helldivers-BR-apk
           path: Helldivers-BR.apk
           retention-days: 30
 
-      - name: Publicar em Release (só quando disparado por tag v*)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: Helldivers-BR.apk
+      - name: Limpar chave temporária
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/hd2-br.p12"

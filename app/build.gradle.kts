@@ -14,13 +14,25 @@ android {
         targetSdk = 34
         // Incremente versionCode e versionName a cada novo APK publicado.
         // O app compara versionCode com o valor de versao-app.json para avisar de atualizações.
-        versionCode = 23
-        versionName = "23.0.0"
+        versionCode = 24
+        versionName = "24.0.0"
+    }
+
+    signingConfigs {
+        create("permanent") {
+            System.getenv("HD_SIGNING_STORE_FILE")?.takeIf { it.isNotBlank() }?.let {
+                storeFile = file(it)
+            }
+            storePassword = System.getenv("HD_SIGNING_PASSWORD")
+            keyAlias = "hd2-br"
+            keyPassword = System.getenv("HD_SIGNING_PASSWORD")
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("permanent")
         }
     }
 
@@ -68,4 +80,17 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+}
+
+// Impede publicar APK Release sem a chave permanente configurada.
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    doFirst {
+        val store = System.getenv("HD_SIGNING_STORE_FILE")
+        require(!store.isNullOrBlank() && file(store).isFile) {
+            "Configure HD_SIGNING_STORE_FILE com a chave permanente."
+        }
+        require(!System.getenv("HD_SIGNING_PASSWORD").isNullOrBlank()) {
+            "Configure HD_SIGNING_PASSWORD para compilar o APK Release."
+        }
+    }
 }

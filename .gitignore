@@ -5,3 +5,10 @@ local.properties
 .idea/
 captures/
 .DS_Store
+
+# Material privado de assinatura: cadastrar somente em GitHub Secrets.
+*.jks
+*.keystore
+*.p12
+HD_SIGNING_*.txt
+signing-private/

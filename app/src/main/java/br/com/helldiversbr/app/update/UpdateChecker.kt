@@ -26,7 +26,7 @@ sealed interface UpdateCheckResult {
 
 object UpdateChecker {
     private const val VERSION_URL =
-        "https://raw.githubusercontent.com/mannrammstein19/Helldivers-BR-App/main/versao-app.json"
+        "https://pub-f324221f4e5e42b08ecfa5062afd5960.r2.dev/helldivers-br/apps/versao-app.json"
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
     private val client = OkHttpClient.Builder()
