@@ -4,6 +4,8 @@ import br.com.helldiversbr.app.data.imageModel
 import br.com.helldiversbr.app.ui.screens.StratagemDetailScreen
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import br.com.helldiversbr.app.ui.AnthemPlayer
+import br.com.helldiversbr.app.ui.FirstRunDrawerHint
+import br.com.helldiversbr.app.ui.FirstRunPreferences
 import br.com.helldiversbr.app.ui.screens.AnthemControl
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -29,6 +31,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -39,8 +42,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -64,7 +69,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -82,6 +90,7 @@ import br.com.helldiversbr.app.ui.screens.GalaxyScreen
 import br.com.helldiversbr.app.ui.screens.FactionsScreen
 import br.com.helldiversbr.app.ui.screens.HomeScreen
 import br.com.helldiversbr.app.ui.screens.OrderScreen
+import br.com.helldiversbr.app.ui.screens.SettingsScreen
 import br.com.helldiversbr.app.ui.screens.WarScreen
 import br.com.helldiversbr.app.ui.theme.HD
 import br.com.helldiversbr.app.ui.theme.HdThemeMode
@@ -93,7 +102,7 @@ import kotlinx.coroutines.launch
 private data class Tab(
     val route: String,
     val label: String,
-    val iconFile: String,
+    val iconFile: String? = null,
 )
 
 private val tabs = listOf(
@@ -102,7 +111,7 @@ private val tabs = listOf(
     Tab("ordem", "Ordem", "ordem.png"),
     Tab("mapa", "Mapa", "mapa.png"),
     Tab("arsenal", "Arsenal", "arsenal.png"),
-    Tab("menu", "Menu", "menu.png"),
+    Tab("configuracoes", "Config.", null),
 )
 
 class MainActivity : ComponentActivity() {
@@ -137,6 +146,7 @@ private fun App(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    var showDrawerTutorial by remember(context) { mutableStateOf(FirstRunPreferences.shouldShow(context)) }
 
     val anthem = remember(context) { AnthemPlayer(context.applicationContext) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -169,6 +179,7 @@ private fun App(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = false,
         drawerContent = {
             AppDrawer(
                 current = current,
@@ -190,9 +201,7 @@ private fun App(
                 bottomBar = {
                     AppBottomBar(
                         current = current,
-                        menuOpen = drawerState.isOpen,
                         onNavigate = ::navigate,
-                        onMenu = { scope.launch { drawerState.open() } },
                     )
                 },
             ) { padding: PaddingValues ->
@@ -242,14 +251,63 @@ private fun App(
                             contentPadding = padding,
                         )
                     }
+                    composable("configuracoes") {
+                        SettingsScreen(
+                            contentPadding = padding,
+                            themeMode = themeMode,
+                            onThemeMode = onThemeMode,
+                        )
+                    }
                 }
             }
+
+            DrawerEdgeSwipe(
+                enabled = drawerState.isClosed && !showDrawerTutorial,
+                onOpen = { scope.launch { drawerState.open() } },
+            )
+        }
+    }
+
+    if (showDrawerTutorial) {
+        FirstRunDrawerHint {
+            FirstRunPreferences.markSeen(context)
+            showDrawerTutorial = false
         }
     }
 }
 
+@Composable
+private fun DrawerEdgeSwipe(
+    enabled: Boolean,
+    onOpen: () -> Unit,
+) {
+    val thresholdPx = with(LocalDensity.current) { 56.dp.toPx() }
+    var dragDistance by remember { mutableStateOf(0f) }
+
+    Box(
+        Modifier
+            .fillMaxHeight()
+            .width(28.dp)
+            .systemGestureExclusion()
+            .pointerInput(enabled, thresholdPx) {
+                if (!enabled) return@pointerInput
+                detectHorizontalDragGestures(
+                    onDragStart = { dragDistance = 0f },
+                    onHorizontalDrag = { _, dragAmount ->
+                        dragDistance = (dragDistance + dragAmount).coerceAtLeast(0f)
+                    },
+                    onDragEnd = {
+                        if (dragDistance >= thresholdPx) onOpen()
+                        dragDistance = 0f
+                    },
+                    onDragCancel = { dragDistance = 0f },
+                )
+            }
+    )
+}
+
 private fun navigateTab(nav: NavHostController, current: String, route: String) {
-    if (route == "menu" || current == route) return
+    if (current == route) return
     nav.navigate(route) {
         popUpTo("inicio") { saveState = true }
         launchSingleTop = true
@@ -319,9 +377,7 @@ private fun AppTopHeader(onMenu: () -> Unit) {
 @Composable
 private fun AppBottomBar(
     current: String,
-    menuOpen: Boolean,
     onNavigate: (String) -> Unit,
-    onMenu: () -> Unit,
 ) {
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     Surface(color = Color(0xFF090909).copy(alpha = 0.97f), shadowElevation = 16.dp) {
@@ -329,12 +385,12 @@ private fun AppBottomBar(
             HorizontalDivider(color = HD.Border, thickness = 1.dp)
             Row(Modifier.fillMaxWidth().height(if (landscape) 50.dp else 67.dp)) {
                 tabs.forEach { tab ->
-                    val selected = if (tab.route == "menu") menuOpen else current == tab.route || (tab.route == "arsenal" && current.startsWith("estratagema/"))
+                    val selected = current == tab.route || (tab.route == "arsenal" && current.startsWith("estratagema/"))
                     Column(
                         modifier = Modifier
                             .weight(1f)
                             .background(if (selected) HD.Yellow.copy(alpha = 0.055f) else Color.Transparent)
-                            .clickable { if (tab.route == "menu") onMenu() else onNavigate(tab.route) },
+                            .clickable { onNavigate(tab.route) },
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Box(
@@ -342,15 +398,23 @@ private fun AppBottomBar(
                                 .background(if (selected) HD.Yellow else Color.Transparent)
                         )
                         Box(contentAlignment = Alignment.Center, modifier = Modifier.size(30.dp).padding(top = 4.dp)) {
-                            // Usa somente os ícones originais do HELLDIVERS-BR. Na V5 havia um
-                            // Material Icon por baixo da PNG e as duas silhuetas podiam se sobrepor.
-                            AsyncImage(
-                                model = "${HelldiversApi.SITE_BASE}/icons/${tab.iconFile}",
-                                contentDescription = tab.label,
-                                modifier = Modifier.size(28.dp),
-                                contentScale = ContentScale.Fit,
-                                colorFilter = ColorFilter.tint(if (selected) HD.Yellow else HD.TextDim),
-                            )
+                            if (tab.iconFile != null) {
+                                // Ícones originais do HELLDIVERS-BR nas áreas principais.
+                                AsyncImage(
+                                    model = "${HelldiversApi.SITE_BASE}/icons/${tab.iconFile}",
+                                    contentDescription = tab.label,
+                                    modifier = Modifier.size(28.dp),
+                                    contentScale = ContentScale.Fit,
+                                    colorFilter = ColorFilter.tint(if (selected) HD.Yellow else HD.TextDim),
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Filled.Settings,
+                                    contentDescription = tab.label,
+                                    tint = if (selected) HD.Yellow else HD.TextDim,
+                                    modifier = Modifier.size(25.dp),
+                                )
+                            }
                         }
                         Text(
                             tab.label,
