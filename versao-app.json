@@ -1,6 +1,6 @@
 {
   "versionCode": 23,
   "versionName": "23.0.0",
-  "apkUrl": "https://github.com/mannrammstein19/Helldivers-BR-App/releases/latest/download/Helldivers-BR.apk",
-  "notes": "V23: gesto lateral separado da barra inferior, previsões da Ordem maiores, objetivos abertos na Guerra e DSS vertical no mapa."
+  "apkUrl": "https://pub-f324221f4e5e42b08ecfa5062afd5960.r2.dev/helldivers-br/apps/helldivers-br-v23.apk",
+  "notes": "V23: correção da sobreposição do gesto no botão Início, previsões da Ordem maiores, objetivos abertos na Guerra e DSS vertical no mapa."
 }
