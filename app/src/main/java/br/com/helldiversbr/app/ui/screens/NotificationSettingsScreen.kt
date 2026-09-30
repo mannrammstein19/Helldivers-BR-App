@@ -164,7 +164,7 @@ fun NotificationSettingsScreen(
                     }
                     Column(Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
                         Text("ATIVAR NOTIFICAÇÕES", color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                        Text("Interruptor principal de todos os alertas escolhidos abaixo.", color = HD.TextDim, fontSize = 10.5.sp, lineHeight = 15.sp)
+                        Text("Para receber alertas, ative este interruptor e escolha os tipos abaixo.", color = HD.TextDim, fontSize = 10.5.sp, lineHeight = 15.sp)
                     }
                     Switch(checked = master, onCheckedChange = ::setMaster)
                 }
@@ -186,6 +186,16 @@ fun NotificationSettingsScreen(
                     )
                 }
             }
+        }
+
+        item {
+            Text(
+                if (master) "Receberá apenas os tipos selecionados, com permissão do Android."
+                else "Alertas pausados. Suas escolhas abaixo ficam salvas; ative o Uplink para receber.",
+                color = if (master) HD.TextDim else HD.Gold,
+                fontSize = 11.sp,
+                lineHeight = 16.sp,
+            )
         }
 
         item {

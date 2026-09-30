@@ -223,73 +223,76 @@ private fun App(
                     )
                 },
             ) { padding: PaddingValues ->
-                NavHost(navController = nav, startDestination = "inicio") {
-                    composable("inicio") {
-                        HomeScreen(
-                            state = home,
-                            update = update,
-                            onRefresh = vm::refresh,
-                            onDismissUpdate = vm::dismissUpdate,
-                            onOpenWar = { navigate("guerra") },
-                            onOpenOrder = { navigate("ordem") },
-                            onOpenMap = { navigate("mapa") },
-                            onOpenArsenal = { navigate("arsenal") },
-                            onOpenFactions = { navigate("faccoes") },
-                            contentPadding = padding,
-                        )
+                Box(Modifier.fillMaxSize()) {
+                    NavHost(navController = nav, startDestination = "inicio") {
+                        composable("inicio") {
+                            HomeScreen(
+                                state = home,
+                                update = update,
+                                onRefresh = vm::refresh,
+                                onDismissUpdate = vm::dismissUpdate,
+                                onOpenWar = { navigate("guerra") },
+                                onOpenOrder = { navigate("ordem") },
+                                onOpenMap = { navigate("mapa") },
+                                onOpenArsenal = { navigate("arsenal") },
+                                onOpenFactions = { navigate("faccoes") },
+                                contentPadding = padding,
+                            )
+                        }
+                        composable("guerra") {
+                            WarScreen(
+                                state = home,
+                                onRefresh = vm::refresh,
+                                onOpenMap = { navigate("mapa") },
+                                contentPadding = padding,
+                            )
+                        }
+                        composable("ordem") {
+                            OrderScreen(
+                                state = home,
+                                onRefresh = vm::refresh,
+                                contentPadding = padding,
+                            )
+                        }
+                        composable("mapa") {
+                            GalaxyScreen(home = home, contentPadding = padding, onOpenFullMap = { openSite("mapa-classico.html") })
+                        }
+                        composable("faccoes") {
+                            FactionsScreen(padding, ::openSite)
+                        }
+                        composable("estratagema/{name}") { entry ->
+                            StratagemDetailScreen(entry.arguments?.getString("name").orEmpty(), padding, onBack = { nav.popBackStack() })
+                        }
+                        composable("arsenal") {
+                            ArsenalScreen(
+                                onOpenEntry = { openStratagem(it.name) },
+                                themeMode = themeMode,
+                                contentPadding = padding,
+                            )
+                        }
+                        composable("configuracoes") {
+                            SettingsScreen(
+                                contentPadding = padding,
+                                themeMode = themeMode,
+                                onThemeMode = onThemeMode,
+                                onOpenNotifications = { nav.navigate("notificacoes") { launchSingleTop = true } },
+                            )
+                        }
+                        composable("notificacoes") {
+                            NotificationSettingsScreen(
+                                contentPadding = padding,
+                                onBack = { nav.popBackStack() },
+                            )
+                        }
                     }
-                    composable("guerra") {
-                        WarScreen(
-                            state = home,
-                            onRefresh = vm::refresh,
-                            onOpenMap = { navigate("mapa") },
-                            contentPadding = padding,
-                        )
-                    }
-                    composable("ordem") {
-                        OrderScreen(
-                            state = home,
-                            onRefresh = vm::refresh,
-                            contentPadding = padding,
-                        )
-                    }
-                    composable("mapa") {
-                        GalaxyScreen(home = home, contentPadding = padding, onOpenFullMap = { openSite("mapa-classico.html") })
-                    }
-                    composable("faccoes") {
-                        FactionsScreen(padding, ::openSite)
-                    }
-                    composable("estratagema/{name}") { entry ->
-                        StratagemDetailScreen(entry.arguments?.getString("name").orEmpty(), padding, onBack = { nav.popBackStack() })
-                    }
-                    composable("arsenal") {
-                        ArsenalScreen(
-                            onOpenEntry = { openStratagem(it.name) },
-                            themeMode = themeMode,
-                            contentPadding = padding,
-                        )
-                    }
-                    composable("configuracoes") {
-                        SettingsScreen(
-                            contentPadding = padding,
-                            themeMode = themeMode,
-                            onThemeMode = onThemeMode,
-                            onOpenNotifications = { nav.navigate("notificacoes") { launchSingleTop = true } },
-                        )
-                    }
-                    composable("notificacoes") {
-                        NotificationSettingsScreen(
-                            contentPadding = padding,
-                            onBack = { nav.popBackStack() },
-                        )
-                    }
+                    // O gesto lateral fica acima da barra: não intercepta o botão Início.
+                    DrawerEdgeSwipe(
+                        enabled = drawerState.isClosed && !showDrawerTutorial,
+                        onOpen = { scope.launch { drawerState.open() } },
+                        modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
+                    )
                 }
             }
-
-            DrawerEdgeSwipe(
-                enabled = drawerState.isClosed && !showDrawerTutorial,
-                onOpen = { scope.launch { drawerState.open() } },
-            )
         }
     }
 
@@ -305,12 +308,13 @@ private fun App(
 private fun DrawerEdgeSwipe(
     enabled: Boolean,
     onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val thresholdPx = with(LocalDensity.current) { 56.dp.toPx() }
     var dragDistance by remember { mutableStateOf(0f) }
 
     Box(
-        Modifier
+        modifier
             .fillMaxHeight()
             .width(28.dp)
             .systemGestureExclusion()

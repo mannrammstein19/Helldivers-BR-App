@@ -338,8 +338,8 @@ private fun OrderForecastMetric(label: String, value: String, accent: Color, mod
         border = BorderStroke(1.dp, HD.BorderSoft),
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, color = HD.TextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .35.sp)
-            Text(value, color = if (value == "INDISPONÍVEL" || value == "COLETANDO") HD.TextMuted else accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
+            Text(label, color = HD.TextMuted, fontSize = 10.sp, lineHeight = 13.sp, fontWeight = FontWeight.Black, letterSpacing = .35.sp)
+            Text(value, color = if (value == "INDISPONÍVEL" || value == "COLETANDO") HD.TextMuted else accent, fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.Black)
         }
     }
 }

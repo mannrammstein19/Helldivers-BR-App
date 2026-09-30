@@ -91,13 +91,20 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     }
     val dossierPlanet = planets.firstOrNull { it.index == dossierId }
     if (dossierPlanet != null && data != null) PlanetDossierDialog(data, campaigns[dossierPlanet.index] ?: Campaign(planet = dossierPlanet)) { dossierId = null }
-    if (dssOpen) ModalBottomSheet(onDismissRequest = { dssOpen = false }, containerColor = HD.Surface) {
-        DssPanel(
-            reading = state.dss,
-            planetCatalog = data?.planetCatalog ?: state.planetCatalog,
-            campaigns = data?.campaigns.orEmpty(),
-        )
-        Spacer(Modifier.height(24.dp))
+    val dssSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    if (dssOpen) ModalBottomSheet(
+        onDismissRequest = { dssOpen = false },
+        sheetState = dssSheetState,
+        containerColor = HD.Surface,
+    ) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(.94f).verticalScroll(rememberScrollState())) {
+            DssPanel(
+                reading = state.dss,
+                planetCatalog = data?.planetCatalog ?: state.planetCatalog,
+                campaigns = data?.campaigns.orEmpty(),
+            )
+            Spacer(Modifier.height(24.dp))
+        }
     }
     if (filtersOpen) ModalBottomSheet(onDismissRequest = { filtersOpen = false }, containerColor = HD.Surface) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {

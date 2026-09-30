@@ -180,7 +180,7 @@ fun OrderCard(
                 Text(
                     if (expanded) "RECOLHER ORDEM  ▲" else "▶  OBJETIVOS DA ORDEM · ${order.tasks.size}",
                     color = HD.Yellow,
-                    fontSize = 11.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Black,
                 )
             }
@@ -315,8 +315,8 @@ private fun WarOrderMetric(label: String, value: String, accent: Color, modifier
         border = BorderStroke(1.dp, HD.BorderSoft),
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, color = HD.TextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .25.sp)
-            Text(value, color = if (value == "INDISPONÍVEL" || value == "COLETANDO") HD.TextMuted else accent, fontSize = 10.sp, fontWeight = FontWeight.Black)
+            Text(label, color = HD.TextMuted, fontSize = 10.sp, lineHeight = 13.sp, fontWeight = FontWeight.Black, letterSpacing = .25.sp)
+            Text(value, color = if (value == "INDISPONÍVEL" || value == "COLETANDO") HD.TextMuted else accent, fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.Black)
         }
     }
 }

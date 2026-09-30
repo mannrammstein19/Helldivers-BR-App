@@ -183,7 +183,7 @@ private fun WarList(
             }
         }
 
-        item(key = "war-section-6") { OrderCard(data, collapsible = true, initiallyExpanded = false) }
+        item(key = "war-section-6") { OrderCard(data, collapsible = true, initiallyExpanded = true) }
 
         item(key = "war-dss") {
             DssWarCard(

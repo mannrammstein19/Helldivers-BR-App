@@ -246,7 +246,7 @@ private fun DssStatusDot(color: Color, pulse: Boolean) {
 }
 
 @Composable
-private fun DssUnavailableCard(reading: DssReading, tall: Boolean = false) {
+private fun DssUnavailableCard(reading: DssReading, tall: Boolean = false, portrait: Boolean = false) {
     val (title, body) = dssUnavailableCopy(reading)
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -255,12 +255,12 @@ private fun DssUnavailableCard(reading: DssReading, tall: Boolean = false) {
         border = BorderStroke(1.dp, HD.Border),
     ) {
         Column {
-            Box(Modifier.fillMaxWidth().aspectRatio(if (tall) 4f / 3f else 16f / 7.2f)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(if (portrait) 9f / 16f else if (tall) 4f / 3f else 16f / 7.2f)) {
                 AsyncImage(
                     model = DSS_UNAVAILABLE,
                     contentDescription = "Estação Espacial da Democracia",
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
+                    contentScale = if (portrait) ContentScale.Fit else ContentScale.Crop,
                 )
                 Box(
                     Modifier.fillMaxSize().background(
@@ -287,7 +287,7 @@ private fun DssUnavailableCard(reading: DssReading, tall: Boolean = false) {
 }
 
 @Composable
-private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean, tall: Boolean = false) {
+private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean, tall: Boolean = false, portrait: Boolean = false) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -295,7 +295,7 @@ private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean
         border = BorderStroke(1.dp, HD.Yellow.copy(alpha = .62f)),
     ) {
         Column {
-            Box(Modifier.fillMaxWidth().aspectRatio(if (tall) 4f / 3f else 16f / 7.0f)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(if (portrait) 9f / 16f else if (tall) 4f / 3f else 16f / 7.0f)) {
                 AsyncImage(
                     model = location.image,
                     contentDescription = location.name,
@@ -313,14 +313,16 @@ private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean
                     model = DSS_MODEL,
                     contentDescription = "DSS",
                     modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = if (tall) 10.dp else 6.dp)
-                        .fillMaxHeight(if (tall) .88f else .76f)
-                        .fillMaxWidth(if (tall) .45f else .42f),
+                        .align(if (portrait) Alignment.TopCenter else Alignment.CenterEnd)
+                        .padding(top = if (portrait) 16.dp else 0.dp, end = if (portrait) 0.dp else if (tall) 10.dp else 6.dp)
+                        .fillMaxHeight(if (portrait) .76f else if (tall) .88f else .76f)
+                        .fillMaxWidth(if (portrait) .80f else if (tall) .45f else .42f),
                     contentScale = ContentScale.Fit,
                 )
                 Column(
-                    Modifier.align(Alignment.CenterStart).fillMaxWidth(if (tall) .58f else .67f).padding(start = 14.dp),
+                    Modifier.align(if (portrait) Alignment.BottomStart else Alignment.CenterStart)
+                        .fillMaxWidth(if (portrait) 1f else if (tall) .58f else .67f)
+                        .padding(start = 14.dp, end = if (portrait) 14.dp else 0.dp, bottom = if (portrait) 18.dp else 0.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text("ESTAÇÃO DEMOCRACIA", color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
@@ -475,15 +477,15 @@ fun DssPanel(
         val station = reading.station
         val location = station?.let { resolveDssLocation(it, planetCatalog, campaigns) }
         if (station == null) {
-            DssUnavailableCard(reading)
+            DssUnavailableCard(reading, portrait = true)
             return@Column
         }
         if (location == null) {
-            DssUnavailableCard(reading.copy(availability = DssAvailability.LOCATION_UNKNOWN))
+            DssUnavailableCard(reading.copy(availability = DssAvailability.LOCATION_UNKNOWN), portrait = true)
             return@Column
         }
 
-        DssHero(location, station, reading.stale)
+        DssHero(location, station, reading.stale, portrait = true)
 
         if (station.tacticalActions.isEmpty()) {
             HdCard { Text("NENHUMA AÇÃO TÁTICA ATIVA NO MOMENTO.", color = HD.TextDim, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
