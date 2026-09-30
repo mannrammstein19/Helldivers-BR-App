@@ -309,17 +309,8 @@ private fun HomeList(
             }
         }
 
-        if (data.dispatches.isNotEmpty()) {
-            item {
-                Column {
-                    SectionLabel("Comunicações recentes", HD.TextDim)
-                    Text("DESPACHOS RECENTES", color = HD.Text, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                }
-            }
-            data.dispatches.take(5).forEachIndexed { index, dispatch ->
-                item(key = "home-dispatch-${dispatch.id}-$index") { DispatchCard(dispatch) }
-            }
-        }
+        if (data.dispatches.isNotEmpty()) item(key = "home-dispatch-feed") { DispatchFeed(data.dispatches) }
+
     }
 }
 

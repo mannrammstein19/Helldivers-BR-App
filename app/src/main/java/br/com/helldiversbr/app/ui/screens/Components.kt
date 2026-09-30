@@ -1,5 +1,8 @@
 package br.com.helldiversbr.app.ui.screens
 
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -146,7 +149,6 @@ fun StatTile(
                 letterSpacing = 1.1.sp,
                 modifier = Modifier.padding(top = 10.dp),
             )
-            if (backgroundKey == "war_players") SiteImage("helldivers_active", "Helldivers ativos", Modifier.size(20.dp))
             Text(
                 value,
                 color = HD.Text,
@@ -170,6 +172,7 @@ fun StatTile(
 
 @Composable
 fun DispatchCard(dispatch: Dispatch, modifier: Modifier = Modifier) {
+    var expanded by androidx.compose.runtime.saveable.rememberSaveable(dispatch.id.toString()) { androidx.compose.runtime.mutableStateOf(false) }
     val text = dispatch.text
     if (text.isBlank()) return
     HdCard(modifier = modifier, accent = HD.Border) {
@@ -181,7 +184,9 @@ fun DispatchCard(dispatch: Dispatch, modifier: Modifier = Modifier) {
             SectionLabel("Transmissão", HD.SignalBlue)
             Text("ALTO COMANDO", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
         }
-        Text(text, color = HD.Text, fontSize = 13.sp, lineHeight = 19.sp)
+        LocalizedText(text, color = HD.Text, fontSize = 13.sp, lineHeight = 19.sp,
+            maxLines = if (expanded) Int.MAX_VALUE else 4, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "RECOLHER" else "LER DESPACHO", color = HD.Yellow, fontSize = 11.sp) }
     }
 }
 

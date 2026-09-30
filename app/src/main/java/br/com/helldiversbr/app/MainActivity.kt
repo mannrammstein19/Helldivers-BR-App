@@ -1,5 +1,14 @@
 package br.com.helldiversbr.app
 
+import br.com.helldiversbr.app.data.imageModel
+import br.com.helldiversbr.app.ui.screens.StratagemDetailScreen
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import br.com.helldiversbr.app.ui.AnthemPlayer
+import br.com.helldiversbr.app.ui.screens.AnthemControl
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.imePadding
@@ -129,11 +138,26 @@ private fun App(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
+    val anthem = remember(context) { AnthemPlayer(context.applicationContext) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(anthem, lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_STOP) anthem.pause() }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer); anthem.release() }
+    }
+
     val home by vm.home.collectAsState()
     val update by vm.update.collectAsState()
 
     fun navigate(route: String) {
         navigateTab(nav, current, route)
+        scope.launch { drawerState.close() }
+    }
+
+    val keyboard = LocalSoftwareKeyboardController.current
+    fun openStratagem(name: String) {
+        keyboard?.hide()
+        nav.navigate("estratagema/${Uri.encode(name)}") { launchSingleTop = true }
         scope.launch { drawerState.close() }
     }
 
@@ -149,8 +173,10 @@ private fun App(
             AppDrawer(
                 current = current,
                 themeMode = themeMode,
+                anthem = anthem,
                 onNavigate = ::navigate,
                 onOpenSite = ::openSite,
+                onOpenStratagem = ::openStratagem,
                 onThemeMode = onThemeMode,
                 onClose = { scope.launch { drawerState.close() } },
             )
@@ -206,9 +232,13 @@ private fun App(
                     composable("faccoes") {
                         FactionsScreen(padding, ::openSite)
                     }
+                    composable("estratagema/{name}") { entry ->
+                        StratagemDetailScreen(entry.arguments?.getString("name").orEmpty(), padding, onBack = { nav.popBackStack() })
+                    }
                     composable("arsenal") {
                         ArsenalScreen(
-                            onOpenCatalog = ::openSite,
+                            onOpenEntry = { openStratagem(it.name) },
+                            themeMode = themeMode,
                             contentPadding = padding,
                         )
                     }
@@ -230,7 +260,7 @@ private fun navigateTab(nav: NavHostController, current: String, route: String) 
 @Composable
 private fun AppBackdrop(themeMode: HdThemeMode) {
     val image = if (themeMode == HdThemeMode.MERIDIA) {
-        "${HelldiversApi.SITE_BASE}/imagens/planetas/Void_Source_Planet_Landscape_Void_Header.png"
+        "file:///android_asset/backgrounds/meridian.png"
     } else {
         "${HelldiversApi.SITE_BASE}/imagens/fundos/site/wallpaper_principal_page.png"
     }
@@ -239,15 +269,15 @@ private fun AppBackdrop(themeMode: HdThemeMode) {
         contentDescription = null,
         modifier = Modifier.fillMaxSize(),
         contentScale = ContentScale.Crop,
-        alpha = if (themeMode == HdThemeMode.MERIDIA) 0.42f else 0.16f,
+        alpha = if (themeMode == HdThemeMode.MERIDIA) 1f else 0.16f,
     )
     Box(
         Modifier.fillMaxSize().background(
             Brush.verticalGradient(
                 listOf(
-                    HD.Bg.copy(alpha = 0.70f),
-                    HD.Bg.copy(alpha = 0.90f),
-                    HD.Bg.copy(alpha = 0.98f),
+                    HD.Bg.copy(alpha = if (themeMode == HdThemeMode.MERIDIA) 0.45f else 0.70f),
+                    HD.Bg.copy(alpha = if (themeMode == HdThemeMode.MERIDIA) 0.60f else 0.90f),
+                    HD.Bg.copy(alpha = if (themeMode == HdThemeMode.MERIDIA) 0.72f else 0.98f),
                 )
             )
         )
@@ -299,7 +329,7 @@ private fun AppBottomBar(
             HorizontalDivider(color = HD.Border, thickness = 1.dp)
             Row(Modifier.fillMaxWidth().height(if (landscape) 50.dp else 67.dp)) {
                 tabs.forEach { tab ->
-                    val selected = if (tab.route == "menu") menuOpen else current == tab.route
+                    val selected = if (tab.route == "menu") menuOpen else current == tab.route || (tab.route == "arsenal" && current.startsWith("estratagema/"))
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -339,9 +369,11 @@ private fun AppBottomBar(
 @Composable
 private fun AppDrawer(
     current: String,
+    anthem: AnthemPlayer,
     themeMode: HdThemeMode,
     onNavigate: (String) -> Unit,
     onOpenSite: (String) -> Unit,
+    onOpenStratagem: (String) -> Unit,
     onThemeMode: (HdThemeMode) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -421,10 +453,17 @@ private fun AppDrawer(
                 if (query.isNotBlank()) {
                     DrawerGroupLabel("ARSENAL · ${results.size} RESULTADOS")
                     results.forEach { entry ->
-                        DrawerCompactEntry(entry.name, false) { onClose(); onOpenSite(entry.path) }
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(HD.Surface)
+                            .clickable { onOpenStratagem(entry.name) }.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            br.com.helldiversbr.app.ui.screens.StratagemArtwork(entry.imageModel(), entry.name, Modifier.size(40.dp))
+                            Text(entry.name, color = HD.Text, fontSize = 12.sp, modifier = Modifier.weight(1f).padding(start = 10.dp))
+                        }
                     }
                     if (results.isEmpty()) Text("Nenhum equipamento encontrado. Tente outro nome.", color = HD.TextDim, fontSize = 12.sp)
                 }
+
+                AnthemControl(anthem)
 
                 DrawerThemeControl(
                     themeMode = themeMode,
@@ -559,7 +598,7 @@ private fun DrawerThemeControl(themeMode: HdThemeMode, onToggle: () -> Unit) {
         }
         Column(Modifier.padding(start = 10.dp).weight(1f)) {
             Text("TEMA", color = HD.TextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = 1.0.sp)
-            Text(if (meridia) "MERIDIA" else "PADRÃO", color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp)
+            Text(if (meridia) "MERIDIAN" else "PADRÃO", color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp)
         }
         Text("ALTERAR", color = HD.Yellow, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp)
     }

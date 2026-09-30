@@ -30,7 +30,7 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
         }
         Text(order?.titleText?.let(::translateKnown)?.ifBlank { "ORDEM MAIOR" } ?: "ORDEM MAIOR",
             color = HD.Text, fontWeight = FontWeight.Black, fontSize = 21.sp)
-        Text(order?.briefingText?.ifBlank { order?.descriptionText.orEmpty() } ?: "Aguardando instruções do Alto Comando.",
+        LocalizedText(order?.briefingText?.ifBlank { order?.descriptionText.orEmpty() } ?: "Aguardando instruções do Alto Comando.",
             color = HD.TextDim, fontSize = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
         if (order != null) {
             Text("Tempo restante: ${if(ui.state == "active") OrderRepository.remaining(order.expiration) else "—"}",

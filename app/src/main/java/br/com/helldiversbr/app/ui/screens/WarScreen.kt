@@ -259,15 +259,8 @@ private fun WarList(
             }
         }
 
-        if (data.dispatches.isNotEmpty()) {
-            item(key = "war-section-14") {
-                Column {
-                    SectionLabel("📡 Despachos", HD.SignalBlue)
-                    Text("COMUNICAÇÕES RECENTES", color = HD.Text, fontSize = 20.sp, fontWeight = FontWeight.Black)
-                }
-            }
-            itemsIndexed(data.dispatches.take(5), key = { index, dispatch -> "dispatch-${dispatch.id}-$index" }) { _, dispatch -> DispatchCard(dispatch) }
-        }
+        if (data.dispatches.isNotEmpty()) item(key = "war-dispatch-feed") { DispatchFeed(data.dispatches) }
+
     }
 
     if (selected != null) {
@@ -280,7 +273,6 @@ private fun WarHeader(data: HomeData, onRefresh: () -> Unit) {
     Column(Modifier.padding(top = 6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                SectionLabel("COMANDO E CONTROLE // SUPREMA AUTORIDADE", HD.Yellow)
                 Text("CENTRAL DE GUERRA", color = HD.Text, fontSize = 27.sp, lineHeight = 29.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 5.dp))
             }
             TextButton(onClick = onRefresh) { Text("ATUALIZAR", color = HD.Yellow, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp) }

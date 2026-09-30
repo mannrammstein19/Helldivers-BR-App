@@ -9,7 +9,8 @@
     "cooldown": "1m 50s",
     "cost": "1.500",
     "level": "1",
-    "source": "Ponte"
+    "source": "Ponte",
+    "localIcon": "stratagem-icons/000.svg"
   },
   {
     "name": "Barragem Orbital Gatling",
@@ -21,7 +22,8 @@
     "cooldown": "1m 10s",
     "cost": "4.000",
     "level": "1",
-    "source": "Canhões Orbitais"
+    "source": "Canhões Orbitais",
+    "localIcon": "stratagem-icons/001.svg"
   },
   {
     "name": "Impacto de Gás Orbital",
@@ -33,7 +35,8 @@
     "cooldown": "1m 25s",
     "cost": "4.000",
     "level": "1",
-    "source": "Ponte"
+    "source": "Ponte",
+    "localIcon": "stratagem-icons/002.svg"
   },
   {
     "name": "Barragem Orbital 120mm",
@@ -45,7 +48,8 @@
     "cooldown": "3 Min",
     "cost": "4.000",
     "level": "5",
-    "source": "Canhões Orbitais"
+    "source": "Canhões Orbitais",
+    "localIcon": "stratagem-icons/003.svg"
   },
   {
     "name": "Ataque Orbital Aéreo",
@@ -57,7 +61,8 @@
     "cooldown": "1m 40s",
     "cost": "4.000",
     "level": "5",
-    "source": "Canhões Orbitais"
+    "source": "Canhões Orbitais",
+    "localIcon": "stratagem-icons/004.svg"
   },
   {
     "name": "Ataque de Fumaça Orbital",
@@ -69,7 +74,8 @@
     "cooldown": "1m 25s",
     "cost": "4.000",
     "level": "8",
-    "source": "Ponte"
+    "source": "Ponte",
+    "localIcon": "stratagem-icons/005.svg"
   },
   {
     "name": "Ataque EMS Orbital",
@@ -81,7 +87,8 @@
     "cooldown": "1m 25s",
     "cost": "6.000",
     "level": "5",
-    "source": "Ponte"
+    "source": "Ponte",
+    "localIcon": "stratagem-icons/006.svg"
   },
   {
     "name": "Barragem Orbital 380mm",
@@ -93,7 +100,8 @@
     "cooldown": "4 Min",
     "cost": "7.500",
     "level": "8",
-    "source": "Canhões Orbitais"
+    "source": "Canhões Orbitais",
+    "localIcon": "stratagem-icons/007.svg"
   },
   {
     "name": "Barragem Orbital Movel",
@@ -105,7 +113,8 @@
     "cooldown": "4 Min",
     "cost": "7.500",
     "level": "10",
-    "source": "Canhões Orbitais"
+    "source": "Canhões Orbitais",
+    "localIcon": "stratagem-icons/008.svg"
   },
   {
     "name": "Laser Orbital",
@@ -117,7 +126,8 @@
     "cooldown": "5 Min",
     "cost": "10.000",
     "level": "15",
-    "source": "Canhões Orbitais"
+    "source": "Canhões Orbitais",
+    "localIcon": "stratagem-icons/009.svg"
   },
   {
     "name": "Barragem Orbital de Napalm",
@@ -129,7 +139,8 @@
     "cooldown": "4 Min",
     "cost": "10.000",
     "level": "18",
-    "source": "Canhões Orbitais"
+    "source": "Canhões Orbitais",
+    "localIcon": "stratagem-icons/010.svg"
   },
   {
     "name": "Ataque Orbital com Canhão Eletrico",
@@ -141,7 +152,8 @@
     "cooldown": "3 Min",
     "cost": "10.000",
     "level": "20",
-    "source": "Canhões Orbitais"
+    "source": "Canhões Orbitais",
+    "localIcon": "stratagem-icons/011.svg"
   },
   {
     "name": "Metralhadora da Águia",
@@ -153,7 +165,8 @@
     "cooldown": "15s",
     "cost": "1.500",
     "level": "1",
-    "source": "Hangar"
+    "source": "Hangar",
+    "localIcon": "stratagem-icons/012.svg"
   },
   {
     "name": "Ataque Aéreo via Águia",
@@ -165,7 +178,8 @@
     "cooldown": "15s",
     "cost": "4.000",
     "level": "1",
-    "source": "Hangar"
+    "source": "Hangar",
+    "localIcon": "stratagem-icons/013.svg"
   },
   {
     "name": "Bomba de Fragmentação via Águia",
@@ -177,7 +191,8 @@
     "cooldown": "15s",
     "cost": "4.000",
     "level": "3",
-    "source": "Hangar"
+    "source": "Hangar",
+    "localIcon": "stratagem-icons/014.svg"
   },
   {
     "name": "Barreira de Fumaça da Águia",
@@ -189,7 +204,8 @@
     "cooldown": "15s",
     "cost": "4.000",
     "level": "8",
-    "source": "Hangar"
+    "source": "Hangar",
+    "localIcon": "stratagem-icons/015.svg"
   },
   {
     "name": "Ataque Aéreo de Napalm via Águia",
@@ -201,7 +217,8 @@
     "cooldown": "15s",
     "cost": "5.000",
     "level": "5",
-    "source": "Hangar"
+    "source": "Hangar",
+    "localIcon": "stratagem-icons/016.svg"
   },
   {
     "name": "Pods de Foguetes de 110mm via Águia",
@@ -213,7 +230,8 @@
     "cooldown": "15s",
     "cost": "7.500",
     "level": "10",
-    "source": "Hangar"
+    "source": "Hangar",
+    "localIcon": "stratagem-icons/017.svg"
   },
   {
     "name": "Bomba de 500kg",
@@ -225,7 +243,8 @@
     "cooldown": "15s",
     "cost": "10.000",
     "level": "15",
-    "source": "Hangar"
+    "source": "Hangar",
+    "localIcon": "stratagem-icons/018.svg"
   },
   {
     "name": "Metralhadora MG-43",
@@ -237,7 +256,8 @@
     "cooldown": "480s",
     "cost": "Livre",
     "level": "1",
-    "source": "Centro de Administração Patriótica"
+    "source": "Centro de Administração Patriótica",
+    "localIcon": "stratagem-icons/019.svg"
   },
   {
     "name": "EAT-17 Antitanque Descartável",
@@ -249,7 +269,8 @@
     "cooldown": "70s",
     "cost": "3.000",
     "level": "3",
-    "source": "Centro de Administração Patriótica"
+    "source": "Centro de Administração Patriótica",
+    "localIcon": "stratagem-icons/020.svg"
   },
   {
     "name": "M-105 Robusto",
@@ -261,7 +282,8 @@
     "cooldown": "480s",
     "cost": "3.500",
     "level": "1",
-    "source": "Centro de Administração Patriótica"
+    "source": "Centro de Administração Patriótica",
+    "localIcon": "stratagem-icons/021.svg"
   },
   {
     "name": "Canhão laser LAS-98",
@@ -273,7 +295,8 @@
     "cooldown": "480s",
     "cost": "4.000",
     "level": "5",
-    "source": "Baía de Engenharia"
+    "source": "Baía de Engenharia",
+    "localIcon": "stratagem-icons/022.svg"
   },
   {
     "name": "Fuzil Antimaterial APW-1",
@@ -285,7 +308,8 @@
     "cooldown": "480s",
     "cost": "5.000",
     "level": "1",
-    "source": "Centro de Administração Patriótica"
+    "source": "Centro de Administração Patriótica",
+    "localIcon": "stratagem-icons/023.svg"
   },
   {
     "name": "Rifle sem recuo GR-8",
@@ -297,7 +321,8 @@
     "cooldown": "480s",
     "cost": "6.000",
     "level": "5",
-    "source": "Centro de Administração Patriótica"
+    "source": "Centro de Administração Patriótica",
+    "localIcon": "stratagem-icons/024.svg"
   },
   {
     "name": "Lançador de granadas GL-21",
@@ -309,7 +334,8 @@
     "cooldown": "480s",
     "cost": "6.000",
     "level": "5",
-    "source": "Baía de Engenharia"
+    "source": "Baía de Engenharia",
+    "localIcon": "stratagem-icons/025.svg"
   },
   {
     "name": "Lança-chamas FLAM-40",
@@ -321,7 +347,8 @@
     "cooldown": "480s",
     "cost": "6.000",
     "level": "10",
-    "source": "Centro de Administração Patriótica"
+    "source": "Centro de Administração Patriótica",
+    "localIcon": "stratagem-icons/026.svg"
   },
   {
     "name": "Metralhadora Pesada MG-206",
@@ -333,7 +360,8 @@
     "cooldown": "480s",
     "cost": "6.000",
     "level": "12",
-    "source": "Centro de Administração Patriótica"
+    "source": "Centro de Administração Patriótica",
+    "localIcon": "stratagem-icons/027.svg"
   },
   {
     "name": "Canhão automático AC-8",
@@ -345,7 +373,8 @@
     "cooldown": "480s",
     "cost": "7.000",
     "level": "10",
-    "source": "Centro de Administração Patriótica"
+    "source": "Centro de Administração Patriótica",
+    "localIcon": "stratagem-icons/028.svg"
   },
   {
     "name": "Lançador de Arco ARC-3",
@@ -357,7 +386,8 @@
     "cooldown": "480s",
     "cost": "7.000",
     "level": "15",
-    "source": "Baía de Engenharia"
+    "source": "Baía de Engenharia",
+    "localIcon": "stratagem-icons/029.svg"
   },
   {
     "name": "Canhão Quasar LAS-99",
@@ -369,7 +399,8 @@
     "cooldown": "480s",
     "cost": "7.500",
     "level": "18",
-    "source": "Baía de Engenharia"
+    "source": "Baía de Engenharia",
+    "localIcon": "stratagem-icons/030.svg"
   },
   {
     "name": "Lançador de foguetes RL-77 Airburst",
@@ -381,7 +412,8 @@
     "cooldown": "480s",
     "cost": "8.000",
     "level": "15",
-    "source": "Centro de Administração Patriótica"
+    "source": "Centro de Administração Patriótica",
+    "localIcon": "stratagem-icons/031.svg"
   },
   {
     "name": "Comando MLS-4X",
@@ -393,7 +425,8 @@
     "cooldown": "120s",
     "cost": "8.000",
     "level": "15",
-    "source": "Centro de Administração Patriótica"
+    "source": "Centro de Administração Patriótica",
+    "localIcon": "stratagem-icons/032.svg"
   },
   {
     "name": "Lança FAF-14",
@@ -405,7 +438,8 @@
     "cooldown": "480s",
     "cost": "9.000",
     "level": "20",
-    "source": "Centro de Administração Patriótica"
+    "source": "Centro de Administração Patriótica",
+    "localIcon": "stratagem-icons/033.svg"
   },
   {
     "name": "Canhão eletromagnético RS-422",
@@ -417,7 +451,8 @@
     "cooldown": "480s",
     "cost": "10.000",
     "level": "20",
-    "source": "Centro de Administração Patriótica"
+    "source": "Centro de Administração Patriótica",
+    "localIcon": "stratagem-icons/034.svg"
   },
   {
     "name": "Lançador StA-X3 WASP",
@@ -429,7 +464,8 @@
     "cooldown": "480s",
     "cost": "12.000",
     "level": "20",
-    "source": "Centro de Administração Patriótica"
+    "source": "Centro de Administração Patriótica",
+    "localIcon": "stratagem-icons/035.svg"
   },
   {
     "name": "Martelo de arrombamento CQC-20",
@@ -441,7 +477,8 @@
     "cooldown": "480s",
     "cost": "75 Medalhas",
     "level": "N/A",
-    "source": "Siege Breakers P1"
+    "source": "Siege Breakers P1",
+    "localIcon": "stratagem-icons/036.svg"
   },
   {
     "name": "Época PLAS-45",
@@ -453,7 +490,8 @@
     "cooldown": "480s",
     "cost": "75 Medalhas",
     "level": "N/A",
-    "source": "Control Group P1"
+    "source": "Control Group P1",
+    "localIcon": "stratagem-icons/037.svg"
   },
   {
     "name": "MGX-42 Tempestade de Balas",
@@ -465,7 +503,8 @@
     "cooldown": "70s",
     "cost": "75 Medalhas",
     "level": "N/A",
-    "source": "Exo Experts P1"
+    "source": "Exo Experts P1",
+    "localIcon": "stratagem-icons/038.svg"
   },
   {
     "name": "Arpão S-11",
@@ -477,7 +516,8 @@
     "cooldown": "480s",
     "cost": "85 Medalhas",
     "level": "N/A",
-    "source": "Dust Devils P2"
+    "source": "Dust Devils P2",
+    "localIcon": "stratagem-icons/039.svg"
   },
   {
     "name": "Ferramenta de Desfolha CQC-9",
@@ -489,7 +529,8 @@
     "cooldown": "480s",
     "cost": "85 Medalhas",
     "level": "N/A",
-    "source": "Python Commandos P2"
+    "source": "Python Commandos P2",
+    "localIcon": "stratagem-icons/040.svg"
   },
   {
     "name": "Descarga GL-52",
@@ -501,7 +542,8 @@
     "cooldown": "480s",
     "cost": "85 Medalhas",
     "level": "N/A",
-    "source": "Force of Law P2"
+    "source": "Force of Law P2",
+    "localIcon": "stratagem-icons/041.svg"
   },
   {
     "name": "EAT-700 Napalm Descartável",
@@ -513,7 +555,8 @@
     "cooldown": "140s",
     "cost": "85 Medalhas",
     "level": "N/A",
-    "source": "Dust Devils P2"
+    "source": "Dust Devils P2",
+    "localIcon": "stratagem-icons/042.svg"
   },
   {
     "name": "Esterilizador TX-41",
@@ -525,7 +568,8 @@
     "cooldown": "480s",
     "cost": "85 Medalhas",
     "level": "N/A",
-    "source": "Chemical Agents P2"
+    "source": "Chemical Agents P2",
+    "localIcon": "stratagem-icons/043.svg"
   },
   {
     "name": "Nivelador EAT-411",
@@ -537,7 +581,8 @@
     "cooldown": "140s",
     "cost": "85 Medalhas",
     "level": "N/A",
-    "source": "Siege Breakers P2"
+    "source": "Siege Breakers P2",
+    "localIcon": "stratagem-icons/044.svg"
   },
   {
     "name": "Lançador de granadas alimentado por fita GL-28",
@@ -549,7 +594,8 @@
     "cooldown": "480s",
     "cost": "110 Medalhas",
     "level": "N/A",
-    "source": "Siege Breakers P3"
+    "source": "Siege Breakers P3",
+    "localIcon": "stratagem-icons/045.svg"
   },
   {
     "name": "Pacote B/MD C4",
@@ -561,7 +607,8 @@
     "cooldown": "480s",
     "cost": "110 Medalhas",
     "level": "N/A",
-    "source": "Redacted Regiment P3"
+    "source": "Redacted Regiment P3",
+    "localIcon": "stratagem-icons/046.svg"
   },
   {
     "name": "MS-11 Solo Silo",
@@ -573,7 +620,8 @@
     "cooldown": "180s",
     "cost": "110 Medalhas",
     "level": "N/A",
-    "source": "Dust Devils P3"
+    "source": "Dust Devils P3",
+    "localIcon": "stratagem-icons/047.svg"
   },
   {
     "name": "Crematório B/FLAM-80",
@@ -585,7 +633,8 @@
     "cooldown": "480s",
     "cost": "110 Medalhas",
     "level": "N/A",
-    "source": "Entrenched Division P3"
+    "source": "Entrenched Division P3",
+    "localIcon": "stratagem-icons/048.svg"
   },
   {
     "name": "M-1000 Maxigun",
@@ -597,7 +646,8 @@
     "cooldown": "480s",
     "cost": "110 Medalhas",
     "level": "N/A",
-    "source": "Python Commandos P3"
+    "source": "Python Commandos P3",
+    "localIcon": "stratagem-icons/049.svg"
   },
   {
     "name": "CQC-1 Uma Bandeira Verdadeira",
@@ -609,7 +659,8 @@
     "cooldown": "480s",
     "cost": "110 Medalhas",
     "level": "N/A",
-    "source": "Masters of Ceremony P3"
+    "source": "Masters of Ceremony P3",
+    "localIcon": "stratagem-icons/050.svg"
   },
   {
     "name": "Canhão de fusão 40-K",
@@ -633,7 +684,8 @@
     "cooldown": "8 Min",
     "cost": "4.000",
     "level": "1",
-    "source": "Baía de Engenharia"
+    "source": "Baía de Engenharia",
+    "localIcon": "stratagem-icons/052.svg"
   },
   {
     "name": "Mochila Propulsora",
@@ -645,7 +697,8 @@
     "cooldown": "8 Min",
     "cost": "6.000",
     "level": "8",
-    "source": "Hangar"
+    "source": "Hangar",
+    "localIcon": "stratagem-icons/053.svg"
   },
   {
     "name": "Escudo Balístico Portátil",
@@ -657,7 +710,8 @@
     "cooldown": "4 Min",
     "cost": "6.000",
     "level": "12",
-    "source": "Baía de Engenharia"
+    "source": "Baía de Engenharia",
+    "localIcon": "stratagem-icons/054.svg"
   },
   {
     "name": "Cão de Guarda",
@@ -669,7 +723,8 @@
     "cooldown": "8 Min",
     "cost": "7.500",
     "level": "10",
-    "source": "Baía de Engenharia"
+    "source": "Baía de Engenharia",
+    "localIcon": "stratagem-icons/055.svg"
   },
   {
     "name": "Rover",
@@ -681,7 +736,8 @@
     "cooldown": "8 Min",
     "cost": "7.500",
     "level": "10",
-    "source": "Baía de Engenharia"
+    "source": "Baía de Engenharia",
+    "localIcon": "stratagem-icons/056.svg"
   },
   {
     "name": "Gerador de Escudo Portátil",
@@ -693,7 +749,8 @@
     "cooldown": "8 Min",
     "cost": "10.000",
     "level": "20",
-    "source": "Baía de Engenharia"
+    "source": "Baía de Engenharia",
+    "localIcon": "stratagem-icons/057.svg"
   },
   {
     "name": "Escudo Direcional",
@@ -705,7 +762,8 @@
     "cooldown": "5 Min",
     "cost": "75 Medalhas",
     "level": "N/A",
-    "source": "Urban Legends P1"
+    "source": "Urban Legends P1",
+    "localIcon": "stratagem-icons/058.svg"
   },
   {
     "name": "Cão-Quente",
@@ -717,7 +775,8 @@
     "cooldown": "8 Min",
     "cost": "75 Medalhas",
     "level": "N/A",
-    "source": "Python Commandos P1"
+    "source": "Python Commandos P1",
+    "localIcon": "stratagem-icons/059.svg"
   },
   {
     "name": "Bomba do Inferno Portátil",
@@ -729,7 +788,8 @@
     "cooldown": "5 Min",
     "cost": "110 Medalhas",
     "level": "N/A",
-    "source": "Servants of Freedom P3"
+    "source": "Servants of Freedom P3",
+    "localIcon": "stratagem-icons/060.svg"
   },
   {
     "name": "K-9",
@@ -741,7 +801,8 @@
     "cooldown": "8 Min",
     "cost": "110 Medalhas",
     "level": "N/A",
-    "source": "Force of Law P3"
+    "source": "Force of Law P3",
+    "localIcon": "stratagem-icons/061.svg"
   },
   {
     "name": "Mochila Plainadora",
@@ -753,7 +814,8 @@
     "cooldown": "8 Min",
     "cost": "110 Medalhas",
     "level": "N/A",
-    "source": "Borderline Justice P3"
+    "source": "Borderline Justice P3",
+    "localIcon": "stratagem-icons/062.svg"
   },
   {
     "name": "Dog Breath",
@@ -765,7 +827,8 @@
     "cooldown": "8 Min",
     "cost": "110 Medalhas",
     "level": "N/A",
-    "source": "Chemical Agents P3"
+    "source": "Chemical Agents P3",
+    "localIcon": "stratagem-icons/063.svg"
   },
   {
     "name": "Mochila de Distorção",
@@ -777,7 +840,8 @@
     "cooldown": "8 Min",
     "cost": "110 Medalhas",
     "level": "N/A",
-    "source": "Control Group P3"
+    "source": "Control Group P3",
+    "localIcon": "stratagem-icons/064.svg"
   },
   {
     "name": "FRV de Suprimentos",
@@ -789,7 +853,8 @@
     "cooldown": "8 Min",
     "cost": "N/A",
     "level": "N/A",
-    "source": "Census Thunder"
+    "source": "Census Thunder",
+    "localIcon": "stratagem-icons/065.svg"
   },
   {
     "name": "FRV Incinerador",
@@ -801,7 +866,8 @@
     "cooldown": "8 Min",
     "cost": "N/A",
     "level": "N/A",
-    "source": "N/A"
+    "source": "N/A",
+    "localIcon": "stratagem-icons/066.svg"
   },
   {
     "name": "Exoesqueleto Emancipador",
@@ -813,7 +879,8 @@
     "cooldown": "7 Min",
     "cost": "20.000",
     "level": "25",
-    "source": "Oficina de Robótica"
+    "source": "Oficina de Robótica",
+    "localIcon": "stratagem-icons/067.svg"
   },
   {
     "name": "Exoesqueleto Patriota",
@@ -825,7 +892,8 @@
     "cooldown": "7 Min",
     "cost": "20.000",
     "level": "25",
-    "source": "Oficina de Robótica"
+    "source": "Oficina de Robótica",
+    "localIcon": "stratagem-icons/068.svg"
   },
   {
     "name": "FRV Artilheiro",
@@ -837,7 +905,8 @@
     "cooldown": "8 Min",
     "cost": "25.000",
     "level": "25",
-    "source": "Hangar"
+    "source": "Hangar",
+    "localIcon": "stratagem-icons/069.svg"
   },
   {
     "name": "Bastião MK XVI",
@@ -849,7 +918,8 @@
     "cooldown": "13 Min",
     "cost": "35.000",
     "level": "30",
-    "source": "Hangar"
+    "source": "Hangar",
+    "localIcon": "stratagem-icons/070.svg"
   },
   {
     "name": "Exoesqueleto Ruptor",
@@ -861,7 +931,8 @@
     "cooldown": "7 Min",
     "cost": "50 Medalhas",
     "level": "N/A",
-    "source": "Exo Experts P3"
+    "source": "Exo Experts P3",
+    "localIcon": "stratagem-icons/071.svg"
   },
   {
     "name": "Exoesqueleto Lenhador",
@@ -873,7 +944,8 @@
     "cooldown": "7 Min",
     "cost": "50 Medalhas",
     "level": "N/A",
-    "source": "Exo Experts P2"
+    "source": "Exo Experts P2",
+    "localIcon": "stratagem-icons/072.svg"
   },
   {
     "name": "Sentinela Metralhadora",
@@ -885,7 +957,8 @@
     "cooldown": "90s",
     "cost": "1.500",
     "level": "1",
-    "source": "Oficina de Robótica"
+    "source": "Oficina de Robótica",
+    "localIcon": "stratagem-icons/073.svg"
   },
   {
     "name": "Sentinela Gatling",
@@ -897,7 +970,8 @@
     "cooldown": "2m 30s",
     "cost": "4.000",
     "level": "5",
-    "source": "Oficina de Robótica"
+    "source": "Oficina de Robótica",
+    "localIcon": "stratagem-icons/074.svg"
   },
   {
     "name": "Sentinela Canhão Automático",
@@ -909,7 +983,8 @@
     "cooldown": "2m 30s",
     "cost": "6.000",
     "level": "13",
-    "source": "Oficina de Robótica"
+    "source": "Oficina de Robótica",
+    "localIcon": "stratagem-icons/075.svg"
   },
   {
     "name": "Sentinela Morteiro",
@@ -921,7 +996,8 @@
     "cooldown": "3 Min",
     "cost": "7.000",
     "level": "8",
-    "source": "Oficina de Robótica"
+    "source": "Oficina de Robótica",
+    "localIcon": "stratagem-icons/076.svg"
   },
   {
     "name": "Sentinela de Foguetes",
@@ -933,7 +1009,8 @@
     "cooldown": "2m 30s",
     "cost": "7.500",
     "level": "15",
-    "source": "Oficina de Robótica"
+    "source": "Oficina de Robótica",
+    "localIcon": "stratagem-icons/077.svg"
   },
   {
     "name": "Torre Tesla",
@@ -945,7 +1022,8 @@
     "cooldown": "2 Min",
     "cost": "8.000",
     "level": "15",
-    "source": "Ponte"
+    "source": "Ponte",
+    "localIcon": "stratagem-icons/078.svg"
   },
   {
     "name": "Sentinela Morteiro EMS",
@@ -957,7 +1035,8 @@
     "cooldown": "3 Min",
     "cost": "8.000",
     "level": "20",
-    "source": "Oficina de Robótica"
+    "source": "Oficina de Robótica",
+    "localIcon": "stratagem-icons/079.svg"
   },
   {
     "name": "Sentinela Lança-Chamas",
@@ -969,7 +1048,8 @@
     "cooldown": "2 Min",
     "cost": "85 Medalhas",
     "level": "N/A",
-    "source": "Urban Legends"
+    "source": "Urban Legends",
+    "localIcon": "stratagem-icons/080.svg"
   },
   {
     "name": "Sentinela Laser",
@@ -981,7 +1061,8 @@
     "cooldown": "2m 30s",
     "cost": "85 Medalhas",
     "level": "N/A",
-    "source": "Control Group"
+    "source": "Control Group",
+    "localIcon": "stratagem-icons/081.svg"
   },
   {
     "name": "Sentinela Morteiro de Gás",
@@ -993,7 +1074,8 @@
     "cooldown": "3 Min",
     "cost": "85 Medalhas",
     "level": "N/A",
-    "source": "Entrenched Division"
+    "source": "Entrenched Division",
+    "localIcon": "stratagem-icons/082.svg"
   },
   {
     "name": "Campo de Minas Antipessoal",
@@ -1005,7 +1087,8 @@
     "cooldown": "120s",
     "cost": "1.500",
     "level": "1",
-    "source": "Baía de Engenharia"
+    "source": "Baía de Engenharia",
+    "localIcon": "stratagem-icons/083.svg"
   },
   {
     "name": "Minas Incendiárias",
@@ -1017,7 +1100,8 @@
     "cooldown": "120s",
     "cost": "4.000",
     "level": "8",
-    "source": "Baía de Engenharia"
+    "source": "Baía de Engenharia",
+    "localIcon": "stratagem-icons/084.svg"
   },
   {
     "name": "Minas Anti-Tank",
@@ -1029,7 +1113,8 @@
     "cooldown": "120s",
     "cost": "7.000",
     "level": "15",
-    "source": "Baía de Engenharia"
+    "source": "Baía de Engenharia",
+    "localIcon": "stratagem-icons/085.svg"
   },
   {
     "name": "Relé Gerador de Escudo",
@@ -1041,7 +1126,8 @@
     "cooldown": "90s",
     "cost": "9.000",
     "level": "10",
-    "source": "Ponte"
+    "source": "Ponte",
+    "localIcon": "stratagem-icons/086.svg"
   },
   {
     "name": "Plataforma HMG",
@@ -1053,7 +1139,8 @@
     "cooldown": "180s",
     "cost": "10.000",
     "level": "10",
-    "source": "Ponte"
+    "source": "Ponte",
+    "localIcon": "stratagem-icons/087.svg"
   },
   {
     "name": "Fortim Granadeiro",
@@ -1065,7 +1152,8 @@
     "cooldown": "120s",
     "cost": "10.000",
     "level": "15",
-    "source": "Ponte"
+    "source": "Ponte",
+    "localIcon": "stratagem-icons/088.svg"
   },
   {
     "name": "Minas de Gás",
@@ -1077,7 +1165,8 @@
     "cooldown": "120s",
     "cost": "12.000",
     "level": "20",
-    "source": "Baía de Engenharia"
+    "source": "Baía de Engenharia",
+    "localIcon": "stratagem-icons/089.svg"
   },
   {
     "name": "Plataforma Anti-Tank",
@@ -1089,7 +1178,8 @@
     "cooldown": "180s",
     "cost": "110 Medalhas",
     "level": "N/A",
-    "source": "Urban Legends P3"
+    "source": "Urban Legends P3",
+    "localIcon": "stratagem-icons/090.svg"
   },
   {
     "name": "Reforçar",
@@ -1101,7 +1191,8 @@
     "cooldown": "N/A",
     "cost": "Gratuito",
     "level": "1",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/091.svg"
   },
   {
     "name": "Reabastecimento",
@@ -1113,7 +1204,8 @@
     "cooldown": "N/A",
     "cost": "Gratuito",
     "level": "1",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/092.svg"
   },
   {
     "name": "Rearmar Águia",
@@ -1125,7 +1217,8 @@
     "cooldown": "N/A",
     "cost": "Gratuito",
     "level": "1",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/093.svg"
   },
   {
     "name": "Farol SOS",
@@ -1137,7 +1230,8 @@
     "cooldown": "N/A",
     "cost": "Gratuito",
     "level": "1",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/094.svg"
   },
   {
     "name": "Bandeira de Super Terra",
@@ -1149,19 +1243,21 @@
     "cooldown": "N/A",
     "cost": "Gratuito",
     "level": "1",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/095.svg"
   },
   {
     "name": "Enviar Dados",
     "category": "Estratagemas de Missão",
     "permission": "Outros",
-    "icon": "imagens/estratagemas/7-missao/Enviar Dados.svg",
+    "icon": "imagens/estratagemas/7-missao/Upload_Data_Stratagem_Icon_Background.svg",
     "path": "#",
     "code": "Código a definir",
     "cooldown": "N/A",
     "cost": "N/A",
     "level": "A definir",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/096.svg"
   },
   {
     "name": "Bomba do Inferno",
@@ -1173,7 +1269,8 @@
     "cooldown": "N/A",
     "cost": "N/A",
     "level": "A definir",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/097.svg"
   },
   {
     "name": "Artilharia SEAF",
@@ -1185,7 +1282,8 @@
     "cooldown": "N/A",
     "cost": "N/A",
     "level": "A definir",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/098.svg"
   },
   {
     "name": "Cápsulas de Reforço",
@@ -1197,7 +1295,8 @@
     "cooldown": "N/A",
     "cost": "N/A",
     "level": "A definir",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/099.svg"
   },
   {
     "name": "Container de Carga",
@@ -1209,7 +1308,8 @@
     "cooldown": "N/A",
     "cost": "N/A",
     "level": "A definir",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/100.svg"
   },
   {
     "name": "Broca do Aquífero",
@@ -1221,7 +1321,8 @@
     "cooldown": "N/A",
     "cost": "N/A",
     "level": "A definir",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/101.svg"
   },
   {
     "name": "Broca Rompe-Colônias",
@@ -1233,7 +1334,8 @@
     "cooldown": "N/A",
     "cost": "N/A",
     "level": "A definir",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/102.svg"
   },
   {
     "name": "Broca Tectônica",
@@ -1257,7 +1359,8 @@
     "cooldown": "N/A",
     "cost": "N/A",
     "level": "A definir",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/104.svg"
   },
   {
     "name": "Broca de Prospecção",
@@ -1269,7 +1372,8 @@
     "cooldown": "N/A",
     "cost": "N/A",
     "level": "A definir",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/105.svg"
   },
   {
     "name": "Relé de Comunicações Portátil",
@@ -1305,7 +1409,8 @@
     "cooldown": "N/A",
     "cost": "N/A",
     "level": "A definir",
-    "source": "A definir"
+    "source": "A definir",
+    "localIcon": "stratagem-icons/108.svg"
   },
   {
     "name": "Entrega SSSD",

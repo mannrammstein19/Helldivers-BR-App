@@ -74,7 +74,7 @@ fun OrderCard(data: HomeData) {
         Text(title, color = HD.Text, fontSize = 22.sp, lineHeight = 25.sp, fontWeight = FontWeight.Black)
 
         if (order.briefingText.isNotBlank()) {
-            Text(order.briefingText, color = HD.TextDim, fontSize = 13.sp, lineHeight = 19.sp)
+            LocalizedText(order.briefingText, color = HD.TextDim, fontSize = 13.sp, lineHeight = 19.sp)
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

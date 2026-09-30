@@ -184,7 +184,7 @@ private fun OrderContent(
             item {
                 HdCard(accent = HD.Yellow) {
                     SectionLabel("Ordem Maior ativa // ${order.tasks.size} objetivos", HD.Yellow)
-                    Text(
+                    LocalizedText(
                         order.briefingText.ifBlank { order.descriptionText.ifBlank { "Execute os objetivos definidos pelo Alto Comando da Super Terra." } },
                         color = HD.Text,
                         fontSize = 13.sp,
@@ -231,7 +231,7 @@ private fun OrderHeaderStat(label: String, value: String, modifier: Modifier = M
 
 @Composable
 private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, progress: Long) {
-    var showForecast by rememberSaveable(data.order.order?.id, data.order.order?.expiration, index) { mutableStateOf(false) }
+    var showForecast by rememberSaveable(data.order.order?.id.toString(), index) { mutableStateOf(false) }
     val goal = task.goal
     val planetName = task.planetId?.let { data.planetNames[it] }
     val campaign = task.planetId?.let { id -> data.campaigns.firstOrNull { it.planet.index == id } }
@@ -308,7 +308,7 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
                     done -> "Objetivo concluído."
                     "Ordem Maior" in data.staleSources || (campaign != null && "campanhas" in data.staleSources) -> "Telemetria sem atualização. Previsão pausada até receber uma nova leitura válida."
                     data.order.state != "active" -> "Sem previsão: aguardando confirmação ou ordem encerrada."
-                    rate == null -> "Coletando amostras. São necessárias duas leituras válidas, separadas por pelo menos 30 segundos. A atualização automática ocorre a cada 60 segundos enquanto o app está aberto."
+                    rate == null -> "Coletando a primeira amostra. A próxima leitura ocorre em cerca de 60 segundos; depois o ritmo e a previsão aparecem aqui."
                     rate <= 0 -> "Sem avanço positivo na última amostra. Ainda não há previsão de conclusão."
                     else -> "Ritmo observado: ${"%.2f".format(orderLocale, rate)}%/h. Conclusão estimada em ${eta ?: "—"}."
                 }, color = HD.TextDim, fontSize = 12.sp, lineHeight = 17.sp)

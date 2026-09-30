@@ -29,7 +29,7 @@ import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ArsenalScreen(onOpenCatalog: (String) -> Unit, contentPadding: PaddingValues) {
+fun ArsenalScreen(onOpenEntry: (StratagemEntry) -> Unit, contentPadding: PaddingValues, themeMode: br.com.helldiversbr.app.ui.theme.HdThemeMode) {
     val context = LocalContext.current
     var entries by remember { mutableStateOf<List<StratagemEntry>?>(null) }
     var failed by remember { mutableStateOf(false) }
@@ -44,8 +44,6 @@ fun ArsenalScreen(onOpenCatalog: (String) -> Unit, contentPadding: PaddingValues
     var favoritesOnly by rememberSaveable { mutableStateOf(false) }
     val prefs = remember { context.getSharedPreferences("hdbr_arsenal", 0) }
     var favorites by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet())!!.toSet()) }
-    val loader = remember(context) { ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build() }
-    DisposableEffect(loader) { onDispose { loader.shutdown() } }
     val filtered = remember(catalog, query, favoritesOnly, favorites) {
         val key = searchKey(query.trim())
         catalog.filter {
@@ -54,8 +52,10 @@ fun ArsenalScreen(onOpenCatalog: (String) -> Unit, contentPadding: PaddingValues
         }
     }
     Box(Modifier.fillMaxSize()) {
-    SiteImage("arsenal_background", null, Modifier.matchParentSize(), scale = ContentScale.Crop)
-    Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .62f)))
+    if (themeMode != br.com.helldiversbr.app.ui.theme.HdThemeMode.MERIDIA) {
+        SiteImage("arsenal_background", null, Modifier.matchParentSize(), scale = ContentScale.Crop)
+        Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .62f)))
+    }
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(14.dp, contentPadding.calculateTopPadding() + 12.dp, 14.dp, contentPadding.calculateBottomPadding() + 20.dp),
@@ -66,7 +66,7 @@ fun ArsenalScreen(onOpenCatalog: (String) -> Unit, contentPadding: PaddingValues
                 SectionLabel("Super Terra // Registros táticos")
                 Text("ARSENAL DE ESTRATAGEMAS", color = HD.Text, fontSize = 26.sp, fontWeight = FontWeight.Black)
                 Text("${catalog.size} registros • códigos, recargas e aquisição", color = HD.TextDim, fontSize = 12.sp)
-                Text("Os dados do catálogo ficam disponíveis sem conexão. Imagens e fichas completas usam o site.", color = HD.TextMuted, fontSize = 11.sp)
+                Text("Fichas, códigos e estatísticas disponíveis no app.", color = HD.TextMuted, fontSize = 11.sp)
             }
         }
         item {
@@ -105,10 +105,10 @@ fun ArsenalScreen(onOpenCatalog: (String) -> Unit, contentPadding: PaddingValues
                     }
                 }
                 if (opened) items(rows, key = { it.name }) { entry ->
-                    StratagemCard(entry, entry.name in favorites, loader, onFavorite = {
+                    StratagemCard(entry, entry.name in favorites, onFavorite = {
                         favorites = if (entry.name in favorites) favorites - entry.name else favorites + entry.name
                         prefs.edit().putStringSet("favorites", favorites).apply()
-                    }, onOpen = { onOpenCatalog(entry.path) })
+                    }, onOpen = { onOpenEntry(entry) })
                 }
             }
         }
@@ -125,7 +125,7 @@ private fun permissionAccent(permission: String) = when {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StratagemCard(entry: StratagemEntry, favorite: Boolean, loader: ImageLoader, onFavorite: () -> Unit, onOpen: () -> Unit) {
+private fun StratagemCard(entry: StratagemEntry, favorite: Boolean, onFavorite: () -> Unit, onOpen: () -> Unit) {
     val accent = when {
         "Ofensiva" in entry.permission -> HD.Red
         "Suprimento" in entry.permission -> HD.SignalBlue
@@ -136,8 +136,7 @@ private fun StratagemCard(entry: StratagemEntry, favorite: Boolean, loader: Imag
         colors = CardDefaults.cardColors(containerColor = HD.Surface), border = BorderStroke(1.dp, accent.copy(alpha = 0.5f))) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                AsyncImage("${HelldiversApi.SITE_BASE}/${entry.icon}", null, imageLoader = loader,
-                    modifier = Modifier.size(34.dp), contentScale = ContentScale.Fit)
+                StratagemArtwork(entry.imageModel(), entry.name, Modifier.size(34.dp))
                 Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
                     Text(entry.name, color = HD.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
@@ -162,9 +161,9 @@ private fun StratagemCard(entry: StratagemEntry, favorite: Boolean, loader: Imag
             Text("Recarga: ${entry.cooldown}   •   Nível: ${entry.level}", color = HD.TextDim, fontSize = 12.sp)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Aquisição: ${entry.source}", color = HD.TextDim, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                if (entry.path.isNotBlank() && entry.path != "#") {
+                if (entry.name.isNotBlank()) {
                     TextButton(onClick = onOpen, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                        Text("DETALHES ↗", color = HD.Yellow, fontSize = 11.sp)
+                        Text("ABRIR FICHA", color = HD.Yellow, fontSize = 11.sp)
                     }
                 }
             }

@@ -1,6 +1,19 @@
-# HELLDIVERS-BR — Android V8.0.0
+# HELLDIVERS-BR — Android V17.0.0
 
-Projeto Kotlin + Jetpack Compose, evoluído a partir da V6 enviada. Este pacote contém código-fonte; não contém APK compilado.
+Projeto Kotlin + Jetpack Compose, atualizado sobre a V16. Este pacote contém o projeto completo para gerar o APK pelo GitHub Actions.
+
+## V17: navegação nativa e telemetria
+
+- Busca com imagem e abertura da ficha dentro do app. Arsenal usa as mesmas fichas nativas, mantendo favoritos.
+- 110 registros: 91 com descrições/tabelas importadas do site e 19 registros de missão com informações básicas. Incluídos 105 ícones locais; cinco imagens ausentes na fonte são identificadas como indisponíveis.
+- Despachos: três resumos iniciais, leitura completa por cartão e expansão da lista.
+- Briefings da Ordem Maior e despachos traduzidos para PT-BR com cache, opção de original e nova tentativa se necessário.
+- Previsão corrigida: pequenas variações da expiração não reiniciam a medição nem recolhem o painel.
+- Hino no menu com tocar/pausar, repetição e volume salvo. Pausa ao sair do aplicativo; não começa sozinho.
+- Tema Meridian com o mesmo arquivo de fundo do site, incluído no APK e aplicado também atrás do Arsenal.
+- Central de Guerra sem o ícone adicional no contador nem o subtítulo amarelo que quebrava linha.
+
+Consulte **ALTERACOES-V17.md** para detalhes de validação e limites. Os tópicos V8 abaixo documentam recursos herdados, preservados nesta versão.
 
 ## Antes de compilar: conferir as imagens
 Abra **CONFIRIR-IMAGENS.html** no Chrome, com conexão. Confira primeiro as três artes da Ordem Maior (andamento, vitória, derrota) e a medalha. Verde significa que carregou; confira também visualmente se é a arte esperada. O HTML e o app usam os mesmos caminhos de `app/src/main/assets/site-assets.json`.
@@ -24,7 +37,7 @@ O teste no Chrome verifica a imagem e o acesso pelo navegador. O carregamento vi
 Veja CHANGES-V8.md para escopo completo, recursos ainda exclusivos do site e limites de validação.
 
 ## Gerar o APK no GitHub
-1. Faça backup da V6.
+1. Faça backup da versão atual do repositório.
 2. Copie o conteúdo da pasta Helldivers-BR-App deste ZIP para a raiz do repositório do aplicativo, mantendo a pasta .github/workflows incluída no ZIP.
 3. Confirme o envio dos arquivos alterados e novos, incluindo app/src/main/assets e tools.
 4. Abra Actions → Build APK Helldivers BR → Run workflow.
@@ -33,7 +46,7 @@ Veja CHANGES-V8.md para escopo completo, recursos ainda exclusivos do site e lim
 Não publique tag/release antes de validar o APK no celular. O fluxo existente produz APK debug.
 
 ## O que depende de internet
-Telemetria, mapa, imagens e fichas completas. O catálogo de estratagemas, textos de facções e favoritos funcionam sem rede. As últimas leituras de telemetria são mantidas apenas em memória.
+Telemetria ao vivo, primeira tradução, hino e imagens ainda hospedadas no site dependem de internet. Catálogo, fichas nativas importadas, 105 ícones, fundo Meridian, traduções já armazenadas e favoritos funcionam sem rede. As últimas leituras de telemetria e o histórico de ritmo ficam em memória.
 
 ## Atualizar o catálogo a partir do site
 Use Python 3, sem bibliotecas adicionais:
@@ -42,14 +55,14 @@ Use Python 3, sem bibliotecas adicionais:
 python tools/import_site_catalog.py /caminho/estratagemas.html
 ```
 
-O comando gera app/src/main/assets/stratagems.json. Assim, os valores são editados no site e importados para o app. As alterações entram no próximo APK; não há sincronização automática do catálogo em instalações existentes.
+O comando gera app/src/main/assets/stratagems.json (catálogo básico). Na V17, manter também stratagem-details.json com exatamente a mesma ordem dos registros e o campo localIcon apontando para os ícones incluídos. O importador básico sozinho não atualiza as fichas detalhadas nem preserva esses caminhos locais. As alterações entram no próximo APK; não há sincronização automática do catálogo em instalações existentes.
 
 ## Verificação no aparelho
 - Buscar “canhao” e conferir resultados com acentos; filtrar e favoritar, reiniciar e confirmar favorito.
 - Abrir uma ficha específica; verificar nomes/códigos/imagens SVG e registros de missão sem link.
 - Abrir o mapa; arrastar, ampliar com dois dedos, centralizar, filtrar e selecionar pela lista.
 - Interromper a conexão após uma leitura; verificar aviso e conservação dos dados do mapa.
-- Abrir Facções pela Home e menu; mudar entre Padrão e Meridia.
+- Abrir Facções pela Home e menu; mudar entre Padrão e Meridian.
 - Conferir Guerra e Ordem Maior da V6, rotação, fonte ampliada e botão Voltar.
 
-A sintaxe foi analisada localmente. Os testes em app/src/test serão executados pelo Actions antes do APK; não foram executados neste ambiente, que não tem SDK Android/Gradle. A correspondência visual exata e o desempenho precisam ser conferidos no aparelho.
+A validação desta entrega está registrada em ALTERACOES-V17.md. A aparência, os gestos e a reprodução de áudio precisam ser conferidos no aparelho.
