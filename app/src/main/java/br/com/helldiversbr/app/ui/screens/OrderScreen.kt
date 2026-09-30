@@ -279,15 +279,15 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
                     AsyncImage(
                         model = PlanetVisuals.factionLogo(factionRaw),
                         contentDescription = factionLabel,
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(44.dp),
                         contentScale = ContentScale.Fit,
                     )
                 }
                 Text(
                     headline,
                     color = HD.Text,
-                    fontSize = 16.sp,
-                    lineHeight = 19.sp,
+                    fontSize = 13.sp,
+                    lineHeight = 17.sp,
                     fontWeight = FontWeight.Black,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,

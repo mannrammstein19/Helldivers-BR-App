@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -254,7 +255,7 @@ private fun DssUnavailableCard(reading: DssReading, tall: Boolean = false) {
         border = BorderStroke(1.dp, HD.Border),
     ) {
         Column {
-            Box(Modifier.fillMaxWidth().aspectRatio(if (tall) 16f / 10f else 16f / 7.2f)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(if (tall) 4f / 3f else 16f / 7.2f)) {
                 AsyncImage(
                     model = DSS_UNAVAILABLE,
                     contentDescription = "Estação Espacial da Democracia",
@@ -294,7 +295,7 @@ private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean
         border = BorderStroke(1.dp, HD.Yellow.copy(alpha = .62f)),
     ) {
         Column {
-            Box(Modifier.fillMaxWidth().aspectRatio(if (tall) 16f / 10f else 16f / 7.0f)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(if (tall) 4f / 3f else 16f / 7.0f)) {
                 AsyncImage(
                     model = location.image,
                     contentDescription = location.name,
@@ -311,11 +312,15 @@ private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean
                 AsyncImage(
                     model = DSS_MODEL,
                     contentDescription = "DSS",
-                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = 6.dp).fillMaxWidth(.42f),
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = if (tall) 10.dp else 6.dp)
+                        .fillMaxHeight(if (tall) .88f else .76f)
+                        .fillMaxWidth(if (tall) .45f else .42f),
                     contentScale = ContentScale.Fit,
                 )
                 Column(
-                    Modifier.align(Alignment.CenterStart).fillMaxWidth(.67f).padding(start = 14.dp),
+                    Modifier.align(Alignment.CenterStart).fillMaxWidth(if (tall) .58f else .67f).padding(start = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text("ESTAÇÃO DEMOCRACIA", color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)

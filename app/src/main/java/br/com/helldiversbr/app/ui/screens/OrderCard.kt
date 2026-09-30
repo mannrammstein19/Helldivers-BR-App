@@ -243,46 +243,65 @@ private fun TaskRow(
         percent = if (progress > 0) 100.0 else 0.0
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (factionRaw.isNotBlank() && !OrderRepository.isHumanFaction(factionRaw)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                AsyncImage(
-                    model = PlanetVisuals.factionLogo(factionRaw),
-                    contentDescription = OrderRepository.factionLabel(factionRaw),
-                    modifier = Modifier.size(24.dp),
-                    contentScale = ContentScale.Fit,
-                )
-                Text(
-                    "ALVO // ${OrderRepository.factionLabel(factionRaw).uppercase()}",
-                    color = accent,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.8.sp,
-                )
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(15.dp),
+        colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = .035f)),
+        border = BorderStroke(1.2.dp, accent.copy(alpha = .55f)),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            if (factionRaw.isNotBlank() && !OrderRepository.isHumanFaction(factionRaw)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AsyncImage(
+                        model = PlanetVisuals.factionLogo(factionRaw),
+                        contentDescription = OrderRepository.factionLabel(factionRaw),
+                        modifier = Modifier.size(31.dp),
+                        contentScale = ContentScale.Fit,
+                    )
+                    Column {
+                        Text(
+                            "FACÇÃO INIMIGA",
+                            color = HD.TextMuted,
+                            fontSize = 7.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = .55.sp,
+                        )
+                        Text(
+                            OrderRepository.factionLabel(factionRaw).uppercase(),
+                            color = accent,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.7.sp,
+                        )
+                    }
+                }
             }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(title, color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            Text(detail, color = accent, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 10.dp))
-        }
-        ProgressBar(percent, accent)
-        val done = percent >= 99.999
-        val rateValue = when {
-            done -> "CONCLUÍDO"
-            stale || !active -> "INDISPONÍVEL"
-            rate == null -> "COLETANDO"
-            else -> "%+.2f%%/h".format(ptBr, rate)
-        }
-        val etaValue = when {
-            done -> "CONCLUÍDO"
-            stale || !active -> "INDISPONÍVEL"
-            rate == null -> "COLETANDO"
-            rate <= 0.0 -> "SEM PREVISÃO"
-            else -> OrderRepository.etaFromRate(percent, rate) ?: "CALCULANDO"
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            WarOrderMetric("RITMO OBSERVADO", rateValue, accent, Modifier.weight(1f))
-            WarOrderMetric("CONCLUSÃO ESTIMADA", etaValue, accent, Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(title, color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(detail, color = accent, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 10.dp))
+            }
+            ProgressBar(percent, accent)
+            val done = percent >= 99.999
+            val rateValue = when {
+                done -> "CONCLUÍDO"
+                stale || !active -> "INDISPONÍVEL"
+                rate == null -> "COLETANDO"
+                else -> "%+.2f%%/h".format(ptBr, rate)
+            }
+            val etaValue = when {
+                done -> "CONCLUÍDO"
+                stale || !active -> "INDISPONÍVEL"
+                rate == null -> "COLETANDO"
+                rate <= 0.0 -> "SEM PREVISÃO"
+                else -> OrderRepository.etaFromRate(percent, rate) ?: "CALCULANDO"
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                WarOrderMetric("RITMO OBSERVADO", rateValue, accent, Modifier.weight(1f))
+                WarOrderMetric("CONCLUSÃO ESTIMADA", etaValue, accent, Modifier.weight(1f))
+            }
         }
     }
 }

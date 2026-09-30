@@ -120,7 +120,7 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
                         }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                             if (mapFaction(faction) != "unknown") {
-                                SiteImage(mapFaction(faction), OrderRepository.factionLabel(faction), Modifier.size(34.dp))
+                                SiteImage(mapFaction(faction), OrderRepository.factionLabel(faction), Modifier.size(46.dp))
                             }
                             Text(
                                 when {
@@ -130,8 +130,8 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
                                 },
                                 modifier = Modifier.weight(1f),
                                 color = HD.Text,
-                                fontSize = 14.sp,
-                                lineHeight = 18.sp,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
                                 fontWeight = FontWeight.Black,
                             )
                         }

@@ -84,6 +84,9 @@ object WarAlertManager {
     fun processCampaigns(context: Context, campaigns: List<Campaign>) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_ENABLED, false)) return
+        // Uma leitura vazia pode ser resposta incompleta/parsing degradado. Não deixe isso
+        // apagar o baseline e transformar defesas antigas em "novas" na próxima leitura.
+        if (campaigns.isEmpty()) return
 
         val defenses = campaigns.filter { it.planet.event != null }
         val current = defenses.mapNotNull { campaign ->

@@ -27,7 +27,7 @@ data class HomeData(
     val updatedAtMillis: Long,
     val orderRates: Map<Int, Double> = emptyMap(),
     val staleSources: List<String> = emptyList(),
-    /** community | direct | cache */
+    /** community | direct | cache | mixed */
     val telemetrySource: String = "community",
 ) {
     val helldiversOnFront: Long get() = campaigns.sumOf { it.planet.statistics.playerCount.coerceAtLeast(0) }
@@ -91,40 +91,54 @@ object OrderRepository {
             return runCatching { DirectGameApi.warData(catalog) }.also { directWar = it }
         }
 
+        fun validDispatches(items: List<Dispatch>): Boolean =
+            items.isNotEmpty() && items.any { it.text.isNotBlank() }
+
+        fun validCampaigns(items: List<Campaign>): Boolean =
+            items.isNotEmpty() && items.any { it.planet.index >= 0L && it.planet.nameText.isNotBlank() }
+
+        val communityOrderValue = communityOrder.getOrNull()?.takeIf { it.tasks.isNotEmpty() }
+        val communityDispatchList = communityDispatches.getOrNull().orEmpty()
+        val communityCampaignList = communityCampaigns.getOrNull().orEmpty()
+
         val directOrderDeferred = async {
-            if (communityOrder.isFailure || communityOrder.getOrNull() == null)
+            if (communityOrderValue == null)
                 runCatching { DirectGameApi.assignment() } else Result.success(null)
         }
         val directDispatchesDeferred = async {
-            if (communityDispatches.isFailure)
+            if (!validDispatches(communityDispatchList))
                 runCatching { DirectGameApi.dispatches().take(10) } else Result.success(emptyList())
         }
         val directCampaignsDeferred = async {
-            if (communityCampaigns.isFailure) directWarData() else null
+            if (!validCampaigns(communityCampaignList)) directWarData() else null
         }
         val directOrder = directOrderDeferred.await()
         val directDispatches = directDispatchesDeferred.await()
         val directCampaigns = directCampaignsDeferred.await()
 
-        val liveOrder = communityOrder.getOrNull() ?: directOrder.getOrNull()
+        val directOrderValue = directOrder.getOrNull()?.takeIf { it.tasks.isNotEmpty() }
+        val directDispatchList = directDispatches.getOrNull().orEmpty()
+        val directCampaignList = directCampaigns?.getOrNull()?.campaigns.orEmpty()
+
+        val liveOrder = communityOrderValue ?: directOrderValue
         val orderSource = when {
-            communityOrder.getOrNull() != null -> "community"
-            directOrder.getOrNull() != null -> "direct"
+            communityOrderValue != null -> "community"
+            directOrderValue != null -> "direct"
             else -> "cache"
         }
         val snap = snapshot.getOrNull()
 
         val dispatchSource: String
         val dispatches = when {
-            communityDispatches.isSuccess -> { dispatchSource = "community"; communityDispatches.getOrThrow() }
-            directDispatches.isSuccess && directDispatches.getOrNull().orEmpty().isNotEmpty() -> { dispatchSource = "direct"; directDispatches.getOrThrow() }
+            validDispatches(communityDispatchList) -> { dispatchSource = "community"; communityDispatchList }
+            validDispatches(directDispatchList) -> { dispatchSource = "direct"; directDispatchList }
             else -> { dispatchSource = "cache"; fallback?.dispatches.orEmpty() }
         }
 
         val campaignSource: String
         val rawCampaigns = when {
-            communityCampaigns.isSuccess -> { campaignSource = "community"; communityCampaigns.getOrThrow() }
-            directCampaigns?.isSuccess == true -> { campaignSource = "direct"; directCampaigns.getOrThrow().campaigns }
+            validCampaigns(communityCampaignList) -> { campaignSource = "community"; communityCampaignList }
+            validCampaigns(directCampaignList) -> { campaignSource = "direct"; directCampaignList }
             else -> { campaignSource = "cache"; fallback?.campaigns.orEmpty() }
         }
         val campaigns = rawCampaigns.sortedWith(
@@ -186,6 +200,14 @@ object OrderRepository {
             if (dss.stale) add("DSS")
         }
 
+        val usedSources = buildSet {
+            add(campaignSource)
+            add(dispatchSource)
+            add(orderSource)
+            if (dss.source in setOf("community", "direct", "cache")) add(dss.source)
+        }
+        val telemetrySource = if (usedSources.size == 1) usedSources.first() else "mixed"
+
         HomeData(
             order = ui,
             dispatches = dispatches,
@@ -197,7 +219,7 @@ object OrderRepository {
             updatedAtMillis = dataTimestamp,
             orderRates = objectiveRates,
             staleSources = stale,
-            telemetrySource = campaignSource,
+            telemetrySource = telemetrySource,
         ).also { result ->
             lastGood = result
             // Não regrava um fallback puro como se ele fosse novo.

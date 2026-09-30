@@ -66,7 +66,7 @@ object DirectGameApi {
     private fun rootObject(body: String): JsonObject {
         val el = json.parseToJsonElement(body)
         return when (el) {
-            is JsonObject -> (el["data"] as? JsonObject) ?: el
+            is JsonObject -> (element(el, "data") as? JsonObject) ?: el
             else -> error("Objeto inválido da API direta")
         }
     }
@@ -75,7 +75,7 @@ object DirectGameApi {
         val el = json.parseToJsonElement(body)
         return when (el) {
             is JsonArray -> el
-            is JsonObject -> (el["data"] as? JsonArray) ?: JsonArray(emptyList())
+            is JsonObject -> (element(el, "data") as? JsonArray) ?: JsonArray(emptyList())
             else -> JsonArray(emptyList())
         }
     }
@@ -87,7 +87,7 @@ object DirectGameApi {
         val id = when (el) {
             is JsonPrimitive -> el.longOrNull
             is JsonObject -> {
-                val data = el["data"]
+                val data = element(el, "data")
                 when (data) {
                     is JsonPrimitive -> data.longOrNull
                     is JsonObject -> long(data, "id", "warId", "warID")
@@ -105,7 +105,8 @@ object DirectGameApi {
         cachedBundle?.takeIf { now - it.first < BUNDLE_TTL }?.second?.let { return@withContext it }
         val warId = currentWarId()
         val status = rootObject(get("/api/WarSeason/$warId/Status"))
-        val info = rootObject(get("/api/WarSeason/$warId/Info"))
+        val info = runCatching { rootObject(get("/api/WarSeason/$warId/WarInfo")) }
+            .getOrElse { rootObject(get("/api/WarSeason/$warId/Info")) }
         val startMillis = epochMillis(long(info, "startDate"))
         RawWarBundle(warId, status, info, startMillis).also { cachedBundle = now to it }
     }
@@ -113,7 +114,7 @@ object DirectGameApi {
     suspend fun assignment(): Assignment? = withContext(Dispatchers.IO) {
         val warId = currentWarId()
         val raw = rootArray(get("/api/v2/Assignment/War/$warId")).firstOrNull() as? JsonObject ?: return@withContext null
-        val setting = raw["setting"] as? JsonObject ?: JsonObject(emptyMap())
+        val setting = element(raw, "setting") as? JsonObject ?: JsonObject(emptyMap())
         val tasks = array(setting, "tasks").mapNotNull { taskEl ->
             val t = taskEl as? JsonObject ?: return@mapNotNull null
             OrderTask(
@@ -122,21 +123,21 @@ object DirectGameApi {
                 valueTypes = array(t, "valueTypes").mapNotNull { (it as? JsonPrimitive)?.intOrNull },
             )
         }
-        val rewardObj = setting["reward"] as? JsonObject
+        val rewardObj = element(setting, "reward") as? JsonObject
         val reward = rewardObj?.let {
             Reward(
-                type = it["type"],
+                type = element(it, "type"),
                 amount = long(it, "amount") ?: 0L,
-                id32 = it["id32"],
+                id32 = element(it, "id32"),
             )
         }
         val expiresIn = long(raw, "expiresIn") ?: 0L
         Assignment(
-            id = raw["id32"] ?: raw["id"],
+            id = element(raw, "id32", "id"),
             progress = array(raw, "progress").mapNotNull { (it as? JsonPrimitive)?.longOrNull },
-            title = setting["overrideTitle"] ?: JsonPrimitive("MAJOR ORDER"),
-            briefing = setting["overrideBrief"],
-            description = setting["taskDescription"],
+            title = element(setting, "overrideTitle") ?: JsonPrimitive("MAJOR ORDER"),
+            briefing = element(setting, "overrideBrief"),
+            description = element(setting, "taskDescription"),
             tasks = tasks,
             reward = reward,
             expiration = if (expiresIn > 0) Instant.now().plusSeconds(expiresIn).toString() else null,
@@ -153,7 +154,7 @@ object DirectGameApi {
                     id = long(item, "id") ?: 0L,
                     published = publishedWarSeconds?.let { warSecondsToIso(war.startMillis, it) },
                     type = int(item, "type") ?: 0,
-                    message = item["message"],
+                    message = element(item, "message"),
                 )
             }
             .sortedByDescending { it.published.orEmpty() }
@@ -185,7 +186,7 @@ object DirectGameApi {
             val info = infoByIndex[index] ?: JsonObject(emptyMap())
             val status = statusByIndex[index] ?: JsonObject(emptyMap())
             val cat = catalog[index]
-            val pos = (status["position"] as? JsonObject) ?: (info["position"] as? JsonObject)
+            val pos = (element(status, "position") as? JsonObject) ?: (element(info, "position") as? JsonObject)
             val eventRaw = eventsByIndex[index]
             val regions = regionsByPlanet[index].orEmpty().map { region ->
                 val regionIndex = int(region, "regionIndex") ?: 0
@@ -238,7 +239,7 @@ object DirectGameApi {
                 val planetIndex = long(raw, "planetIndex") ?: return@mapNotNull null
                 val planet = planetByIndex[planetIndex] ?: return@mapNotNull null
                 Campaign(
-                    id = raw["id"] ?: raw["id32"],
+                    id = element(raw, "id", "id32"),
                     planet = planet,
                     faction = raceName(int(raw, "race")),
                 )
@@ -305,9 +306,17 @@ object DirectGameApi {
         return runCatching { Instant.ofEpochMilli(base + seconds * 1000L).toString() }.getOrNull()
     }
 
-    private fun array(obj: JsonObject?, key: String): JsonArray = obj?.get(key) as? JsonArray ?: JsonArray(emptyList())
-    private fun long(obj: JsonObject?, vararg keys: String): Long? = keys.firstNotNullOfOrNull { (obj?.get(it) as? JsonPrimitive)?.longOrNull }
-    private fun int(obj: JsonObject?, vararg keys: String): Int? = keys.firstNotNullOfOrNull { (obj?.get(it) as? JsonPrimitive)?.intOrNull }
-    private fun double(obj: JsonObject?, vararg keys: String): Double? = keys.firstNotNullOfOrNull { (obj?.get(it) as? JsonPrimitive)?.doubleOrNull }
-    private fun bool(obj: JsonObject?, vararg keys: String): Boolean? = keys.firstNotNullOfOrNull { (obj?.get(it) as? JsonPrimitive)?.booleanOrNull }
+    /** ArrowHead alterna entre camelCase e PascalCase em respostas brutas. */
+    private fun element(obj: JsonObject?, vararg keys: String): JsonElement? {
+        if (obj == null) return null
+        keys.forEach { key -> obj[key]?.let { return it } }
+        val wanted = keys.map { it.lowercase() }.toSet()
+        return obj.entries.firstOrNull { it.key.lowercase() in wanted }?.value
+    }
+
+    private fun array(obj: JsonObject?, key: String): JsonArray = element(obj, key) as? JsonArray ?: JsonArray(emptyList())
+    private fun long(obj: JsonObject?, vararg keys: String): Long? = keys.firstNotNullOfOrNull { (element(obj, it) as? JsonPrimitive)?.longOrNull }
+    private fun int(obj: JsonObject?, vararg keys: String): Int? = keys.firstNotNullOfOrNull { (element(obj, it) as? JsonPrimitive)?.intOrNull }
+    private fun double(obj: JsonObject?, vararg keys: String): Double? = keys.firstNotNullOfOrNull { (element(obj, it) as? JsonPrimitive)?.doubleOrNull }
+    private fun bool(obj: JsonObject?, vararg keys: String): Boolean? = keys.firstNotNullOfOrNull { (element(obj, it) as? JsonPrimitive)?.booleanOrNull }
 }

@@ -2,5 +2,5 @@
   "versionCode": 22,
   "versionName": "22.0.0",
   "apkUrl": "https://github.com/mannrammstein19/Helldivers-BR-App/releases/latest/download/Helldivers-BR.apk",
-  "notes": "V22: paredão de dados Community -> API direta -> cache persistente, telemetria com horário real, correção do botão Início, ícone reenquadrado, launcher HD2 BR e refinamentos de Início/Guerra/DSS."
+  "notes": "V22 revisada: retorno à Início reforçado, barra inferior maior, Ordem com ícones de facção maiores, filtros da Guerra reorganizados, DSS mais vertical e fallback Community -> Direct -> cache validado."
 }
