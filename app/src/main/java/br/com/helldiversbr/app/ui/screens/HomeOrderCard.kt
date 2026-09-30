@@ -64,25 +64,16 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
         )
 
         if (order != null) {
-<<<<<<< HEAD
             Row(
                 Modifier.fillMaxWidth().padding(top = 1.dp, bottom = 2.dp),
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 HomeInlineStat(
-=======
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HomeOrderHeaderStat(
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
                     "TEMPO RESTANTE",
                     if (ui.state == "active") OrderRepository.remaining(order.expiration) else "ENCERRADA",
                     Modifier.weight(1f),
                 )
-<<<<<<< HEAD
                 HomeInlineStat(
-=======
-                HomeOrderHeaderStat(
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
                     "OBJETIVOS CONCLUÍDOS",
                     "$completed / ${order.tasks.size}",
                     Modifier.weight(1f),
@@ -117,11 +108,7 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
                     colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.045f)),
                     border = BorderStroke(1.2.dp, accent.copy(alpha = 0.9f)),
                 ) {
-<<<<<<< HEAD
                     Column(Modifier.padding(horizontal = 11.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-=======
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("OBJETIVO ${index + 1} // ERRADICAÇÃO", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
                             Text(
@@ -130,7 +117,6 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Black,
                             )
-<<<<<<< HEAD
                         }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                             if (mapFaction(faction) != "unknown") {
@@ -168,41 +154,6 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
                                 modifier = Modifier.weight(1f),
                             )
                         }
-=======
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                            if (mapFaction(faction) != "unknown") {
-                                SiteImage(mapFaction(faction), OrderRepository.factionLabel(faction), Modifier.size(25.dp))
-                            }
-                            Text(
-                                when {
-                                    task.planetId != null -> "${when (task.type) { 12 -> "DEFENDER"; 13 -> "CONTROLAR"; else -> "LIBERTAR" }} ${task.planetId?.let { data.planetNames[it] } ?: campaign?.planet?.nameText ?: "PLANETA"}"
-                                    task.type == 3 && goal != null -> "ELIMINAR ${number.format(goal)} ${OrderTargets.label(task, OrderRepository.factionLabel(faction)).uppercase()}"
-                                    else -> "CUMPRIR OBJETIVO"
-                                },
-                                modifier = Modifier.weight(1f),
-                                color = HD.Text,
-                                fontSize = 14.sp,
-                                lineHeight = 18.sp,
-                                fontWeight = FontWeight.Black,
-                            )
-                        }
-                        ProgressBar(percent, accent)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(if (goal != null) "${number.format(progress)} / ${number.format(goal)}" else "Progresso", color = HD.TextDim, fontSize = 9.sp)
-                            Text("%.2f%%".format(locale, percent), color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                        }
-                        HomeForecastBox(
-                            label = "RITMO OBSERVADO",
-                            value = if (fresh && rate != null) "%+.2f%%/h".format(locale, rate) else if (fresh) "Coletando leituras" else "Indisponível",
-                            accent = accent,
-                        )
-                        HomeForecastBox(
-                            label = "CONCLUSÃO ESTIMADA",
-                            value = eta,
-                            accent = accent,
-                        )
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
                     }
                 }
             }
@@ -214,57 +165,29 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
 }
 
 @Composable
-<<<<<<< HEAD
 private fun HomeInlineStat(
-=======
-private fun HomeOrderHeaderStat(
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
     label: String,
     value: String,
     modifier: Modifier = Modifier,
     valueColor: Color = HD.Text,
 ) {
-<<<<<<< HEAD
     Column(modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Text(label, color = HD.TextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .35.sp)
         Text(value.uppercase(), color = valueColor, fontSize = 12.sp, fontWeight = FontWeight.Black)
-=======
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = HD.BgDeep.copy(alpha = .72f)),
-        border = BorderStroke(1.dp, HD.BorderSoft),
-    ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, color = HD.TextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .4.sp)
-            Text(value.uppercase(), color = valueColor, fontSize = 13.sp, fontWeight = FontWeight.Black)
-        }
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
     }
 }
 
 @Composable
-<<<<<<< HEAD
 private fun HomeForecastBox(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
-=======
-private fun HomeForecastBox(label: String, value: String, accent: Color) {
-    Card(
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
         shape = RoundedCornerShape(11.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = .42f)),
         border = BorderStroke(1.dp, accent.copy(alpha = .28f)),
     ) {
-<<<<<<< HEAD
         Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(label, color = HD.TextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .25.sp)
             Text(value, color = if (value == "Indisponível") HD.TextMuted else HD.Text, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-=======
-        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .45.sp)
-            Text(value, color = if (value == "Indisponível") HD.TextMuted else HD.Text, fontSize = 11.sp, fontWeight = FontWeight.Bold)
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
         }
     }
 }

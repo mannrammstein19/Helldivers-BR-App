@@ -194,7 +194,6 @@ object OrderRepository {
             campaigns = campaigns,
             campaignRates = rates,
             dss = dss,
-<<<<<<< HEAD
             updatedAtMillis = dataTimestamp,
             orderRates = objectiveRates,
             staleSources = stale,
@@ -205,17 +204,6 @@ object OrderRepository {
             val gotFreshNetworkData = campaignSource != "cache" || dispatchSource != "cache" || orderSource != "cache" || snapshot.isSuccess || !dss.stale
             if (gotFreshNetworkData) TelemetryCache.saveHome(result)
         }
-=======
-            updatedAtMillis = now,
-            orderRates = if (live.isFailure && snapshot.isFailure) lastGood?.orderRates.orEmpty() else objectiveRates,
-            staleSources = buildList {
-                if (campaignsResult.isFailure) add("campanhas")
-                if (dispatchesResult.isFailure) add("despachos")
-                if (live.isFailure || (ui.fromSnapshot && ui.state == "active")) add("Ordem Maior")
-                if (dss.stale) add("DSS")
-            },
-        ).also { lastGood = it }
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
     }
 
     fun campaignKey(campaign: Campaign): String {

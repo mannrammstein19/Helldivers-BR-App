@@ -2,7 +2,6 @@ package br.com.helldiversbr.app.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-<<<<<<< HEAD
 import br.com.helldiversbr.app.data.DirectGameApi
 import br.com.helldiversbr.app.data.DssReading
 import br.com.helldiversbr.app.data.DssRepository
@@ -11,13 +10,6 @@ import br.com.helldiversbr.app.data.HelldiversApi
 import br.com.helldiversbr.app.data.Planet
 import br.com.helldiversbr.app.data.PlanetCatalogEntry
 import br.com.helldiversbr.app.data.TelemetryCache
-=======
-import br.com.helldiversbr.app.data.DssReading
-import br.com.helldiversbr.app.data.DssRepository
-import br.com.helldiversbr.app.data.HelldiversApi
-import br.com.helldiversbr.app.data.Planet
-import br.com.helldiversbr.app.data.PlanetCatalogEntry
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -33,11 +25,8 @@ data class GalaxyState(
     val updatedAtMillis: Long? = null,
     val dss: DssReading = DssReading(),
     val planetCatalog: Map<Long, PlanetCatalogEntry> = emptyMap(),
-<<<<<<< HEAD
     /** community | direct | cache */
     val telemetrySource: String = "community",
-=======
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
 ) {
     val dssHost: Long? get() = dss.station?.planet?.index?.takeIf { it > 0L }
 }
@@ -52,7 +41,6 @@ class GalaxyViewModel : ViewModel() {
         request = viewModelScope.launch {
             mutableState.value = mutableState.value.copy(loading = true, error = null)
             try {
-<<<<<<< HEAD
                 val disk = TelemetryCache.loadGalaxy()
                 val previous = mutableState.value
                 if (previous.planets.isEmpty() && disk != null && disk.planets.isNotEmpty()) {
@@ -71,22 +59,10 @@ class GalaxyViewModel : ViewModel() {
                         try { DssRepository.load() }
                         catch (e: CancellationException) { throw e }
                         catch (_: Exception) { disk?.dss ?: previous.dss }
-=======
-                val (planets, dss, catalog) = supervisorScope {
-                    val station = async {
-                        try {
-                            DssRepository.load()
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (_: Exception) {
-                            DssReading()
-                        }
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
                     }
                     val catalogTask = async {
                         try {
                             HelldiversApi.planetCatalog()
-<<<<<<< HEAD
                                 .ifEmpty { previous.planetCatalog.ifEmpty { disk?.planetCatalog.orEmpty() } }
                         }
                         catch (e: CancellationException) { throw e }
@@ -138,34 +114,12 @@ class GalaxyViewModel : ViewModel() {
                         GalaxyCache(next.planets, next.dss, next.planetCatalog, updated, source)
                     )
                 }
-=======
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (_: Exception) {
-                            emptyMap()
-                        }
-                    }
-                    val worlds = HelldiversApi.planets()
-                    Triple(worlds, station.await(), catalogTask.await())
-                }
-                check(planets.isNotEmpty()) { "Catálogo vazio" }
-                mutableState.value = GalaxyState(
-                    planets = planets,
-                    updatedAtMillis = System.currentTimeMillis(),
-                    dss = dss,
-                    planetCatalog = catalog.ifEmpty { mutableState.value.planetCatalog },
-                )
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 mutableState.value = mutableState.value.copy(
                     loading = false,
-<<<<<<< HEAD
                     error = "Não foi possível atualizar o mapa e ainda não existe leitura salva no aparelho.",
-=======
-                    error = "Não foi possível atualizar o mapa. Última leitura preservada, quando disponível.",
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
                 )
             }
         }

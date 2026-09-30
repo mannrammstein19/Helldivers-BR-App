@@ -14,13 +14,8 @@ android {
         targetSdk = 34
         // Incremente versionCode e versionName a cada novo APK publicado.
         // O app compara versionCode com o valor de versao-app.json para avisar de atualizações.
-<<<<<<< HEAD
         versionCode = 22
         versionName = "22.0.0"
-=======
-        versionCode = 21
-        versionName = "21.0.0"
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
     }
 
     buildTypes {

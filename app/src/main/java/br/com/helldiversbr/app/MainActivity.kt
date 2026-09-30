@@ -167,13 +167,9 @@ private fun App(
             is br.com.helldiversbr.app.ui.HomeState.Error -> currentHome.last
             else -> null
         }
-<<<<<<< HEAD
         if (data != null && data.telemetrySource != "cache" && "campanhas" !in data.staleSources) {
             WarAlertManager.processCampaigns(context, data.campaigns)
         }
-=======
-        if (data != null) WarAlertManager.processCampaigns(context, data.campaigns)
->>>>>>> 4126736d414f57bf192f28a9f89522910ca923d0
     }
 
     fun navigate(route: String) {
