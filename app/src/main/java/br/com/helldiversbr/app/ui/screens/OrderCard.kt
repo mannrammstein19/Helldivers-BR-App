@@ -178,9 +178,7 @@ private fun TaskRow(
         percent = if (progress > 0) 100.0 else livePercent
     } else if (goal != null && goal > 0) {
         title = when (task.type) {
-            3 -> factionRaw.takeIf { it.isNotBlank() }
-                ?.let { "Eliminar ${OrderRepository.factionLabel(it)}" }
-                ?: "Eliminar forças inimigas"
+            3 -> "Eliminar ${br.com.helldiversbr.app.data.OrderTargets.label(task, OrderRepository.factionLabel(factionRaw))}"
             else -> "Objetivo ${index + 1}"
         }
         detail = "${fmt(progress)} / ${fmt(goal)}"

@@ -59,7 +59,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
     var viewport by remember { mutableStateOf(IntSize.Zero) }
     val art by produceState(MapArt(), context) {
         val keys = listOf("human", "automaton", "terminid", "illuminate", "earth", "defense", "liberation",
-            "helldivers_active", "galaxy", "penta", "meridia", "wreckage", "hive_lord", "draco_barata")
+            "galaxy", "penta", "meridia", "wreckage", "hive_lord", "draco_barata")
         val loaded = coroutineScope {
             keys.map { key -> async {
                 var bitmap: Bitmap? = null
@@ -152,7 +152,9 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
         if (point != null && viewport.width > 0 && viewport.height > 0) {
             zoom = max(zoom, 2.5f)
             val unit = min(viewport.width, viewport.height) / 1120f * zoom
-            pan = Offset(-point.x * unit, -point.y * unit + viewport.height * .18f)
+            pan = if (viewport.width > viewport.height)
+                Offset(-point.x * unit + viewport.width * .23f, -point.y * unit)
+            else Offset(-point.x * unit, -point.y * unit + viewport.height * .18f)
         }
     }
     val paint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true } }
@@ -213,14 +215,6 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
             }
             paint.shader = null; paint.style = Paint.Style.FILL; paint.color = android.graphics.Color.WHITE
             canvas.drawBitmap(backdrop, null, RectF(-500f,-500f,500f,500f), paint)
-            listOf(Triple("automaton",215f,45f),Triple("terminid",280f,45f),Triple("illuminate",113f,-46f)).forEach { (key,start,sweep) ->
-                val path=Path().apply { addArc(RectF(-535f,-535f,535f,535f),start,sweep) }
-                val title=when(key){"automaton"->"AUTÔMATOS";"terminid"->"TERMINÍDEOS";else->"ILUMINADOS"}
-                textPaint.color=mapColor(key).toArgb();textPaint.textSize=11.sp.toPx()/unit;textPaint.textAlign=Paint.Align.LEFT
-                val length=android.graphics.PathMeasure(path,false).length
-                canvas.drawTextOnPath(title,path,(length-textPaint.measureText(title))/2f,0f,textPaint)
-                textPaint.textAlign=Paint.Align.CENTER
-            }
             if (routes) edges.forEach { (a, b, front) ->
                 val sa = origin + a * unit; val sb = origin + b * unit
                 if (max(sa.x,sb.x) >= 0 && min(sa.x,sb.x) <= size.width &&
@@ -305,7 +299,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     if (dssHost == p.index) lines += MapCaption("DSS",at+Offset(0f,-r*3.5f-gap*2),Color(0xFFFFD23F),true)
                     val boxes = lines.map { line ->
                         textPaint.textSize = (if(line.small) 8.sp else 11.sp).toPx()
-                        val half = textPaint.measureText(line.text)/2 + if (line.text.endsWith(" HD")) 13.dp.toPx() else 0f
+                        val half = textPaint.measureText(line.text)/2
                         val metrics = textPaint.fontMetrics
                         val margin = 3.dp.toPx()
                         val anchor = origin + line.at * unit
@@ -320,6 +314,16 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 }
             }
             canvas.restore()
+            textPaint.setShadowLayer(2.dp.toPx(), 0f, 1.dp.toPx(), android.graphics.Color.BLACK)
+            listOf(Triple("automaton",215f,45f),Triple("terminid",280f,45f),Triple("illuminate",113f,-46f)).forEach { (key,start,sweep) ->
+                val path=Path().apply { addArc(RectF(origin.x-535f*unit,origin.y-535f*unit,origin.x+535f*unit,origin.y+535f*unit),start,sweep) }
+                val title=when(key){"automaton"->"AUTÔMATOS";"terminid"->"TERMINÍDEOS";else->"ILUMINADOS"}
+                textPaint.color=mapColor(key).toArgb();textPaint.textSize=14.sp.toPx();textPaint.textAlign=Paint.Align.LEFT
+                val length=android.graphics.PathMeasure(path,false).length
+                canvas.drawTextOnPath(title,path,(length-textPaint.measureText(title))/2f,0f,textPaint)
+                textPaint.textAlign=Paint.Align.CENTER
+            }
+
             // Text is rendered in screen pixels, outside the galaxy transform.
             textPaint.setShadowLayer(2.dp.toPx(), 0f, 1.dp.toPx(), android.graphics.Color.BLACK)
             pendingLabels.forEach { caption ->
@@ -327,12 +331,6 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 textPaint.textSize = (if (caption.small) 8.sp else 11.sp).toPx()
                 textPaint.color = caption.color.toArgb()
                 textPaint.textAlign = Paint.Align.CENTER
-                if (caption.text.endsWith(" HD")) art.bitmaps["helldivers_active"]?.let { bitmap ->
-                    val side = 11.dp.toPx()
-                    val right = anchor.x - textPaint.measureText(caption.text) / 2f - 3.dp.toPx()
-                    paint.style = Paint.Style.FILL; paint.shader = null; paint.alpha = 255
-                    canvas.drawBitmap(bitmap, null, RectF(right-side, anchor.y-side, right, anchor.y), paint)
-                }
                 canvas.drawText(caption.text, anchor.x, anchor.y, textPaint)
             }
         }

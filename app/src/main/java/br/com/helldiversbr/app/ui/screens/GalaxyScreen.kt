@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -142,7 +143,9 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
                         }) {
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            SiteImage(mapFaction(planet.currentOwner), galaxyFaction(planet), Modifier.size(28.dp))
+                            AsyncImage(model = PlanetVisuals.planetImage(planet.index, planet.nameText, data?.planetCatalog?.get(planet.index)),
+                                contentDescription = planet.nameText, contentScale = ContentScale.Crop,
+                                modifier = Modifier.size(28.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(7.dp)))
                             Column(Modifier.weight(1f)) {
                                 Text(planet.nameText, color = HD.Text, fontWeight = FontWeight.Bold)
                                 Text(planet.sector, color = HD.TextDim, fontSize = 11.sp)
@@ -158,11 +161,12 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     }
     // The map owns the whole available destination, including the space behind overlays.
     BoxWithConstraints(Modifier.fillMaxSize().padding(contentPadding).background(Color(0xFF050810))) {
-        val panelMaxHeight = (maxHeight * .52f).coerceAtMost(310.dp)
+        val landscapeLayout = maxWidth > maxHeight
+        val panelMaxHeight = if (landscapeLayout) (maxHeight - 128.dp).coerceAtLeast(80.dp) else (maxHeight * .56f).coerceAtMost(340.dp)
         val visibilityButtonWidth = (maxWidth - 176.dp).coerceAtLeast(48.dp)
         GalaxyCanvas(filtered, planets, routes, sectors, territories, invasions, selectedId,
             campaigns.keys, state.dssHost, onSelect = { selectedId = it }, modifier = Modifier.fillMaxSize())
-        Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(8.dp),
+        Column(Modifier.align(Alignment.TopStart).fillMaxWidth(if (landscapeLayout) .48f else 1f).padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Surface(color = Color(0xE6090D12), shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)) {
                 Column(Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) {
@@ -227,12 +231,15 @@ private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeDa
     val accent = if (defense) HD.DefenseBlue else factionColor(planet.currentOwner)
     val count = planet.regions.count { it.isAvailable == true }
     val landscape = PlanetVisuals.planetImage(planet.index, planet.nameText, data?.planetCatalog?.get(planet.index))
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Box(Modifier.fillMaxWidth().heightIn(min = if (expanded) 92.dp else 58.dp)) {
-            if (expanded) {
+    Box {
+        if (expanded) {
+            Box(Modifier.fillMaxWidth().padding(top = 30.dp).height(145.dp)) {
                 AsyncImage(model = landscape, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
-                Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = .2f), Color(0xFF090D12)))))
+                Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color(0xFF090D12), Color.Black.copy(alpha = .30f), Color(0xFF090D12)))))
             }
+        }
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Box(Modifier.fillMaxWidth().heightIn(min = 58.dp)) {
         Row(Modifier.fillMaxWidth().align(Alignment.BottomStart).padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             SiteImage(mapFaction(planet.currentOwner), galaxyFaction(planet), Modifier.size(26.dp))
             Column(Modifier.weight(1f).padding(start = 8.dp)) {
@@ -242,14 +249,14 @@ private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeDa
             }
             IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(48.dp)
                 .semantics { contentDescription = if (expanded) "Recolher ficha" else "Expandir ficha" }
-                .background(Color(0xE629303A), androidx.compose.foundation.shape.CircleShape)) {
-                Text(if (expanded) "−" else "+", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+) {
+                Text(if (expanded) "−" else "+", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.background(Color(0xD929303A), androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(horizontal = 7.dp, vertical = 1.dp))
             }
             Spacer(Modifier.width(6.dp))
             IconButton(onClick = onClose, modifier = Modifier.size(48.dp)
                 .semantics { contentDescription = "Fechar ficha do planeta" }
-                .background(Color(0xE629303A), androidx.compose.foundation.shape.CircleShape)) {
-                Text("×", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+) {
+                Text("×", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.background(Color(0xD929303A), androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(horizontal = 7.dp, vertical = 1.dp))
             }
         }
         }
@@ -291,4 +298,5 @@ private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeDa
             }
         }
     }
+}
 }

@@ -38,7 +38,7 @@ fun HdCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(7.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = HD.Surface),
         border = BorderStroke(1.dp, accent.copy(alpha = 0.8f)),
     ) {

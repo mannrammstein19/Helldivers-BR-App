@@ -86,7 +86,6 @@ fun PlanetRegions(planet: Planet) {
                     ?: "Progresso indisponível", color = HD.Yellow, fontSize = 13.sp, lineHeight = 17.sp)
                 info.percent?.let { ProgressBar(it, HD.Yellow) }
                 info.players?.let { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SiteImage("helldivers_active", "Helldivers ativos", Modifier.size(17.dp))
                     Text("${NumberFormat.getInstance(Locale("pt", "BR")).format(it)} Helldivers na região", color = HD.TextDim, fontSize = 12.sp, lineHeight = 16.sp) } }
                 if (info.note.isNotEmpty()) Text(info.note, color = HD.TextMuted, fontSize = 11.sp, lineHeight = 15.sp)
             }

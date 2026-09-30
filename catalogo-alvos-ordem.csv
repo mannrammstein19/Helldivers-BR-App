@@ -1,0 +1,13 @@
+unit_id,nome_app,nome_fonte,faccao_id,faccao,fonte
+20706814,Batedores Andantes,Scout Strider,3,Autômatos,https://github.com/CrosswaveOmega/hd2api.py/blob/0ff67eade7c2d4f4db45ea225f41b865dd515b26/src/hd2api/constants/constants.py
+2664856027,Tanques Autômatos,Shredder Tank,3,Autômatos,https://github.com/CrosswaveOmega/hd2api.py/blob/0ff67eade7c2d4f4db45ea225f41b865dd515b26/src/hd2api/constants/constants.py
+471929602,Hulks,Hulk,3,Autômatos,https://github.com/CrosswaveOmega/hd2api.py/blob/0ff67eade7c2d4f4db45ea225f41b865dd515b26/src/hd2api/constants/constants.py
+4276710272,Devastadores,Devastator,3,Autômatos,https://github.com/CrosswaveOmega/hd2api.py/blob/0ff67eade7c2d4f4db45ea225f41b865dd515b26/src/hd2api/constants/constants.py
+878778730,Soldados Autômatos,Trooper,3,Autômatos,https://github.com/CrosswaveOmega/hd2api.py/blob/0ff67eade7c2d4f4db45ea225f41b865dd515b26/src/hd2api/constants/constants.py
+3330362068,Caçadores,Hunter,2,Terminídeos,https://github.com/CrosswaveOmega/hd2api.py/blob/0ff67eade7c2d4f4db45ea225f41b865dd515b26/src/hd2api/constants/constants.py
+2058088313,Guerreiros,Warrior,2,Terminídeos,https://github.com/CrosswaveOmega/hd2api.py/blob/0ff67eade7c2d4f4db45ea225f41b865dd515b26/src/hd2api/constants/constants.py
+2387277009,Espreitadores,Stalker,2,Terminídeos,https://github.com/CrosswaveOmega/hd2api.py/blob/0ff67eade7c2d4f4db45ea225f41b865dd515b26/src/hd2api/constants/constants.py
+2651633799,Atropeladores,Charger,2,Terminídeos,https://github.com/CrosswaveOmega/hd2api.py/blob/0ff67eade7c2d4f4db45ea225f41b865dd515b26/src/hd2api/constants/constants.py
+2514244534,Titãs de Bile,Bile Titan,2,Terminídeos,https://github.com/CrosswaveOmega/hd2api.py/blob/0ff67eade7c2d4f4db45ea225f41b865dd515b26/src/hd2api/constants/constants.py
+1379865898,Cuspidores de Bile,Bile Spewer,2,Terminídeos,https://github.com/CrosswaveOmega/hd2api.py/blob/0ff67eade7c2d4f4db45ea225f41b865dd515b26/src/hd2api/constants/constants.py
+4211847317,Sem-voto,Voteless,4,Iluminados,https://github.com/CrosswaveOmega/hd2api.py/blob/0ff67eade7c2d4f4db45ea225f41b865dd515b26/src/hd2api/constants/constants.py

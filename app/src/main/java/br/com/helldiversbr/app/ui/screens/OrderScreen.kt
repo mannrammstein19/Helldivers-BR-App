@@ -119,7 +119,7 @@ private fun OrderContent(
 
         item {
             Card(
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = HD.BgDeep.copy(alpha = 0.94f)),
                 border = BorderStroke(1.dp, HD.Border),
             ) {
@@ -159,7 +159,7 @@ private fun OrderContent(
                             }
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = HD.SurfaceSoft),
-                                shape = RoundedCornerShape(5.dp),
+                                shape = RoundedCornerShape(16.dp),
                                 border = BorderStroke(1.dp, HD.BorderSoft),
                             ) {
                                 Column(Modifier.fillMaxWidth().padding(12.dp)) {
@@ -249,7 +249,7 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
     val done = percent >= 99.999 || (goal != null && goal > 0 && progress >= goal)
 
     val headline = when {
-        task.type == 3 && goal != null && goal > 0 && factionRaw.isNotBlank() -> "ELIMINAR ${orderFmt(goal)} $factionLabel"
+        task.type == 3 && goal != null && goal > 0 -> "ELIMINAR ${orderFmt(goal)} ${br.com.helldiversbr.app.data.OrderTargets.label(task, factionLabel).uppercase()}"
         task.type == 11 && planetName != null -> "LIBERTAR ${planetName.uppercase()}"
         task.type == 12 && planetName != null -> "DEFENDER ${planetName.uppercase()}"
         task.type == 13 && planetName != null -> "CONTROLAR ${planetName.uppercase()}"
@@ -259,7 +259,7 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
     }
 
     Card(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.055f)),
         border = BorderStroke(1.5.dp, accent.copy(alpha = 0.95f)),
     ) {

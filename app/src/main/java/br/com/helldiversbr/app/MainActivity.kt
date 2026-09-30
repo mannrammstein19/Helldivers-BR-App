@@ -1,5 +1,8 @@
 package br.com.helldiversbr.app
 
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.layout.imePadding
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -290,10 +293,11 @@ private fun AppBottomBar(
     onNavigate: (String) -> Unit,
     onMenu: () -> Unit,
 ) {
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     Surface(color = Color(0xFF090909).copy(alpha = 0.97f), shadowElevation = 16.dp) {
         Column(Modifier.navigationBarsPadding()) {
             HorizontalDivider(color = HD.Border, thickness = 1.dp)
-            Row(Modifier.fillMaxWidth().height(67.dp)) {
+            Row(Modifier.fillMaxWidth().height(if (landscape) 50.dp else 67.dp)) {
                 tabs.forEach { tab ->
                     val selected = if (tab.route == "menu") menuOpen else current == tab.route
                     Column(
@@ -342,7 +346,14 @@ private fun AppDrawer(
     onClose: () -> Unit,
 ) {
     var search by remember { mutableStateOf("") }
+    val drawerContext = LocalContext.current
+    val equipment = remember(drawerContext) { runCatching { br.com.helldiversbr.app.data.StratagemCatalog.load(drawerContext) }.getOrDefault(emptyList()) }
     val query = br.com.helldiversbr.app.data.searchKey(search.trim())
+    val results = remember(equipment, query) {
+        if (query.isBlank()) emptyList() else equipment.filter {
+            br.com.helldiversbr.app.data.searchKey("${it.name} ${it.category} ${it.source}").contains(query)
+        }
+    }
     fun show(vararg labels: String): Boolean = query.isBlank() || labels.any { br.com.helldiversbr.app.data.searchKey(it).contains(query) }
 
     ModalDrawerSheet(
@@ -383,6 +394,7 @@ private fun AppDrawer(
             Column(
                 Modifier
                     .fillMaxSize()
+                    .imePadding()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -406,6 +418,13 @@ private fun AppDrawer(
                 }
 
                 DrawerSearch(search = search, onSearch = { search = it })
+                if (query.isNotBlank()) {
+                    DrawerGroupLabel("ARSENAL · ${results.size} RESULTADOS")
+                    results.forEach { entry ->
+                        DrawerCompactEntry(entry.name, false) { onClose(); onOpenSite(entry.path) }
+                    }
+                    if (results.isEmpty()) Text("Nenhum equipamento encontrado. Tente outro nome.", color = HD.TextDim, fontSize = 12.sp)
+                }
 
                 DrawerThemeControl(
                     themeMode = themeMode,
@@ -460,7 +479,7 @@ private fun AppDrawer(
                 }
 
                 Text(
-                    "HELLDIVERS-BR // V8.0.0",
+                    "HELLDIVERS-BR // ${BuildConfig.VERSION_NAME}",
                     color = HD.TextMuted,
                     fontSize = 7.5.sp,
                     fontWeight = FontWeight.Bold,
@@ -483,7 +502,7 @@ private fun DrawerSearch(search: String, onSearch: (String) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("BUSCA GLOBAL HDBR", color = HD.Text, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.0.sp)
+            Text("BUSCAR MENU E ARSENAL", color = HD.Text, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.0.sp)
             Text("MENU NATIVO", color = HD.TextMuted, fontSize = 6.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
         }
         Row(
@@ -500,7 +519,7 @@ private fun DrawerSearch(search: String, onSearch: (String) -> Unit) {
             Spacer(Modifier.width(8.dp))
             Box(Modifier.weight(1f)) {
                 if (search.isBlank()) {
-                    Text("Pesquisar no menu...", color = HD.TextMuted, fontSize = 11.sp)
+                    Text("Nome, equipamento ou seção...", color = HD.TextMuted, fontSize = 11.sp)
                 }
                 BasicTextField(
                     value = search,

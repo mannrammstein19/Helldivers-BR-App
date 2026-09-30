@@ -571,7 +571,6 @@ private fun DossierFact(label: String, value: String, modifier: Modifier = Modif
     Column(modifier.padding(end = 8.dp)) {
         Text(label, color = HD.TextMuted, fontSize = 9.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (label == "HELLDIVERS") SiteImage("helldivers_active", "Helldivers ativos", Modifier.size(17.dp))
         Text(value, color = HD.Text, fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }

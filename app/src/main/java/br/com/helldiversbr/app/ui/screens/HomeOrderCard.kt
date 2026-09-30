@@ -58,7 +58,7 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
                             if (mapFaction(faction) != "unknown") SiteImage(mapFaction(faction), OrderRepository.factionLabel(faction), Modifier.size(23.dp))
                             Text(when {
                                 task.planetId != null -> "${when(task.type){12 -> "DEFENDER";13 -> "CONTROLAR";else -> "LIBERTAR"}} ${task.planetId?.let { data.planetNames[it] } ?: campaign?.planet?.nameText ?: "PLANETA"}"
-                                task.type == 3 && goal != null -> "ELIMINAR ${number.format(goal)} ${OrderRepository.factionLabel(faction).uppercase()}"
+                                task.type == 3 && goal != null -> "ELIMINAR ${number.format(goal)} ${OrderTargets.label(task, OrderRepository.factionLabel(faction)).uppercase()}"
                                 else -> "CUMPRIR OBJETIVO"
                             }, modifier = Modifier.weight(1f), color = HD.Text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
