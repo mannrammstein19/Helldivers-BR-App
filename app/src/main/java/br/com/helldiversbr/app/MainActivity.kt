@@ -8,6 +8,7 @@ import br.com.helldiversbr.app.ui.FirstRunDrawerHint
 import br.com.helldiversbr.app.ui.FirstRunPreferences
 import br.com.helldiversbr.app.ui.screens.AnthemControl
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -84,6 +85,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import br.com.helldiversbr.app.data.HelldiversApi
+import br.com.helldiversbr.app.notifications.WarAlertManager
 import br.com.helldiversbr.app.ui.MainViewModel
 import br.com.helldiversbr.app.ui.screens.ArsenalScreen
 import br.com.helldiversbr.app.ui.screens.GalaxyScreen
@@ -159,8 +161,23 @@ private fun App(
     val home by vm.home.collectAsState()
     val update by vm.update.collectAsState()
 
+    LaunchedEffect(home) {
+        val data = when (val currentHome = home) {
+            is br.com.helldiversbr.app.ui.HomeState.Ready -> currentHome.data
+            is br.com.helldiversbr.app.ui.HomeState.Error -> currentHome.last
+            else -> null
+        }
+        if (data != null && data.telemetrySource != "cache" && "campanhas" !in data.staleSources) {
+            WarAlertManager.processCampaigns(context, data.campaigns)
+        }
+    }
+
     fun navigate(route: String) {
+        val previousRoute = current
         navigateTab(nav, current, route)
+        // Ao voltar para a Início, revalida os dados sem apagar o snapshot já exibido.
+        // Isso evita o estado visual "preso" em coleta depois de trocar de aba.
+        if (route == "inicio" && previousRoute != "inicio") vm.refresh()
         scope.launch { drawerState.close() }
     }
 
@@ -308,10 +325,25 @@ private fun DrawerEdgeSwipe(
 
 private fun navigateTab(nav: NavHostController, current: String, route: String) {
     if (current == route) return
+
+    if (route == "inicio") {
+        // Reconstrói somente o destino raiz e não restaura um estado de navegação antigo.
+        // O ViewModel permanece o mesmo, portanto os últimos dados válidos continuam na tela.
+        nav.navigate("inicio") {
+            popUpTo("inicio") {
+                inclusive = true
+                saveState = false
+            }
+            launchSingleTop = true
+            restoreState = false
+        }
+        return
+    }
+
     nav.navigate(route) {
-        popUpTo("inicio") { saveState = true }
+        popUpTo("inicio") { saveState = false }
         launchSingleTop = true
-        restoreState = true
+        restoreState = false
     }
 }
 
@@ -383,7 +415,7 @@ private fun AppBottomBar(
     Surface(color = Color(0xFF090909).copy(alpha = 0.97f), shadowElevation = 16.dp) {
         Column(Modifier.navigationBarsPadding()) {
             HorizontalDivider(color = HD.Border, thickness = 1.dp)
-            Row(Modifier.fillMaxWidth().height(if (landscape) 50.dp else 67.dp)) {
+            Row(Modifier.fillMaxWidth().height(if (landscape) 58.dp else 80.dp)) {
                 tabs.forEach { tab ->
                     val selected = current == tab.route || (tab.route == "arsenal" && current.startsWith("estratagema/"))
                     Column(
@@ -397,13 +429,13 @@ private fun AppBottomBar(
                             Modifier.fillMaxWidth().height(2.dp)
                                 .background(if (selected) HD.Yellow else Color.Transparent)
                         )
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(30.dp).padding(top = 4.dp)) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(if (landscape) 34.dp else 40.dp).padding(top = if (landscape) 3.dp else 6.dp)) {
                             if (tab.iconFile != null) {
                                 // Ícones originais do HELLDIVERS-BR nas áreas principais.
                                 AsyncImage(
                                     model = "${HelldiversApi.SITE_BASE}/icons/${tab.iconFile}",
                                     contentDescription = tab.label,
-                                    modifier = Modifier.size(28.dp),
+                                    modifier = Modifier.size(if (landscape) 30.dp else 34.dp),
                                     contentScale = ContentScale.Fit,
                                     colorFilter = ColorFilter.tint(if (selected) HD.Yellow else HD.TextDim),
                                 )
@@ -412,16 +444,16 @@ private fun AppBottomBar(
                                     Icons.Filled.Settings,
                                     contentDescription = tab.label,
                                     tint = if (selected) HD.Yellow else HD.TextDim,
-                                    modifier = Modifier.size(25.dp),
+                                    modifier = Modifier.size(if (landscape) 27.dp else 31.dp),
                                 )
                             }
                         }
                         Text(
                             tab.label,
                             color = if (selected) HD.Yellow else HD.TextDim,
-                            fontSize = 8.5.sp,
+                            fontSize = if (landscape) 9.sp else 10.sp,
                             fontWeight = if (selected) FontWeight.Black else FontWeight.SemiBold,
-                            modifier = Modifier.padding(top = 3.dp),
+                            modifier = Modifier.padding(top = if (landscape) 1.dp else 2.dp),
                         )
                     }
                 }

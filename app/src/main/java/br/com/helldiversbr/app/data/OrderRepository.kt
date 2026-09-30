@@ -1,10 +1,12 @@
 package br.com.helldiversbr.app.data
 
 import java.time.Instant
+import kotlinx.serialization.Serializable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
 /** Estado de tela da Ordem Maior. */
+@Serializable
 data class OrderUi(
     val order: Assignment?,
     /** "active" | "completed" | "failed" | "pending" */
@@ -13,6 +15,7 @@ data class OrderUi(
     val fromSnapshot: Boolean,
 )
 
+@Serializable
 data class HomeData(
     val order: OrderUi,
     val dispatches: List<Dispatch>,
@@ -20,9 +23,12 @@ data class HomeData(
     val planetCatalog: Map<Long, PlanetCatalogEntry>,
     val campaigns: List<Campaign>,
     val campaignRates: Map<String, Double>,
+    val dss: DssReading,
     val updatedAtMillis: Long,
     val orderRates: Map<Int, Double> = emptyMap(),
     val staleSources: List<String> = emptyList(),
+    /** community | direct | cache | mixed */
+    val telemetrySource: String = "community",
 ) {
     val helldiversOnFront: Long get() = campaigns.sumOf { it.planet.statistics.playerCount.coerceAtLeast(0) }
     val liberationCount: Int get() = campaigns.count { it.planet.event == null }
@@ -42,42 +48,103 @@ object OrderRepository {
     private var lastGood: HomeData? = null
     private val rateHistory = mutableMapOf<String, RateSnapshot>()
 
+    /** Exibe instantaneamente o último estado salvo enquanto a rede é revalidada. */
+    suspend fun loadCached(): HomeData? {
+        val cached = lastGood ?: TelemetryCache.loadHome() ?: return null
+        val stale = (cached.staleSources + listOf("campanhas", "despachos", "Ordem Maior", "DSS")).distinct()
+        return cached.copy(
+            dss = cached.dss.copy(stale = true, source = "cache"),
+            staleSources = stale,
+            telemetrySource = "cache",
+        ).also { lastGood = it }
+    }
+
     /**
-     * Carrega as fontes em paralelo para a Home e a Central de Guerra.
-     * Mantém a mesma lógica do site: API ao vivo primeiro e snapshot para a Ordem Maior.
+     * Paredão de dados da Home/Central de Guerra:
+     * Community API -> API direta do jogo -> último cache persistente.
+     * O snapshot do HELLDIVERS-BR continua sendo a autoridade para ordens já encerradas.
      */
     suspend fun load(): HomeData = coroutineScope {
+        val disk = TelemetryCache.loadHome()
+        val fallback = lastGood ?: disk
+
         val liveDeferred = async { runCatching { HelldiversApi.liveAssignments().firstOrNull { it.tasks.isNotEmpty() } } }
         val snapshotDeferred = async { runCatching { HelldiversApi.orderSnapshot() } }
         val dispatchDeferred = async { runCatching { HelldiversApi.dispatches().sortedByDescending { it.published.orEmpty() }.take(10) } }
         val campaignsDeferred = async { runCatching { HelldiversApi.campaigns() } }
         val planetCatalogDeferred = async { runCatching { HelldiversApi.planetCatalog() } }
+        val dssDeferred = async { DssRepository.load() }
 
-        val live = liveDeferred.await()
+        val communityOrder = liveDeferred.await()
         val snapshot = snapshotDeferred.await()
-        val dispatchesResult = dispatchDeferred.await()
-        val campaignsResult = campaignsDeferred.await()
+        val communityDispatches = dispatchDeferred.await()
+        val communityCampaigns = campaignsDeferred.await()
         val planetCatalogResult = planetCatalogDeferred.await()
+        val dss = dssDeferred.await()
 
-        val liveOrder = live.getOrNull()
-        val snap = snapshot.getOrNull()
-        val dispatches = dispatchesResult.getOrElse { lastGood?.dispatches.orEmpty() }
-        val campaigns = campaignsResult.getOrElse { lastGood?.campaigns.orEmpty() }
-            .sortedWith(
-                compareByDescending<Campaign> { it.planet.event != null }
-                    .thenByDescending { it.planet.statistics.playerCount }
-            )
+        val catalog = planetCatalogResult.getOrElse { fallback?.planetCatalog.orEmpty() }
+            .ifEmpty { fallback?.planetCatalog.orEmpty() }
 
-        // Só tratamos como falha total quando nenhuma fonte dinâmica principal respondeu.
-        if (liveOrder == null && snap == null && dispatches.isEmpty() && campaigns.isEmpty() &&
-            (live.isFailure || snapshot.isFailure || dispatchesResult.isFailure || campaignsResult.isFailure)
-        ) {
-            throw (live.exceptionOrNull()
-                ?: snapshot.exceptionOrNull()
-                ?: campaignsResult.exceptionOrNull()
-                ?: dispatchesResult.exceptionOrNull()
-                ?: IllegalStateException("Sem dados"))
+        var directWar: Result<DirectGameApi.DirectWarData>? = null
+        suspend fun directWarData(): Result<DirectGameApi.DirectWarData> {
+            directWar?.let { return it }
+            return runCatching { DirectGameApi.warData(catalog) }.also { directWar = it }
         }
+
+        fun validDispatches(items: List<Dispatch>): Boolean =
+            items.isNotEmpty() && items.any { it.text.isNotBlank() }
+
+        fun validCampaigns(items: List<Campaign>): Boolean =
+            items.isNotEmpty() && items.any { it.planet.index >= 0L && it.planet.nameText.isNotBlank() }
+
+        val communityOrderValue = communityOrder.getOrNull()?.takeIf { it.tasks.isNotEmpty() }
+        val communityDispatchList = communityDispatches.getOrNull().orEmpty()
+        val communityCampaignList = communityCampaigns.getOrNull().orEmpty()
+
+        val directOrderDeferred = async {
+            if (communityOrderValue == null)
+                runCatching { DirectGameApi.assignment() } else Result.success(null)
+        }
+        val directDispatchesDeferred = async {
+            if (!validDispatches(communityDispatchList))
+                runCatching { DirectGameApi.dispatches().take(10) } else Result.success(emptyList())
+        }
+        val directCampaignsDeferred = async {
+            if (!validCampaigns(communityCampaignList)) directWarData() else null
+        }
+        val directOrder = directOrderDeferred.await()
+        val directDispatches = directDispatchesDeferred.await()
+        val directCampaigns = directCampaignsDeferred.await()
+
+        val directOrderValue = directOrder.getOrNull()?.takeIf { it.tasks.isNotEmpty() }
+        val directDispatchList = directDispatches.getOrNull().orEmpty()
+        val directCampaignList = directCampaigns?.getOrNull()?.campaigns.orEmpty()
+
+        val liveOrder = communityOrderValue ?: directOrderValue
+        val orderSource = when {
+            communityOrderValue != null -> "community"
+            directOrderValue != null -> "direct"
+            else -> "cache"
+        }
+        val snap = snapshot.getOrNull()
+
+        val dispatchSource: String
+        val dispatches = when {
+            validDispatches(communityDispatchList) -> { dispatchSource = "community"; communityDispatchList }
+            validDispatches(directDispatchList) -> { dispatchSource = "direct"; directDispatchList }
+            else -> { dispatchSource = "cache"; fallback?.dispatches.orEmpty() }
+        }
+
+        val campaignSource: String
+        val rawCampaigns = when {
+            validCampaigns(communityCampaignList) -> { campaignSource = "community"; communityCampaignList }
+            validCampaigns(directCampaignList) -> { campaignSource = "direct"; directCampaignList }
+            else -> { campaignSource = "cache"; fallback?.campaigns.orEmpty() }
+        }
+        val campaigns = rawCampaigns.sortedWith(
+            compareByDescending<Campaign> { it.planet.event != null }
+                .thenByDescending { it.planet.statistics.playerCount }
+        )
 
         val snapOrder = snap?.order
         fun visibleState(state: String, order: Assignment): String {
@@ -85,6 +152,7 @@ object OrderRepository {
             val expired = runCatching { Instant.parse(order.expiration).isBefore(Instant.now()) }.getOrDefault(false)
             return if (expired) "pending" else "active"
         }
+
         val ui = when {
             liveOrder != null && snap != null && snapOrder != null && liveOrder.id != null && liveOrder.id == snapOrder.id && snap.state in listOf("completed", "failed") -> OrderUi(
                 order = snapOrder, state = snap.state,
@@ -102,17 +170,44 @@ object OrderRepository {
                 percent = snap.final_percent ?: computePercent(snapOrder),
                 fromSnapshot = true,
             )
-            else -> if (live.isFailure && snapshot.isFailure && lastGood != null) lastGood!!.order
-                else OrderUi(order = null, state = "pending", percent = 0.0, fromSnapshot = false)
+            fallback != null -> fallback.order
+            else -> OrderUi(order = null, state = "pending", percent = 0.0, fromSnapshot = false)
+        }
+
+        // Se não sobrou absolutamente nenhum dado útil, a tela de erro continua válida.
+        if (ui.order == null && dispatches.isEmpty() && campaigns.isEmpty() && fallback == null) {
+            throw (communityCampaigns.exceptionOrNull()
+                ?: directCampaigns?.exceptionOrNull()
+                ?: communityOrder.exceptionOrNull()
+                ?: directOrder.exceptionOrNull()
+                ?: IllegalStateException("Sem dados de telemetria"))
         }
 
         val now = System.currentTimeMillis()
-        val catalog = planetCatalogResult.getOrElse { lastGood?.planetCatalog.orEmpty() }
         val names = catalog.mapValues { (_, p) -> p.displayName }.filterValues { it.isNotBlank() }
-        val rates = if (campaignsResult.isFailure) lastGood?.campaignRates.orEmpty() else updateCampaignRates(campaigns, now)
+        val campaignsFresh = campaignSource != "cache"
+        val rates = if (campaignsFresh) updateCampaignRates(campaigns, now) else fallback?.campaignRates.orEmpty()
+        val orderFresh = orderSource != "cache" && !ui.fromSnapshot
+        val objectiveRates = if (ui.order != null && ui.state == "active" && orderFresh)
+            objectiveTracker.update(ui.order, now) else fallback?.orderRates.orEmpty()
 
-        val objectiveRates = if (ui.order != null && ui.state == "active" && !ui.fromSnapshot && live.isSuccess)
-            objectiveTracker.update(ui.order, now) else emptyMap()
+        // A hora exibida pertence ao dado central das campanhas. Em cache, preserva a hora antiga.
+        val dataTimestamp = if (campaignsFresh) now else fallback?.updatedAtMillis ?: 0L
+        val stale = buildList {
+            if (campaignSource == "cache") add("campanhas")
+            if (dispatchSource == "cache") add("despachos")
+            if (orderSource == "cache" || (ui.fromSnapshot && ui.state == "active")) add("Ordem Maior")
+            if (dss.stale) add("DSS")
+        }
+
+        val usedSources = buildSet {
+            add(campaignSource)
+            add(dispatchSource)
+            add(orderSource)
+            if (dss.source in setOf("community", "direct", "cache")) add(dss.source)
+        }
+        val telemetrySource = if (usedSources.size == 1) usedSources.first() else "mixed"
+
         HomeData(
             order = ui,
             dispatches = dispatches,
@@ -120,14 +215,17 @@ object OrderRepository {
             planetCatalog = catalog,
             campaigns = campaigns,
             campaignRates = rates,
-            updatedAtMillis = now,
-            orderRates = if (live.isFailure && snapshot.isFailure) lastGood?.orderRates.orEmpty() else objectiveRates,
-            staleSources = buildList {
-                if (campaignsResult.isFailure) add("campanhas")
-                if (dispatchesResult.isFailure) add("despachos")
-                if (live.isFailure || (ui.fromSnapshot && ui.state == "active")) add("Ordem Maior")
-            },
-        ).also { lastGood = it }
+            dss = dss,
+            updatedAtMillis = dataTimestamp,
+            orderRates = objectiveRates,
+            staleSources = stale,
+            telemetrySource = telemetrySource,
+        ).also { result ->
+            lastGood = result
+            // Não regrava um fallback puro como se ele fosse novo.
+            val gotFreshNetworkData = campaignSource != "cache" || dispatchSource != "cache" || orderSource != "cache" || snapshot.isSuccess || !dss.stale
+            if (gotFreshNetworkData) TelemetryCache.saveHome(result)
+        }
     }
 
     fun campaignKey(campaign: Campaign): String {

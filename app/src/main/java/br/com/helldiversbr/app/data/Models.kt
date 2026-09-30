@@ -176,6 +176,42 @@ data class Campaign(
     val faction: String = "",
 )
 
+/** Recurso de contribuição de uma ação tática da DSS. */
+@Serializable
+data class DssCost(
+    val id: String = "",
+    val targetValue: Double = 0.0,
+    val currentValue: Double = 0.0,
+    val deltaPerSecond: Double = 0.0,
+)
+
+/** Ação tática anunciada pela Estação Espacial da Democracia (DSS). */
+@Serializable
+data class DssTacticalAction(
+    val id32: Long = 0,
+    val name: String = "",
+    val description: String = "",
+    val strategicDescription: String = "",
+    val status: Int = 0,
+    // Campos textuais opcionais que algumas respostas/versões da API podem expor.
+    // JsonElement evita quebrar a desserialização caso o backend envie número em vez de texto.
+    val statusName: JsonElement? = null,
+    val state: JsonElement? = null,
+    val statusText: JsonElement? = null,
+    val statusExpire: String = "",
+    val costs: List<DssCost> = emptyList(),
+)
+
+/** Estado público da DSS retornado por /api/v2/space-stations. */
+@Serializable
+data class SpaceStation(
+    val id32: Long = 0,
+    val planet: Planet = Planet(),
+    val electionEnd: String = "",
+    val flags: Long = 0,
+    val tacticalActions: List<DssTacticalAction> = emptyList(),
+)
+
 /** Converte string simples ou mapa de idiomas ({"pt-BR": "...", "en-US": "..."}) em texto limpo. */
 fun localizedText(value: JsonElement?): String {
     val raw = when (value) {

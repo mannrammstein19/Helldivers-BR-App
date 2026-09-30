@@ -32,6 +32,12 @@ class MainViewModel : ViewModel() {
     private var refreshJob: Job? = null
 
     init {
+        // Mostra o último snapshot persistente imediatamente; a rede revalida em paralelo.
+        viewModelScope.launch {
+            OrderRepository.loadCached()?.let { cached ->
+                if (_home.value is HomeState.Loading) _home.value = HomeState.Ready(cached, refreshing = true)
+            }
+        }
         // Atualiza sozinho a cada 60 s enquanto o app está aberto (mesmo intervalo do site).
         viewModelScope.launch {
             while (true) {
@@ -58,7 +64,12 @@ class MainViewModel : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                HomeState.Error("Sem conexão com a telemetria da Super Terra.", previous)
+                val latest = when (val current = _home.value) {
+                    is HomeState.Ready -> current.data
+                    is HomeState.Error -> current.last
+                    HomeState.Loading -> previous
+                }
+                HomeState.Error("Sem conexão com a telemetria da Super Terra.", latest)
             }
         }
     }

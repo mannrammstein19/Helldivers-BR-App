@@ -223,15 +223,21 @@ private fun OrderContent(
 
 @Composable
 private fun OrderHeaderStat(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier) {
-        Text(label, color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp)
-        Text(value.uppercase(), color = HD.Text, fontSize = 17.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 2.dp))
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = HD.BgDeep.copy(alpha = 0.72f)),
+        border = BorderStroke(1.dp, HD.BorderSoft),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp)) {
+            Text(label, color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp)
+            Text(value.uppercase(), color = HD.Text, fontSize = 15.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 2.dp))
+        }
     }
 }
 
 @Composable
 private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, progress: Long) {
-    var showForecast by rememberSaveable(data.order.order?.id.toString(), index) { mutableStateOf(false) }
     val goal = task.goal
     val planetName = task.planetId?.let { data.planetNames[it] }
     val campaign = task.planetId?.let { id -> data.campaigns.firstOrNull { it.planet.index == id } }
@@ -273,15 +279,15 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
                     AsyncImage(
                         model = PlanetVisuals.factionLogo(factionRaw),
                         contentDescription = factionLabel,
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(44.dp),
                         contentScale = ContentScale.Fit,
                     )
                 }
                 Text(
                     headline,
                     color = HD.Text,
-                    fontSize = 16.sp,
-                    lineHeight = 19.sp,
+                    fontSize = 13.sp,
+                    lineHeight = 17.sp,
                     fontWeight = FontWeight.Black,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
@@ -297,23 +303,43 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
                 )
                 Text("${"%.1f".format(orderLocale, percent)}%", color = accent, fontSize = 12.sp, fontWeight = FontWeight.Black)
             }
-            TextButton(onClick = { showForecast = !showForecast }) {
-                Text(if (showForecast) "RITMO E PREVISÃO −" else "RITMO E PREVISÃO +", color = accent)
+            val rate = if (task.type in listOf(11, 12, 13) && campaign != null)
+                OrderRepository.campaignRate(data, campaign) else data.orderRates[index]
+            val stale = "Ordem Maior" in data.staleSources || (campaign != null && "campanhas" in data.staleSources)
+            val eta = OrderRepository.etaFromRate(percent, rate)
+            val rateValue = when {
+                done -> "CONCLUÍDO"
+                stale || data.order.state != "active" -> "INDISPONÍVEL"
+                rate == null -> "COLETANDO"
+                else -> "%+.2f%%/h".format(orderLocale, rate)
             }
-            if (showForecast) {
-                val rate = if (task.type in listOf(11, 12, 13) && campaign != null)
-                    OrderRepository.campaignRate(data, campaign) else data.orderRates[index]
-                val eta = OrderRepository.etaFromRate(percent, rate)
-                Text(when {
-                    done -> "Objetivo concluído."
-                    "Ordem Maior" in data.staleSources || (campaign != null && "campanhas" in data.staleSources) -> "Telemetria sem atualização. Previsão pausada até receber uma nova leitura válida."
-                    data.order.state != "active" -> "Sem previsão: aguardando confirmação ou ordem encerrada."
-                    rate == null -> "Coletando a primeira amostra. A próxima leitura ocorre em cerca de 60 segundos; depois o ritmo e a previsão aparecem aqui."
-                    rate <= 0 -> "Sem avanço positivo na última amostra. Ainda não há previsão de conclusão."
-                    else -> "Ritmo observado: ${"%.2f".format(orderLocale, rate)}%/h. Conclusão estimada em ${eta ?: "—"}."
-                }, color = HD.TextDim, fontSize = 12.sp, lineHeight = 17.sp)
-                Text("Estimativa baseada na variação recente; pode mudar com o esforço dos jogadores.", color = HD.TextMuted, fontSize = 11.sp)
+            val etaValue = when {
+                done -> "CONCLUÍDO"
+                stale || data.order.state != "active" -> "INDISPONÍVEL"
+                rate == null -> "COLETANDO"
+                rate <= 0 -> "SEM PREVISÃO"
+                else -> eta ?: "CALCULANDO"
             }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OrderForecastMetric("RITMO OBSERVADO", rateValue, accent, Modifier.weight(1f))
+                OrderForecastMetric("CONCLUSÃO ESTIMADA", etaValue, accent, Modifier.weight(1f))
+            }
+            Text("Estimativa baseada na variação recente; pode mudar com o esforço dos jogadores.", color = HD.TextMuted, fontSize = 10.sp, lineHeight = 14.sp)
+        }
+    }
+}
+
+@Composable
+private fun OrderForecastMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = HD.BgDeep.copy(alpha = .72f)),
+        border = BorderStroke(1.dp, HD.BorderSoft),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, color = HD.TextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .35.sp)
+            Text(value, color = if (value == "INDISPONÍVEL" || value == "COLETANDO") HD.TextMuted else accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
         }
     }
 }

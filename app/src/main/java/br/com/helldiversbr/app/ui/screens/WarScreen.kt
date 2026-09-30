@@ -3,8 +3,6 @@ package br.com.helldiversbr.app.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,6 +56,7 @@ import androidx.compose.ui.window.Dialog
 import br.com.helldiversbr.app.data.Campaign
 import br.com.helldiversbr.app.data.HomeData
 import br.com.helldiversbr.app.data.OrderRepository
+import br.com.helldiversbr.app.data.localizedText
 import br.com.helldiversbr.app.ui.HomeState
 import br.com.helldiversbr.app.ui.theme.HD
 import coil.compose.AsyncImage
@@ -101,7 +100,6 @@ fun WarScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WarList(
     data: HomeData,
@@ -181,11 +179,19 @@ private fun WarList(
         item(key = "war-section-5") {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatTile("Liberações", data.liberationCount.toString(), "ofensivas da Super Terra", HD.Green, Modifier.weight(1f), backgroundKey = "war_liberation")
-                StatTile("Defesas", data.defenseCount.toString(), "planetas sob ataque", HD.Red, Modifier.weight(1f), backgroundKey = "war_defense")
+                StatTile("Defesas", data.defenseCount.toString(), if (data.defenseCount > 0) "ALERTA: planeta sob ataque" else "planetas sob ataque", HD.Red, Modifier.weight(1f), backgroundKey = "war_defense", pulse = data.defenseCount > 0)
             }
         }
 
-        item(key = "war-section-6") { OrderCard(data) }
+        item(key = "war-section-6") { OrderCard(data, collapsible = true, initiallyExpanded = false) }
+
+        item(key = "war-dss") {
+            DssWarCard(
+                reading = data.dss,
+                planetCatalog = data.planetCatalog,
+                campaigns = data.campaigns,
+            )
+        }
 
         item(key = "war-section-7") {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -194,47 +200,80 @@ private fun WarList(
                         SectionLabel("⚔ Frentes de batalha", HD.Yellow)
                         Text("CAMPANHAS ATIVAS", color = HD.Text, fontSize = 20.sp, fontWeight = FontWeight.Black)
                     }
-                    Text("${filtered.size} EXIBIDAS", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("${filtered.size} DE ${data.campaigns.size}", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 }
 
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = HD.TextMuted) },
-                    trailingIcon = {
-                        if (searchQuery.isNotBlank()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Filled.Clear, contentDescription = "Limpar pesquisa", tint = HD.TextMuted)
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = HD.Surface.copy(alpha = .94f)),
+                    border = BorderStroke(1.dp, HD.BorderSoft),
+                ) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(11.dp),
+                    ) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Column {
+                                Text("LOCALIZAR FRENTE", color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                                Text("Planeta, setor, operação e facção", color = HD.TextMuted, fontSize = 10.sp)
+                            }
+                            if (searchQuery.isNotBlank() || modeFilter != "all" || factionFilter != "all") {
+                                TextButton(onClick = {
+                                    searchQuery = ""
+                                    modeFilter = "all"
+                                    factionFilter = "all"
+                                }) {
+                                    Text("LIMPAR", color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                                }
                             }
                         }
-                    },
-                    placeholder = { Text("BUSCAR PLANETA OU SETOR", color = HD.TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = HD.Yellow,
-                        unfocusedBorderColor = HD.Border,
-                        focusedTextColor = HD.Text,
-                        unfocusedTextColor = HD.Text,
-                        cursorColor = HD.Yellow,
-                        focusedContainerColor = HD.Surface,
-                        unfocusedContainerColor = HD.Surface,
-                    ),
-                )
 
-                SectionLabel("Tipo de operação", HD.TextMuted)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    WarFilter("all", "TODAS", modeFilter, { modeFilter = it }, Modifier.weight(1f))
-                    WarFilter("attack", "LIBERTAÇÃO", modeFilter, { modeFilter = it }, Modifier.weight(1f))
-                    WarFilter("defense", "DEFESA", modeFilter, { modeFilter = it }, Modifier.weight(1f))
-                }
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = HD.TextMuted) },
+                            trailingIcon = {
+                                if (searchQuery.isNotBlank()) {
+                                    IconButton(onClick = { searchQuery = "" }) {
+                                        Icon(Icons.Filled.Clear, contentDescription = "Limpar pesquisa", tint = HD.TextMuted)
+                                    }
+                                }
+                            },
+                            placeholder = { Text("BUSCAR PLANETA OU SETOR", color = HD.TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = HD.Yellow,
+                                unfocusedBorderColor = HD.Border,
+                                focusedTextColor = HD.Text,
+                                unfocusedTextColor = HD.Text,
+                                cursorColor = HD.Yellow,
+                                focusedContainerColor = HD.BgDeep,
+                                unfocusedContainerColor = HD.BgDeep,
+                            ),
+                            shape = RoundedCornerShape(14.dp),
+                        )
 
-                SectionLabel("Facção inimiga", HD.TextMuted)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FactionFilter("all", "TODAS", HD.Yellow, factionFilter) { factionFilter = it }
-                    FactionFilter("terminids", "TERMINÍDEOS", HD.TerminidOrange, factionFilter) { factionFilter = it }
-                    FactionFilter("automatons", "AUTÔMATOS", HD.AutomatonRed, factionFilter) { factionFilter = it }
-                    FactionFilter("illuminates", "ILUMINADOS", HD.IlluminatePurple, factionFilter) { factionFilter = it }
+                        HorizontalDivider(color = HD.BorderSoft)
+                        SectionLabel("Tipo de operação", HD.TextMuted)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            WarFilter("all", "TODAS", modeFilter, { modeFilter = it }, Modifier.weight(1f))
+                            WarFilter("attack", "LIBERTAÇÃO", modeFilter, { modeFilter = it }, Modifier.weight(1f))
+                            WarFilter("defense", "DEFESA", modeFilter, { modeFilter = it }, Modifier.weight(1f))
+                        }
+
+                        HorizontalDivider(color = HD.BorderSoft)
+                        SectionLabel("Facção inimiga", HD.TextMuted)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FactionFilter("all", "TODAS", HD.Yellow, factionFilter, { factionFilter = it }, Modifier.weight(1f))
+                            FactionFilter("terminids", "TERMINÍDEOS", HD.TerminidOrange, factionFilter, { factionFilter = it }, Modifier.weight(1f))
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FactionFilter("automatons", "AUTÔMATOS", HD.AutomatonRed, factionFilter, { factionFilter = it }, Modifier.weight(1f))
+                            FactionFilter("illuminates", "ILUMINADOS", HD.IlluminatePurple, factionFilter, { factionFilter = it }, Modifier.weight(1f))
+                        }
+                    }
                 }
             }
         }
@@ -277,11 +316,24 @@ private fun WarHeader(data: HomeData, onRefresh: () -> Unit) {
             }
             TextButton(onClick = onRefresh) { Text("ATUALIZAR", color = HD.Yellow, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp) }
         }
-        Text("Monitoramento das frentes ativas, efetivo Helldiver, Ordem Maior e comunicações do Alto Comando.", color = HD.TextDim, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 8.dp))
-        val time = SimpleDateFormat("HH:mm:ss", ptBrWar).format(Date(data.updatedAtMillis))
+        Text("Monitoramento das frentes ativas, efetivo Helldiver, Ordem Maior, Estação Democracia e comunicações do Alto Comando.", color = HD.TextDim, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 8.dp))
+        val hasSavedTelemetry = data.telemetrySource == "cache" || "campanhas" in data.staleSources
+        val time = if (data.updatedAtMillis > 0L) SimpleDateFormat("HH:mm:ss", ptBrWar).format(Date(data.updatedAtMillis)) else "SEM LEITURA"
+        val sourceColor = when {
+            hasSavedTelemetry -> HD.Gold
+            data.telemetrySource == "direct" -> HD.SignalBlue
+            data.telemetrySource == "mixed" -> HD.Yellow
+            else -> HD.Green
+        }
+        val sourceLabel = when {
+            hasSavedTelemetry -> "ÚLTIMA LEITURA SALVA"
+            data.telemetrySource == "direct" -> "TELEMETRIA DIRETA"
+            data.telemetrySource == "mixed" -> "TELEMETRIA MISTA"
+            else -> "TELEMETRIA ONLINE"
+        }
         Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.clip(RoundedCornerShape(50)).background(HD.Green).size(7.dp))
-            Text("  TELEMETRIA ONLINE // $time", color = HD.Green, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.7.sp)
+            Box(Modifier.clip(RoundedCornerShape(50)).background(sourceColor).size(7.dp))
+            Text("  $sourceLabel // $time", color = sourceColor, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.7.sp)
         }
     }
 }
@@ -291,34 +343,50 @@ private fun WarFilter(id: String, label: String, selected: String, onSelect: (St
     val active = selected == id
     Card(
         modifier = modifier.clickable { onSelect(id) },
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = if (active) HD.Yellow else HD.Surface),
         border = BorderStroke(1.dp, if (active) HD.Yellow else HD.Border),
     ) {
-        Text(label, color = if (active) Color.Black else HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), textAlign = TextAlign.Center)
+        Text(label, color = if (active) Color.Black else HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), textAlign = TextAlign.Center)
     }
 }
 
 @Composable
-private fun FactionFilter(id: String, label: String, accent: Color, selected: String, onSelect: (String) -> Unit) {
+private fun FactionFilter(id: String, label: String, accent: Color, selected: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
     val active = selected == id
     Card(
-        modifier = Modifier.clickable { onSelect(id) },
-        shape = RoundedCornerShape(50.dp),
-        colors = CardDefaults.cardColors(containerColor = if (active) accent.copy(alpha = 0.18f) else HD.Surface),
-        border = BorderStroke(1.dp, if (active) accent else HD.Border),
+        modifier = modifier.clickable { onSelect(id) },
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = if (active) accent.copy(alpha = 0.15f) else HD.BgDeep),
+        border = BorderStroke(if (active) 1.4.dp else 1.dp, if (active) accent else HD.Border),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            horizontalArrangement = Arrangement.Center,
         ) {
-            if (id != "all") SiteImage(when (id) {
-                "terminids" -> "terminid"
-                "automatons" -> "automaton"
-                else -> "illuminate"
-            }, label, Modifier.size(20.dp))
-            Text(label, color = if (active) accent else HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.45.sp)
+            if (id != "all") {
+                SiteImage(
+                    when (id) {
+                        "terminids" -> "terminid"
+                        "automatons" -> "automaton"
+                        else -> "illuminate"
+                    },
+                    label,
+                    Modifier.size(25.dp),
+                )
+                Box(Modifier.size(7.dp))
+            } else {
+                Text("◎", color = if (active) accent else HD.TextMuted, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Box(Modifier.size(7.dp))
+            }
+            Text(
+                label,
+                color = if (active) accent else HD.TextDim,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = .15.sp,
+            )
         }
     }
 }
@@ -327,6 +395,11 @@ private fun FactionFilter(id: String, label: String, accent: Color, selected: St
 fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
     val planet = campaign.planet
     val catalog = data.planetCatalog[planet.index]
+    val dssStation = data.dss.station
+    val dssHere = dssStation?.let { station ->
+        station.planet.index == planet.index ||
+            localizedText(station.planet.name).equals(planet.nameText, ignoreCase = true)
+    } == true
     val defense = planet.event != null
     val ownerFactionRaw = OrderRepository.ownerFaction(campaign)
     val enemyFactionRaw = OrderRepository.enemyFaction(campaign)
@@ -391,6 +464,9 @@ fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
                 Column(Modifier.weight(1f)) {
                     Text(planet.nameText.uppercase(), color = HD.Text, fontSize = 23.sp, lineHeight = 24.sp, style = androidx.compose.ui.text.TextStyle(platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)), fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(sector.uppercase(), color = HD.TextMuted, fontSize = 10.sp, lineHeight = 12.sp, style = androidx.compose.ui.text.TextStyle(platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)), fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    if (dssHere) {
+                        Text("◆ DSS // ESTAÇÃO DEMOCRACIA", color = HD.Yellow, fontSize = 8.sp, lineHeight = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
+                    }
                 }
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
