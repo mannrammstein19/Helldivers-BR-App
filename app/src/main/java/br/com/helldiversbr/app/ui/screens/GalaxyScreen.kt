@@ -1,5 +1,7 @@
 package br.com.helldiversbr.app.ui.screens
 
+import br.com.helldiversbr.app.ui.presentation.visualCampaignPercent
+
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
@@ -278,6 +280,7 @@ private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeDa
     var expanded by rememberSaveable(planet.index) { mutableStateOf(true) }
     val defense = planet.event != null
     val percent = campaign?.let { OrderRepository.campaignPercent(it) }
+    val displayedPercent = campaign?.let { visualCampaignPercent(it) }
     val fresh = !stale && data != null && "campanhas" !in data.staleSources
     val rate = if (fresh && data != null && campaign != null) OrderRepository.campaignRate(data, campaign) else null
     val eta = if (percent != null) OrderRepository.etaFromRate(percent, rate) else null
@@ -318,9 +321,9 @@ private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeDa
             if (percent != null) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(if (defense) "Progresso da defesa" else "Libertação", color = HD.TextDim, fontSize = 11.sp)
-                    Text(mapPercent(percent), color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("%.4f%%".format(Locale("pt", "BR"), displayedPercent ?: percent), color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
-                ProgressBar(percent, accent)
+                ProgressBar(displayedPercent ?: percent, accent)
                 if (defense) OrderRepository.defenseEnemyProgress(planet.event)?.let { invasion ->
                     Text("Invasão: ${mapPercent(invasion)} • prazo ${OrderRepository.remaining(planet.event?.endTime) ?: "—"}", color = HD.Gold, fontSize = 11.sp)
                     ProgressBar(invasion, HD.Red)

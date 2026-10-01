@@ -93,6 +93,11 @@ data class PlanetStatistics(
     val playerCount: Long = 0,
     val missionsWon: Long? = null,
     val missionsLost: Long? = null,
+    val bulletsFired: Long? = null,
+    val bulletsHit: Long? = null,
+    val terminidKills: Long? = null,
+    val automatonKills: Long? = null,
+    val illuminateKills: Long? = null,
 )
 
 /** Evento ativo de um planeta. Quando presente, normalmente representa uma defesa. */

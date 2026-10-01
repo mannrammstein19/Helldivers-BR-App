@@ -1,5 +1,7 @@
 package br.com.helldiversbr.app.ui.screens
 
+import br.com.helldiversbr.app.ui.presentation.visualCampaignPercent
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
@@ -401,7 +403,7 @@ private fun FrontSpotlightCard(data: HomeData, campaign: Campaign, onOpenWar: ()
     val defense = p.event != null
     val factionRaw = OrderRepository.campaignFaction(campaign)
     val accent = factionColor(factionRaw, defense)
-    val progress = OrderRepository.campaignPercent(campaign)
+    val progress = visualCampaignPercent(campaign)
     val image = PlanetVisuals.planetImage(p.index, p.nameText, catalog)
     val sector = p.sector.ifBlank { catalog?.sector.orEmpty() }.ifBlank { "Setor desconhecido" }
 
@@ -438,7 +440,7 @@ private fun FrontSpotlightCard(data: HomeData, campaign: Campaign, onOpenWar: ()
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("CONTROLE PLANETÁRIO", color = HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text("%.2f%%".format(ptBrHome, progress), color = accent, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                    Text("%.4f%%".format(ptBrHome, progress), color = accent, fontSize = 12.sp, fontWeight = FontWeight.Black)
                 }
                 ProgressBar(progress, accent)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

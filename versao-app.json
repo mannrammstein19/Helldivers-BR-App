@@ -1,6 +1,6 @@
 {
-  "versionCode": 25,
-  "versionName": "25.0.0",
-  "apkUrl": "https://pub-f324221f4e5e42b08ecfa5062afd5960.r2.dev/helldivers-br/apps/helldivers-br-v25.apk",
-  "notes": "Melhorias e Correções do Sistema."
+  "versionCode": 27,
+  "versionName": "27.0.0",
+  "apkUrl": "https://pub-f324221f4e5e42b08ecfa5062afd5960.r2.dev/helldivers-br/apps/helldivers-br-v27.apk",
+  "notes": "V27: Configurações com perfil e contatos em grade, painel vermelho de notificações, menu superior removido e contadores por facção mais fluidos."
 }

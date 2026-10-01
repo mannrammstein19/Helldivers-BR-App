@@ -1,5 +1,8 @@
 package br.com.helldiversbr.app.ui.screens
 
+import br.com.helldiversbr.app.ui.presentation.visualCampaignPercent
+import br.com.helldiversbr.app.ui.presentation.PlanetCounters
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -67,7 +70,7 @@ import java.util.Locale
 
 private val ptBrWar = Locale("pt", "BR")
 private fun fmtWar(n: Long): String = NumberFormat.getInstance(ptBrWar).format(n)
-private fun pct(value: Double): String = "%.2f%%".format(ptBrWar, value)
+private fun pct(value: Double): String = "%.4f%%".format(ptBrWar, value)
 private fun rateText(rate: Double?): String = when {
     rate == null || !rate.isFinite() -> "—"
     rate > 0 -> "+%.2f%%/h".format(ptBrWar, rate)
@@ -408,6 +411,7 @@ fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
     val accent = factionColor(enemyFactionRaw, defense)
     val modeColor = if (defense) HD.DefenseBlue else accent
     val percent = OrderRepository.campaignPercent(campaign)
+    val displayedPercent = visualCampaignPercent(campaign)
     val rate = OrderRepository.campaignRate(data, campaign)
     val enemyPressure = if (defense) OrderRepository.defenseEnemyRate(planet.event) else OrderRepository.liberationEnemyPressure(campaign)
     val invasionProgress = if (defense) OrderRepository.defenseEnemyProgress(planet.event) else null
@@ -496,10 +500,10 @@ fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
 
             Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (defense) {
-                    ProgressBlock("DEFESA HELLDIVERS", percent, HD.DefenseBlue)
+                    ProgressBlock("DEFESA HELLDIVERS", displayedPercent, HD.DefenseBlue)
                     ProgressBlock("INVASÃO ${enemyFaction.uppercase()}", invasionProgress ?: 0.0, accent, valueOverride = invasionProgress?.let(::pct) ?: "—")
                 } else {
-                    ProgressBlock("CONTROLE PLANETÁRIO", percent, accent)
+                    ProgressBlock("CONTROLE PLANETÁRIO", displayedPercent, accent)
                 }
 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -613,7 +617,7 @@ fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: () -> Uni
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         DossierFact("HELLDIVERS", fmtWar(p.statistics.playerCount), Modifier.weight(1f))
-                        DossierFact("CONTROLE", pct(OrderRepository.campaignPercent(campaign)), Modifier.weight(1f))
+                        DossierFact("CONTROLE", pct(visualCampaignPercent(campaign)), Modifier.weight(1f))
                     }
                     if (hazards.isNotEmpty()) {
                         HorizontalDivider(color = HD.BorderSoft)
@@ -626,6 +630,7 @@ fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: () -> Uni
                         }
                     }
                     HorizontalDivider(color = HD.BorderSoft)
+                    PlanetCounters(p)
                     PlanetRegions(p)
                     Text("TELEMETRIA NATIVA // DADOS SINCRONIZADOS COM A CENTRAL DE GUERRA", color = HD.TextMuted, fontSize = 8.sp, lineHeight = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
                 }

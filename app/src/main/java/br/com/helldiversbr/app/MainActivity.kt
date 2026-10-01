@@ -18,6 +18,21 @@ import androidx.compose.foundation.layout.imePadding
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import br.com.helldiversbr.app.ui.presentation.ProvideVisualNumbers
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import kotlin.math.abs
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -71,7 +86,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -79,11 +93,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
 import br.com.helldiversbr.app.data.HelldiversApi
 import br.com.helldiversbr.app.notifications.WarAlertManager
 import br.com.helldiversbr.app.ui.MainViewModel
@@ -143,9 +152,8 @@ private fun App(
     onThemeMode: (HdThemeMode) -> Unit,
     vm: MainViewModel = viewModel(),
 ) {
-    val nav = rememberNavController()
-    val backStack by nav.currentBackStackEntryAsState()
-    val current = backStack?.destination?.route ?: "inicio"
+    var current by rememberSaveable { mutableStateOf("inicio") }
+    var homeVisit by rememberSaveable { mutableIntStateOf(0) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -161,6 +169,10 @@ private fun App(
 
     val home by vm.home.collectAsState()
     val update by vm.update.collectAsState()
+    val numberFrame by vm.numbers.collectAsState()
+    var dynamicNumbers by rememberSaveable {
+        mutableStateOf(context.getSharedPreferences("visual-numbers", 0).getBoolean("enabled", true))
+    }
 
     LaunchedEffect(home) {
         val data = when (val currentHome = home) {
@@ -173,20 +185,26 @@ private fun App(
         }
     }
 
+    val keyboard = LocalSoftwareKeyboardController.current
     fun navigate(route: String) {
-        val previousRoute = current
-        navigateTab(nav, current, route)
-        // Ao voltar para a Início, revalida os dados sem apagar o snapshot já exibido.
-        // Isso evita o estado visual "preso" em coleta depois de trocar de aba.
-        if (route == "inicio" && previousRoute != "inicio") vm.refresh()
+        keyboard?.hide()
+        current = route
+        // Cada acionamento da Início reconstrói sua tela no topo, usando os dados existentes.
+        if (route == "inicio") homeVisit++
         scope.launch { drawerState.close() }
     }
 
-    val keyboard = LocalSoftwareKeyboardController.current
+    BackHandler(enabled = !showDrawerTutorial && (drawerState.isOpen || current != "inicio")) {
+        if (drawerState.isOpen) scope.launch { drawerState.close() }
+        else navigate(when {
+            current.startsWith("estratagema/") -> "arsenal"
+            current == "notificacoes" -> "configuracoes"
+            else -> "inicio"
+        })
+    }
     fun openStratagem(name: String) {
         keyboard?.hide()
-        nav.navigate("estratagema/${Uri.encode(name)}") { launchSingleTop = true }
-        scope.launch { drawerState.close() }
+        navigate("estratagema/${Uri.encode(name)}")
     }
 
     fun openSite(path: String) {
@@ -197,7 +215,7 @@ private fun App(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        gesturesEnabled = false,
+        gesturesEnabled = drawerState.isOpen,
         drawerContent = {
             AppDrawer(
                 current = current,
@@ -223,74 +241,57 @@ private fun App(
                     )
                 },
             ) { padding: PaddingValues ->
-                Box(Modifier.fillMaxSize()) {
-                    NavHost(navController = nav, startDestination = "inicio") {
-                        composable("inicio") {
-                            HomeScreen(
-                                state = home,
-                                update = update,
-                                onRefresh = vm::refresh,
-                                onDismissUpdate = vm::dismissUpdate,
-                                onOpenWar = { navigate("guerra") },
-                                onOpenOrder = { navigate("ordem") },
-                                onOpenMap = { navigate("mapa") },
-                                onOpenArsenal = { navigate("arsenal") },
-                                onOpenFactions = { navigate("faccoes") },
-                                contentPadding = padding,
+                val edgeGesture = drawerEdgeGesture(
+                    enabled = drawerState.isClosed && !showDrawerTutorial,
+                    onOpen = { scope.launch { drawerState.open() } },
+                )
+                Box(
+                    Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).statusBarsPadding()
+                        .then(edgeGesture).testTag("screen-$current"),
+                ) {
+                    // O Scaffold já delimita o conteúdo; nenhuma tela cobre os botões inferiores.
+                    val screenPadding = PaddingValues(0.dp)
+                    ProvideVisualNumbers(numberFrame, dynamicNumbers) {
+                        when {
+                            current == "inicio" -> key(homeVisit) {
+                                HomeScreen(
+                                    state = home, update = update, onRefresh = vm::refresh,
+                                    onDismissUpdate = vm::dismissUpdate,
+                                    onOpenWar = { navigate("guerra") },
+                                    onOpenOrder = { navigate("ordem") },
+                                    onOpenMap = { navigate("mapa") },
+                                    onOpenArsenal = { navigate("arsenal") },
+                                    onOpenFactions = { navigate("faccoes") },
+                                    contentPadding = screenPadding,
+                                )
+                            }
+                            current == "guerra" -> WarScreen(home, vm::refresh, { navigate("mapa") }, screenPadding)
+                            current == "ordem" -> OrderScreen(home, vm::refresh, screenPadding)
+                            current == "mapa" -> GalaxyScreen(home, screenPadding, { openSite("mapa-classico.html") })
+                            current == "faccoes" -> FactionsScreen(screenPadding, ::openSite)
+                            current.startsWith("estratagema/") -> StratagemDetailScreen(
+                                Uri.decode(current.substringAfter("estratagema/")), screenPadding,
+                                onBack = { navigate("arsenal") },
                             )
-                        }
-                        composable("guerra") {
-                            WarScreen(
-                                state = home,
-                                onRefresh = vm::refresh,
-                                onOpenMap = { navigate("mapa") },
-                                contentPadding = padding,
-                            )
-                        }
-                        composable("ordem") {
-                            OrderScreen(
-                                state = home,
-                                onRefresh = vm::refresh,
-                                contentPadding = padding,
-                            )
-                        }
-                        composable("mapa") {
-                            GalaxyScreen(home = home, contentPadding = padding, onOpenFullMap = { openSite("mapa-classico.html") })
-                        }
-                        composable("faccoes") {
-                            FactionsScreen(padding, ::openSite)
-                        }
-                        composable("estratagema/{name}") { entry ->
-                            StratagemDetailScreen(entry.arguments?.getString("name").orEmpty(), padding, onBack = { nav.popBackStack() })
-                        }
-                        composable("arsenal") {
-                            ArsenalScreen(
+                            current == "arsenal" -> ArsenalScreen(
                                 onOpenEntry = { openStratagem(it.name) },
-                                themeMode = themeMode,
-                                contentPadding = padding,
+                                themeMode = themeMode, contentPadding = screenPadding,
                             )
-                        }
-                        composable("configuracoes") {
-                            SettingsScreen(
-                                contentPadding = padding,
-                                themeMode = themeMode,
+                            current == "configuracoes" -> SettingsScreen(
+                                contentPadding = screenPadding, themeMode = themeMode,
                                 onThemeMode = onThemeMode,
-                                onOpenNotifications = { nav.navigate("notificacoes") { launchSingleTop = true } },
+                                onOpenNotifications = { navigate("notificacoes") },
+                                dynamicNumbers = dynamicNumbers,
+                                onDynamicNumbers = { enabled ->
+                                    dynamicNumbers = enabled
+                                    context.getSharedPreferences("visual-numbers", 0).edit().putBoolean("enabled", enabled).apply()
+                                },
                             )
-                        }
-                        composable("notificacoes") {
-                            NotificationSettingsScreen(
-                                contentPadding = padding,
-                                onBack = { nav.popBackStack() },
+                            current == "notificacoes" -> NotificationSettingsScreen(
+                                contentPadding = screenPadding, onBack = { navigate("configuracoes") },
                             )
                         }
                     }
-                    // O gesto lateral fica acima da barra: não intercepta o botão Início.
-                    DrawerEdgeSwipe(
-                        enabled = drawerState.isClosed && !showDrawerTutorial,
-                        onOpen = { scope.launch { drawerState.open() } },
-                        modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
-                    )
                 }
             }
         }
@@ -304,62 +305,37 @@ private fun App(
     }
 }
 
+/** Observa o gesto no pai do conteúdo: não cria uma camada que bloqueia cliques. */
 @Composable
-private fun DrawerEdgeSwipe(
-    enabled: Boolean,
-    onOpen: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val thresholdPx = with(LocalDensity.current) { 56.dp.toPx() }
-    var dragDistance by remember { mutableStateOf(0f) }
-
-    Box(
-        modifier
-            .fillMaxHeight()
-            .width(28.dp)
-            .systemGestureExclusion()
-            .pointerInput(enabled, thresholdPx) {
-                if (!enabled) return@pointerInput
-                detectHorizontalDragGestures(
-                    onDragStart = { dragDistance = 0f },
-                    onHorizontalDrag = { _, dragAmount ->
-                        dragDistance = (dragDistance + dragAmount).coerceAtLeast(0f)
-                    },
-                    onDragEnd = {
-                        if (dragDistance >= thresholdPx) onOpen()
-                        dragDistance = 0f
-                    },
-                    onDragCancel = { dragDistance = 0f },
-                )
-            }
-    )
-}
-
-private fun navigateTab(nav: NavHostController, current: String, route: String) {
-    if (current == route) return
-
-    if (route == "inicio") {
-        // A Início é o destino raiz permanente. Em vez de removê-la e recriá-la,
-        // voltamos para a instância que já está no back stack. Isso evita o bug
-        // em que o botão Início parecia selecionado, mas a tela não era restaurada.
-        val returned = nav.popBackStack("inicio", inclusive = false)
-        if (!returned) {
-            nav.navigate("inicio") {
-                launchSingleTop = true
-                restoreState = false
+private fun drawerEdgeGesture(enabled: Boolean, onOpen: () -> Unit): Modifier {
+    val edgePx = with(LocalDensity.current) { 32.dp.toPx() }
+    val thresholdPx = with(LocalDensity.current) { 40.dp.toPx() }
+    val openDrawer by rememberUpdatedState(onOpen)
+    return Modifier
+        .systemGestureExclusion { coordinates -> Rect(0f, 0f, edgePx, coordinates.size.height.toFloat()) }
+        .pointerInput(enabled, edgePx, thresholdPx) {
+            if (!enabled) return@pointerInput
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                if (down.position.x > edgePx) return@awaitEachGesture
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    if (event.changes.count { it.pressed } > 1) break
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) break
+                    val dx = change.position.x - down.position.x
+                    val dy = change.position.y - down.position.y
+                    // Rolagem vertical e movimentos para a esquerda continuam com a tela.
+                    if (abs(dy) > viewConfiguration.touchSlop && abs(dy) > abs(dx)) break
+                    if (dx < -viewConfiguration.touchSlop) break
+                    if (dx >= thresholdPx && dx > abs(dy) * 1.2f) {
+                        change.consume()
+                        openDrawer()
+                        break
+                    }
+                }
             }
         }
-        return
-    }
-
-    nav.navigate(route) {
-        popUpTo("inicio") {
-            inclusive = false
-            saveState = false
-        }
-        launchSingleTop = true
-        restoreState = false
-    }
 }
 
 @Composable
@@ -390,38 +366,6 @@ private fun AppBackdrop(themeMode: HdThemeMode) {
 }
 
 @Composable
-private fun AppTopHeader(onMenu: () -> Unit) {
-    Surface(color = Color.Black.copy(alpha = 0.92f), shadowElevation = 8.dp) {
-        Column(Modifier.statusBarsPadding().clickable { onMenu() }) {
-            Row(
-                Modifier.fillMaxWidth().height(46.dp).padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Filled.Menu, contentDescription = null, tint = HD.Yellow, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "MENU DE NAVEGAÇÃO",
-                    color = HD.Yellow,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 2.2.sp,
-                )
-            }
-            Box(
-                Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .width(36.dp)
-                    .height(3.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(HD.Yellow)
-            )
-            HorizontalDivider(color = HD.Yellow, thickness = 1.dp)
-        }
-    }
-}
-
-@Composable
 private fun AppBottomBar(
     current: String,
     onNavigate: (String) -> Unit,
@@ -438,8 +382,10 @@ private fun AppBottomBar(
                     Column(
                         modifier = Modifier
                             .weight(1f)
+                            .fillMaxHeight()
+                            .testTag("tab-${tab.route}")
                             .background(if (selected) HD.Yellow.copy(alpha = 0.055f) else Color.Transparent)
-                            .clickable { onNavigate(tab.route) },
+                            .selectable(selected = selected, role = Role.Tab, onClick = { onNavigate(tab.route) }),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Box(
@@ -590,7 +536,7 @@ private fun AppDrawer(
                 if (show("comando", "página principal", "central de guerra", "ordem maior", "mapa galáctico")) {
                     DrawerGroupLabel("COMANDO")
                     if (show("página principal", "inicio", "início")) {
-                        DrawerCompactEntry("Página Principal", current == "inicio") { onNavigate("inicio") }
+                        DrawerCompactEntry("Página Principal", current == "inicio", testTag = "drawer-inicio") { onNavigate("inicio") }
                     }
                     if (show("central de guerra", "guerra")) {
                         DrawerCompactEntry("⚔ Central de Guerra", current == "guerra") { onNavigate("guerra") }
@@ -726,9 +672,10 @@ private fun DrawerGroupLabel(label: String) {
 }
 
 @Composable
-private fun DrawerCompactEntry(title: String, selected: Boolean, onClick: () -> Unit) {
+private fun DrawerCompactEntry(title: String, selected: Boolean, testTag: String = "drawer-$title", onClick: () -> Unit) {
     Row(
         Modifier
+            .testTag(testTag)
             .fillMaxWidth()
             .height(47.dp)
             .background(if (selected) HD.Yellow.copy(alpha = 0.11f) else HD.Surface)

@@ -53,6 +53,29 @@ jobs:
       - name: Verificar estados, recompensas e regiões
         run: gradle :app:testDebugUnitTest --stacktrace
 
+      - name: Habilitar emulador Android
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Testar toques e navegação no emulador
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          target: default
+          disable-animations: true
+          script: gradle :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Guardar relatório dos testes de navegação
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Relatorio-navegacao
+          path: app/build/reports/androidTests/connected/
+          if-no-files-found: ignore
+
       - name: Compilar APK Release assinado
         env:
           HD_SIGNING_PASSWORD: ${{ secrets.HD_SIGNING_PASSWORD }}

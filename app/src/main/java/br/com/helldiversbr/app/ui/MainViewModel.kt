@@ -1,6 +1,9 @@
 package br.com.helldiversbr.app.ui
 
 import android.app.Application
+import br.com.helldiversbr.app.ui.presentation.NumberFrame
+import br.com.helldiversbr.app.ui.presentation.NumberProjectionTracker
+import br.com.helldiversbr.app.ui.presentation.observations
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import br.com.helldiversbr.app.data.HomeData
@@ -32,6 +35,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val update: StateFlow<RemoteVersion?> = _update.asStateFlow()
 
     private var refreshJob: Job? = null
+    private val numberTracker = NumberProjectionTracker()
+    private val _numbers = MutableStateFlow(NumberFrame())
+    val numbers = _numbers.asStateFlow()
 
     init {
         // Mostra o último snapshot persistente imediatamente; a rede revalida em paralelo.
@@ -64,10 +70,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             if (previous != null) _home.value = HomeState.Ready(previous, refreshing = true)
             _home.value = try {
-                HomeState.Ready(OrderRepository.load())
+                val loaded = OrderRepository.load()
+                _numbers.value = numberTracker.update(observations(loaded), loaded.updatedAtMillis, System.currentTimeMillis())
+                HomeState.Ready(loaded)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                _numbers.value = numberTracker.reset()
                 val latest = when (val current = _home.value) {
                     is HomeState.Ready -> current.data
                     is HomeState.Error -> current.last

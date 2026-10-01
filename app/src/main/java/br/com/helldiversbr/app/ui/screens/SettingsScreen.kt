@@ -1,6 +1,10 @@
 package br.com.helldiversbr.app.ui.screens
 
 import android.content.Intent
+import androidx.core.app.NotificationManagerCompat
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.platform.testTag
+import br.com.helldiversbr.app.notifications.AlertType
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -75,6 +79,8 @@ fun SettingsScreen(
     contentPadding: PaddingValues,
     themeMode: HdThemeMode,
     onThemeMode: (HdThemeMode) -> Unit,
+    dynamicNumbers: Boolean = true,
+    onDynamicNumbers: (Boolean) -> Unit = {},
     onOpenNotifications: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -163,170 +169,154 @@ fun SettingsScreen(
         ),
     )
 
+    val alertsEnabled = NotificationPreferences.isMasterEnabled(context)
+    val blocked = alertsEnabled && !NotificationManagerCompat.from(context).areNotificationsEnabled()
+    val activeTypes = AlertType.entries.count { NotificationPreferences.isEnabled(context, it) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp,
             top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 24.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            bottom = contentPadding.calculateBottomPadding() + 24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
                     Text("CONFIGURAÇÕES", color = HD.Text, fontSize = 25.sp, fontWeight = FontWeight.Black)
-                    Text("HD2 BR · CENTRAL DE COMANDO", color = HD.Yellow, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                    Text("COMUNIDADE · PROJETO · PREFERÊNCIAS", color = HD.Yellow, fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("VERSÃO DO APP", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                    Text(BuildConfig.VERSION_NAME, color = HD.Text, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                }
+                Text(BuildConfig.VERSION_NAME, color = HD.TextMuted, fontSize = 10.sp)
             }
         }
-
-        item { SettingsSectionLabel("ATUALIZAÇÕES") }
-
         item {
-            SettingsCompactCard {
-                SettingsTextRow(
-                    symbol = "↻",
-                    title = "VERIFICAR ATUALIZAÇÕES",
-                    subtitle = updateMessage,
-                    action = if (checkingUpdate) "..." else "VERIFICAR",
-                    onClick = ::checkUpdates,
-                )
-                if (availableUpdate != null) {
-                    HorizontalDivider(color = HD.BorderSoft)
-                    SettingsTextRow(
-                        symbol = "↓",
-                        title = "BAIXAR ${availableUpdate!!.versionName}",
-                        subtitle = availableUpdate!!.notes.ifBlank { "Nova versão disponível para download." },
-                        action = "BAIXAR ↗",
-                        onClick = { openUrl(availableUpdate!!.apkUrl) },
-                        accent = true,
-                    )
-                }
-                HorizontalDivider(color = HD.BorderSoft)
-                SettingsSwitchRow(
-                    symbol = "⌁",
-                    title = "VERIFICAR AO ABRIR O APP",
-                    subtitle = "Consulta automática leve ao iniciar o HD2 BR.",
-                    checked = autoUpdates,
-                    onCheckedChange = {
-                        autoUpdates = it
-                        UpdatePreferences.setAutoCheckEnabled(context, it)
-                    },
-                )
-            }
+            SettingsNotificationCard(alertsEnabled, blocked, activeTypes, onOpenNotifications)
         }
-
-        item { SettingsSectionLabel("PREFERÊNCIAS") }
-
         item {
-            SettingsCompactCard {
-                val alertStatus = if (NotificationPreferences.isMasterEnabled(context)) "ATIVADAS · PERSONALIZAR CANAIS" else "DESATIVADAS · CONFIGURAR"
-                SettingsTextRow(
-                    symbol = "!",
-                    title = "NOTIFICAÇÕES",
-                    subtitle = alertStatus,
-                    action = "ABRIR ›",
-                    onClick = onOpenNotifications,
-                    accent = NotificationPreferences.isMasterEnabled(context),
-                )
-                HorizontalDivider(color = HD.BorderSoft)
-                SettingsSwitchRow(
-                    symbol = if (themeMode == HdThemeMode.MERIDIA) "◉" else "◐",
-                    title = "TEMA DO APLICATIVO",
-                    subtitle = if (themeMode == HdThemeMode.MERIDIA) "Meridian" else "Padrão HELLDIVERS-BR",
-                    checked = themeMode == HdThemeMode.MERIDIA,
-                    onCheckedChange = { enabled -> onThemeMode(if (enabled) HdThemeMode.MERIDIA else HdThemeMode.DEFAULT) },
-                )
-            }
-        }
-
-        item { SettingsSectionLabel("COMUNIDADE") }
-
-        item {
-            SettingsCompactCard {
-                SettingsTextRow(
-                    symbol = "↗",
-                    title = "COMPARTILHAR HD2 BR",
-                    subtitle = "Envie o projeto pelo WhatsApp, Telegram, Discord ou outro aplicativo.",
-                    action = "COMPARTILHAR",
-                    onClick = ::shareApp,
-                )
-                HorizontalDivider(color = HD.BorderSoft)
-                SettingsTextRow(
-                    symbol = "◎",
-                    title = "SITE HELLDIVERS-BR",
-                    subtitle = SITE_URL.removePrefix("https://").removeSuffix("/"),
-                    action = "ABRIR ↗",
-                    onClick = { openUrl(SITE_URL) },
-                )
-            }
-        }
-
-        entries.forEach { entry ->
-            item(key = entry.title) {
-                val action: (() -> Unit)? = entry.url?.let { url -> { openUrl(url) } }
-                    ?: entry.copyText?.let { text -> { copyText(text, "Discord do desenvolvedor copiado: $text") } }
-                SettingsCommunityRow(entry, action)
-            }
-        }
-
-        item { SettingsSectionLabel("SOBRE") }
-
-        item {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(15.dp))
-                    .background(HD.Surface)
-                    .border(1.dp, HD.Border, RoundedCornerShape(15.dp))
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                .background(HD.Surface).border(1.dp, HD.Yellow.copy(alpha = .7f), RoundedCornerShape(18.dp))
+                .clickable { copyText(DISCORD_DEVELOPER, "Discord do desenvolvedor copiado: $DISCORD_DEVELOPER") }
+                .padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(
-                        painter = painterResource(R.drawable.developer_daryl),
-                        contentDescription = "Foto do desenvolvedor DarylDixon_19",
-                        modifier = Modifier
-                            .size(58.dp)
-                            .clip(CircleShape)
-                            .background(HD.SurfaceHigh)
-                            .border(1.dp, HD.Yellow.copy(alpha = .72f), CircleShape),
-                        contentScale = ContentScale.Crop,
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("DESENVOLVEDOR", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                        Text("DarylDixon_19", color = HD.Text, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                        Text("Projeto brasileiro independente feito para a comunidade.", color = HD.TextDim, fontSize = 10.sp, lineHeight = 14.sp)
+                    Image(painterResource(R.drawable.developer_daryl), "Desenvolvedor DarylDixon_19",
+                        Modifier.size(76.dp).clip(CircleShape).border(1.dp, HD.Yellow, CircleShape), contentScale = ContentScale.Crop)
+                    Column(Modifier.weight(1f).padding(start = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("DESENVOLVEDOR · HELLDIVERS-BR", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        Text("DarylDixon_19", color = HD.Text, fontSize = 19.sp, fontWeight = FontWeight.Black)
+                        Text("Projeto brasileiro independente feito para a comunidade.", color = HD.TextDim, fontSize = 11.sp, lineHeight = 15.sp)
+                        Text("COPIAR CONTATO DO DISCORD", color = HD.Yellow, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                     }
                 }
-                HorizontalDivider(color = HD.BorderSoft)
-                Text(
-                    "HELLDIVERS-BR reúne informações, ferramentas e acompanhamento da Guerra Galáctica em português. HELLDIVERS e HELLDIVERS 2 pertencem aos seus respectivos detentores; este aplicativo não é oficial.",
-                    color = HD.TextDim,
-                    fontSize = 10.sp,
-                    lineHeight = 15.sp,
-                )
             }
         }
-
+        item { SettingsSectionLabel("COMUNIDADE") }
         item {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                HorizontalDivider(color = HD.Border)
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    "HELLDIVERS-BR // ${BuildConfig.VERSION_NAME}",
-                    color = HD.TextMuted,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = .7.sp,
-                )
+            SettingsCommunityGrid("DISCORD", R.drawable.discord_oficial, listOf(entries[0], entries[1])) { entry ->
+                entry.url?.let(::openUrl) ?: entry.copyText?.let { copyText(it, "Discord do desenvolvedor copiado: $it") }
+            }
+        }
+        item {
+            SettingsCommunityGrid("YOUTUBE", R.drawable.youtube_canal, listOf(entries[3], entries[4])) { entry ->
+                entry.url?.let(::openUrl)
+            }
+        }
+        item {
+            SettingsCommunityGrid("WHATSAPP", R.drawable.logo_whatsapp, listOf(entries[2])) { entry ->
+                entry.url?.let(::openUrl)
+            }
+        }
+        item {
+            SettingsCompactCard {
+                SettingsTextRow("↗", "COMPARTILHAR HD2 BR", "Convide seus amigos para a comunidade.", "COMPARTILHAR", ::shareApp)
+                HorizontalDivider(color = HD.BorderSoft)
+                SettingsTextRow("◎", "SITE HELLDIVERS-BR", SITE_URL.removePrefix("https://").removeSuffix("/"), "ABRIR ↗", { openUrl(SITE_URL) })
+            }
+        }
+        item { SettingsSectionLabel("PREFERÊNCIAS") }
+        item {
+            SettingsCompactCard {
+                SettingsSwitchRow("↗", "CONTADORES DINÂMICOS", "Movimento dos números entre atualizações", dynamicNumbers, onDynamicNumbers)
+                HorizontalDivider(color = HD.BorderSoft)
+                SettingsSwitchRow(if (themeMode == HdThemeMode.MERIDIA) "◉" else "◐", "TEMA DO APLICATIVO",
+                    if (themeMode == HdThemeMode.MERIDIA) "Meridian" else "Padrão HELLDIVERS-BR",
+                    themeMode == HdThemeMode.MERIDIA,
+                    { enabled -> onThemeMode(if (enabled) HdThemeMode.MERIDIA else HdThemeMode.DEFAULT) })
+            }
+        }
+        item { SettingsSectionLabel("ATUALIZAÇÕES") }
+        item {
+            SettingsCompactCard {
+                SettingsTextRow("↻", "VERIFICAR ATUALIZAÇÕES", updateMessage, if (checkingUpdate) "..." else "VERIFICAR", ::checkUpdates)
+                availableUpdate?.let { version ->
+                    HorizontalDivider(color = HD.BorderSoft)
+                    SettingsTextRow("↓", "BAIXAR ${version.versionName}", version.notes.ifBlank { "Nova versão disponível." }, "BAIXAR ↗",
+                        { openUrl(version.apkUrl) }, accent = true)
+                }
+                HorizontalDivider(color = HD.BorderSoft)
+                SettingsSwitchRow("⌁", "VERIFICAR AO ABRIR O APP", "Consulta automática ao iniciar o HD2 BR.", autoUpdates,
+                    { enabled -> autoUpdates = enabled; UpdatePreferences.setAutoCheckEnabled(context, enabled) })
+            }
+        }
+        item { SettingsSectionLabel("SOBRE") }
+        item {
+            SettingsCompactCard {
+                Text("HELLDIVERS-BR reúne informações, ferramentas e acompanhamento da Guerra Galáctica em português. HELLDIVERS e HELLDIVERS 2 pertencem aos seus respectivos detentores; este aplicativo não é oficial.",
+                    color = HD.TextDim, fontSize = 10.sp, lineHeight = 15.sp, modifier = Modifier.padding(14.dp))
+            }
+        }
+        item {
+            Text("HELLDIVERS-BR // ${BuildConfig.VERSION_NAME}", color = HD.TextMuted, fontSize = 8.sp,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun SettingsNotificationCard(active: Boolean, blocked: Boolean, count: Int, onOpen: () -> Unit) {
+    val accent = if (active) HD.Red else HD.Border
+    Row(Modifier.fillMaxWidth().testTag("settings-notifications").clip(RoundedCornerShape(14.dp))
+        .background(if (active) HD.Red.copy(alpha = .09f) else HD.Surface)
+        .border(if (active) 1.5.dp else 1.dp, accent, RoundedCornerShape(14.dp))
+        .clickable(onClick = onOpen).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(HD.SurfaceHigh), contentAlignment = Alignment.Center) {
+            Text("!", color = if (active) HD.Red else HD.TextMuted, fontSize = 24.sp, fontWeight = FontWeight.Black)
+        }
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("NOTIFICAÇÕES", color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.Black)
+            Text(when {
+                blocked -> "Ligadas no app · bloqueadas pelo Android. Toque para revisar."
+                active && count == 0 -> "Ligadas · nenhum tipo selecionado. Toque para configurar."
+                active -> "Ativadas · $count tipos de alerta. Personalizar canais ›"
+                else -> "Desativadas · toque para configurar seus alertas."
+            }, color = if (active) HD.Red else HD.TextDim, fontSize = 10.sp, lineHeight = 14.sp)
+        }
+        Text("ABRIR ›", color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun SettingsCommunityGrid(title: String, logo: Int, entries: List<CommunityEntry>, onEntry: (CommunityEntry) -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(HD.Surface)
+        .border(1.dp, HD.BorderSoft, RoundedCornerShape(16.dp)).padding(14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            Image(painterResource(logo), null, Modifier.size(28.dp), contentScale = ContentScale.Fit)
+            Text(title, color = HD.Text, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            entries.forEach { entry ->
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable { onEntry(entry) }
+                    .padding(8.dp).heightIn(min = 110.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Image(painterResource(entry.imageRes), null,
+                        Modifier.size(64.dp).clip(CircleShape).background(HD.SurfaceHigh)
+                            .border(1.dp, if (entry.highlight) HD.Yellow else HD.Border, CircleShape), contentScale = ContentScale.Crop)
+                    Text(if (entry.highlight) "DESENVOLVEDOR" else entry.title,
+                        color = if (entry.highlight) HD.Yellow else HD.Text, fontSize = 10.sp,
+                        lineHeight = 13.sp, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text(if (entry.copyText != null) "COPIAR CONTATO" else "ABRIR ↗", color = HD.TextMuted, fontSize = 8.sp)
+                }
             }
         }
     }
@@ -400,38 +390,6 @@ private fun SettingsSwitchRow(
             Text(subtitle, color = HD.TextDim, fontSize = 9.5.sp, lineHeight = 13.sp)
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
-@Composable
-private fun SettingsCommunityRow(entry: CommunityEntry, onClick: (() -> Unit)?) {
-    val enabled = onClick != null
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (entry.highlight) HD.Yellow.copy(alpha = .045f) else HD.Surface)
-            .border(1.dp, if (entry.highlight) HD.Yellow.copy(alpha = .55f) else HD.Border, RoundedCornerShape(14.dp))
-            .then(if (enabled) Modifier.clickable { onClick?.invoke() } else Modifier)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Image(
-            painter = painterResource(entry.imageRes),
-            contentDescription = entry.title,
-            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(HD.SurfaceHigh),
-            contentScale = ContentScale.Crop,
-        )
-        Column(Modifier.weight(1f).padding(start = 11.dp, end = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(entry.title, color = if (entry.highlight) HD.Yellow else HD.Text, fontSize = 10.5.sp, fontWeight = FontWeight.Black)
-            Text(entry.subtitle, color = HD.TextDim, fontSize = 9.5.sp, lineHeight = 13.sp)
-        }
-        Text(
-            if (entry.copyText != null) "COPIAR" else "ABRIR ↗",
-            color = HD.Yellow,
-            fontSize = 7.5.sp,
-            fontWeight = FontWeight.Black,
-        )
     }
 }
 
