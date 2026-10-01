@@ -7,6 +7,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class VisualRulesTest {
+    @Test fun mapAlertOnlyMarksDefenseEvents() {
+        val enemy = Planet(index=1,currentOwner="Automatons",health=750,maxHealth=1000)
+        assertFalse(isPlanetUnderAttack(enemy))
+        assertTrue(isPlanetUnderAttack(enemy.copy(currentOwner="Humans",event=PlanetEvent(health=50,maxHealth=100))))
+        assertFalse(isPlanetUnderAttack(enemy.copy(disabled=true,event=PlanetEvent(health=50,maxHealth=100))))
+        assertFalse(isPlanetUnderAttack(enemy.copy(name=JsonPrimitive("Meridia"),event=PlanetEvent(health=50,maxHealth=100))))
+    }
     @Test fun orderArtworkFollowsConfirmedState() {
         assertEquals("order_active", SiteAssets.orderKey("active"))
         assertEquals("order_completed", SiteAssets.orderKey("completed"))
@@ -28,11 +35,28 @@ class VisualRulesTest {
         assertNull(human.players)
         val closed = regionPresentation(PlanetRegion(owner=JsonPrimitive("Automatons"),health=700,maxHealth=1000,isAvailable=false))
         assertNull(closed.percent)
-        assertEquals("Indisponível para operações",closed.status)
+        assertEquals("Bloqueada para operações",closed.status)
         val active = regionPresentation(PlanetRegion(owner=JsonPrimitive("Automatons"),health=750,maxHealth=1000,isAvailable=true,players=20))
         assertEquals(25.0,active.percent!!,0.001)
         assertEquals(20L,active.players!!)
         assertNull(regionPresentation(PlanetRegion(health=null,maxHealth=1000)).percent)
+    }
+    @Test fun regionalProgressCannotReplaceZeroPlanetProgress() {
+        val region = PlanetRegion(health=47_100,maxHealth=1_000_000,isAvailable=true)
+        val planet = Planet(health=1_500_000,maxHealth=1_500_000,regions=listOf(region))
+        assertEquals(0.0,OrderRepository.campaignPercent(Campaign(planet=planet)),0.00001)
+        assertEquals(95.29,regionPresentation(region).percent!!,0.00001)
+        assertEquals(25.0,OrderRepository.campaignPercent(Campaign(planet=planet.copy(health=1_125_000))),0.00001)
+        assertEquals(50.0,OrderRepository.campaignPercent(Campaign(planet=planet.copy(event=PlanetEvent(health=50,maxHealth=100)))),0.00001)
+    }
+    @Test fun oneSavedNoticePreservesDifferentReadingTimes() {
+        fun reading(value:Long,time:Long,stale:Boolean=true)=CounterReading(value,"community",time,stale)
+        val stats=PlanetStatistics(bulletsFired=100,bulletsHit=80,counterReadings=mapOf(
+            "bulletsFired" to reading(100,1_000_000),"bulletsHit" to reading(80,2_000_000)))
+        val notice=br.com.helldiversbr.app.ui.presentation.counterSavedNotice(Planet(statistics=stats))!!
+        assertTrue(notice.contains("leituras entre"))
+        assertNull(br.com.helldiversbr.app.ui.presentation.counterSavedNotice(Planet(statistics=stats.copy(
+            counterReadings=stats.counterReadings.mapValues { it.value.copy(stale=false) }))))
     }
     @Test fun capitalAndUnknownPositionsDoNotOverlap() {
         val earth=Planet(index=0,name=JsonPrimitive("Super Earth"),position=PlanetPosition(.5,.5))

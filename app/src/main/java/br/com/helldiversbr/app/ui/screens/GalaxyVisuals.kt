@@ -70,3 +70,7 @@ fun mapPlayerCount(n: Long): String = when {
     n >= 1_000 -> "%.1fK".format(Locale("pt", "BR"), n / 1_000.0)
     else -> n.toString()
 }
+
+/** Evento de defesa recebido da API; libertações não são alertas de invasão. */
+fun isPlanetUnderAttack(planet: br.com.helldiversbr.app.data.Planet): Boolean =
+    !planet.disabled && planet.event != null && mapSpecial(planet) == null

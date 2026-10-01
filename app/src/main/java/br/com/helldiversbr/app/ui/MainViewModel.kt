@@ -34,12 +34,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _update = MutableStateFlow<RemoteVersion?>(null)
     val update: StateFlow<RemoteVersion?> = _update.asStateFlow()
 
+    private val _startupDone = MutableStateFlow(false)
+    val startupDone = _startupDone.asStateFlow()
+
     private var refreshJob: Job? = null
     private val numberTracker = NumberProjectionTracker()
     private val _numbers = MutableStateFlow(NumberFrame())
     val numbers = _numbers.asStateFlow()
 
     init {
+        // A abertura é visual: cache e rede começam imediatamente, sem esperar a animação.
+        viewModelScope.launch { delay(4_000); _startupDone.value = true }
         // Mostra o último snapshot persistente imediatamente; a rede revalida em paralelo.
         viewModelScope.launch {
             OrderRepository.loadCached()?.let { cached ->

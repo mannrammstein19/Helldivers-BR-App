@@ -170,6 +170,11 @@ private fun App(
     val home by vm.home.collectAsState()
     val update by vm.update.collectAsState()
     val numberFrame by vm.numbers.collectAsState()
+    val startupDone by vm.startupDone.collectAsState()
+    if (!startupDone) {
+        br.com.helldiversbr.app.ui.StartupScreen(home)
+        return
+    }
     var dynamicNumbers by rememberSaveable {
         mutableStateOf(context.getSharedPreferences("visual-numbers", 0).getBoolean("enabled", true))
     }

@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -54,6 +55,7 @@ private data class MapArt(val bitmaps: Map<String, Bitmap> = emptyMap(), val fai
 fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sectors: Boolean, territories: Boolean,
                  invasions: Boolean, selected: Long?, active: Set<Long>, dssHost: Long?, onSelect: (Long) -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     var zoom by remember { mutableStateOf(1f) }
     var pan by remember { mutableStateOf(Offset.Zero) }
     var viewport by remember { mutableStateOf(IntSize.Zero) }
@@ -84,6 +86,17 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
         }
     }
     val positioned = remember(planets, all) { planets.mapNotNull { p -> mapPosition(p, all)?.let { p to Offset(it.x.toFloat() * 500f, -it.y.toFloat() * 500f) } } }
+    val attacked = remember(positioned) { positioned.filter { isPlanetUnderAttack(it.first) } }
+    // Apenas esta camada leve é redesenhada; geografia, imagens e dados continuam estáticos.
+    val alertPhase = produceState(0f, attacked.isNotEmpty(), lifecycle) {
+        if (attacked.isNotEmpty()) lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            val start = android.os.SystemClock.elapsedRealtime()
+            while (true) {
+                value = ((android.os.SystemClock.elapsedRealtime() - start) % 1_800) / 1_800f
+                kotlinx.coroutines.delay(50)
+            }
+        }
+    }
     val positions = remember(positioned) { positioned.associate { it.first.index to it.second } }
     val enemySectors = remember(all) {
         val result = mutableMapOf<String, MutableSet<String>>()
@@ -332,6 +345,20 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 textPaint.color = caption.color.toArgb()
                 textPaint.textAlign = Paint.Align.CENTER
                 canvas.drawText(caption.text, anchor.x, anchor.y, textPaint)
+            }
+        }
+        if (attacked.isNotEmpty()) Canvas(Modifier.matchParentSize()) {
+            val phase = alertPhase.value
+            val glow = (.5f + .5f * sin(phase * 2f * PI.toFloat()))
+            val unit = size.minDimension / 1120f * zoom
+            val origin = center + pan
+            attacked.forEach { (_, point) ->
+                val at = origin + point * unit
+                val radius = max(1000f / 260f * unit, 3.4.dp.toPx())
+                drawCircle(Color(0xFFFF454D).copy(alpha = .06f + glow * .12f), radius * 3.25f, at)
+                drawCircle(Color(0xFFFF454D).copy(alpha = .2f + glow * .38f),
+                    radius * (3.1f + glow * .65f), at,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5.dp.toPx()))
             }
         }
         Row(Modifier.align(Alignment.BottomEnd).padding(8.dp).background(Color(0xCC050810), RoundedCornerShape(10.dp))) {

@@ -1,6 +1,6 @@
 {
-  "versionCode": 28,
-  "versionName": "28.0.0",
-  "apkUrl": "https://pub-f324221f4e5e42b08ecfa5062afd5960.r2.dev/helldivers-br/apps/helldivers-br-v28.apk",
-  "notes": "V28: contadores preservados por campo e fonte, números estáveis, DSS compacta e Configurações com ícones personalizados."
+  "versionCode": 30,
+  "versionName": "30.0.0",
+  "apkUrl": "https://pub-f324221f4e5e42b08ecfa5062afd5960.r2.dev/helldivers-br/apps/helldivers-br-v30.apk",
+  "notes": "V30: abertura com arte, logo, zoom suave e carregamento em paralelo; alerta pulsante de defesa no mapa."
 }

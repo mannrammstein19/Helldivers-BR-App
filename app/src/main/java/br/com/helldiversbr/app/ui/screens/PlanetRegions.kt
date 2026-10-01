@@ -41,7 +41,7 @@ fun regionPresentation(region: PlanetRegion): RegionPresentation {
     val status = when {
         human -> "Sob controle da Super Terra"
         completed -> "Objetivo regional concluído"
-        unavailable -> "Indisponível para operações"
+        unavailable -> "Bloqueada para operações"
         region.isAvailable == true -> "Em operação"
         else -> "Disponibilidade não informada"
     }
@@ -52,8 +52,8 @@ fun regionPresentation(region: PlanetRegion): RegionPresentation {
 
 @Composable
 fun PlanetRegions(planet: Planet) {
-    val available = planet.regions.filter { it.isAvailable == true }
-    if (available.isEmpty()) return
+    val regions = planet.regions
+    if (regions.isEmpty()) return
     val context = LocalContext.current
     val types = remember {
         context.assets.open("region-types.json").bufferedReader().use {
@@ -61,8 +61,8 @@ fun PlanetRegions(planet: Planet) {
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        SectionLabel("Regiões do planeta · ${available.size}")
-        available.forEachIndexed { index, region ->
+        SectionLabel("Regiões do planeta · ${regions.size}")
+        regions.forEachIndexed { index, region ->
             val info = regionPresentation(region)
             val type = types[region.hash?.toString()]
             val identity = if (type == "factory") "Megafábrica" else when (region.size) {

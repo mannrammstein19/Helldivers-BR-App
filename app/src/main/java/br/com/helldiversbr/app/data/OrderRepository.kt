@@ -349,7 +349,7 @@ object OrderRepository {
         return parts.average() * 100.0
     }
 
-    /** Progresso efetivo de uma campanha, incluindo o sistema atual de regiões. */
+    /** Progresso do planeta ou evento de defesa; regiões são objetivos independentes. */
     fun campaignPercent(campaign: Campaign): Double {
         val planet = campaign.planet
         val event = planet.event
@@ -357,23 +357,10 @@ object OrderRepository {
             return (1.0 - event.health.toDouble() / event.maxHealth.toDouble())
                 .coerceIn(0.0, 1.0) * 100.0
         }
-
-        if (planet.maxHealth > 0) {
-            val planetPercent = (1.0 - planet.health.toDouble() / planet.maxHealth.toDouble())
+        return if (planet.maxHealth > 0) {
+            (1.0 - planet.health.toDouble() / planet.maxHealth.toDouble())
                 .coerceIn(0.0, 1.0) * 100.0
-            if (planetPercent > 0.001) return planetPercent
-        }
-
-        // Em campanhas baseadas em regiões, o planeta pode aparecer em 0% enquanto
-        // a batalha real acontece em uma região desbloqueada.
-        return planet.regions
-            .asSequence()
-            .filter { it.isAvailable != false && it.maxHealth > 0 && it.health != null }
-            .map {
-                (1.0 - (it.health ?: it.maxHealth).toDouble() / it.maxHealth.toDouble())
-                    .coerceIn(0.0, 1.0) * 100.0
-            }
-            .maxOrNull() ?: 0.0
+        } else 0.0
     }
 
     fun campaignMode(campaign: Campaign): String = if (campaign.planet.event != null) "defense" else "attack"

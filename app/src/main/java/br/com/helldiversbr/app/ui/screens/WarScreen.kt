@@ -520,7 +520,7 @@ fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
                     Text("BIOMA: $biome", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(status, color = statusColor, fontSize = 9.sp, fontWeight = FontWeight.Black)
                 }
-                if (planet.regions.any { it.isAvailable == true }) Text("${planet.regions.count { it.isAvailable == true }} regiões neste planeta", color = HD.TextDim, fontSize = 11.sp)
+                if (planet.regions.isNotEmpty()) Text("${planet.regions.size} regiões • ${planet.regions.count { it.isAvailable == true }} disponíveis", color = HD.TextDim, fontSize = 11.sp)
                 Text("↗ TOQUE PARA ABRIR DOSSIÊ TÁTICO", color = HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
             }
         }
