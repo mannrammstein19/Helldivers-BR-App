@@ -66,14 +66,22 @@ jobs:
           arch: x86_64
           target: default
           disable-animations: true
-          script: gradle :app:connectedDebugAndroidTest --stacktrace
+          script: >-
+            bash -c 'status=0;
+            gradle :app:connectedDebugAndroidTest --stacktrace || status=$?;
+            mkdir -p app/build/navigation-failures;
+            adb pull /sdcard/Android/data/br.com.helldiversbr.app/files/navigation-failures/. app/build/navigation-failures/ || true;
+            exit "$status"'
 
       - name: Guardar relatório dos testes de navegação
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Relatorio-navegacao
-          path: app/build/reports/androidTests/connected/
+          path: |
+            app/build/reports/androidTests/connected/
+            app/build/outputs/androidTest-results/connected/
+            app/build/navigation-failures/
           if-no-files-found: ignore
 
       - name: Compilar APK Release assinado

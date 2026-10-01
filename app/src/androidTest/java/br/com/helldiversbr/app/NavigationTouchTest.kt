@@ -1,30 +1,88 @@
 package br.com.helldiversbr.app
 
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.util.Log
+import androidx.lifecycle.Lifecycle
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
+import java.io.File
 
 /** Toques físicos: performClick sozinho não detectaria uma camada cobrindo o botão. */
 @RunWith(AndroidJUnit4::class)
 class NavigationTouchTest {
-    @get:Rule val ui = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 0) val ui = createAndroidComposeRule<MainActivity>()
+    private var phase = "preparação"
+
+    // Executa antes de a regra externa fechar a Activity, preservando a tela da falha.
+    @get:Rule(order = 1) val evidence = object : TestWatcher() {
+        override fun failed(error: Throwable, description: Description) {
+            Log.e("NavigationTouchTest", "Falha em ${description.methodName}: $phase", error)
+            runCatching {
+                val instrumentation = InstrumentationRegistry.getInstrumentation()
+                val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "navigation-failures")
+                directory.mkdirs()
+                File(directory, "${description.methodName}.txt").writeText(
+                    "Etapa: $phase\n${error.stackTraceToString()}"
+                )
+                instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
+                    File(directory, "${description.methodName}.png").outputStream().use {
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+                    }
+                    bitmap.recycle()
+                }
+            }
+        }
+    }
+
+    private fun waitForOrientation(orientation: Int) {
+        ui.waitUntil(15_000) {
+            runCatching {
+                val activity = ui.activity
+                val window = activity.window.decorView
+                activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
+                    activity.resources.configuration.orientation == orientation &&
+                    window.hasWindowFocus() && window.width > 0 && window.height > 0 &&
+                    (if (orientation == Configuration.ORIENTATION_LANDSCAPE)
+                        window.width > window.height else window.height > window.width)
+            }.getOrDefault(false)
+        }
+        ui.waitForIdle()
+    }
+
+    private fun waitForScreen(route: String) {
+        phase = "aguardando tela $route"
+        ui.waitUntil(10_000) {
+            runCatching { ui.onNodeWithTag("screen-$route").isDisplayed() }.getOrDefault(false)
+        }
+        ui.onNodeWithTag("screen-$route").assertIsDisplayed()
+    }
 
     @Before fun dismissTutorial() {
+        // Cada teste inicia na mesma orientação, independentemente da ordem de execução.
+        ui.runOnUiThread { ui.activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
         ui.waitForIdle()
         if (ui.onAllNodesWithText("ENTENDI").fetchSemanticsNodes().isNotEmpty()) {
             ui.onNodeWithText("ENTENDI").performClick()
         }
-        ui.onNodeWithTag("screen-inicio").assertIsDisplayed()
+        waitForOrientation(Configuration.ORIENTATION_PORTRAIT)
+        waitForScreen("inicio")
     }
 
     private fun tapTab(route: String, yFraction: Float = .5f) {
+        phase = "toque físico na aba $route"
+        ui.onNodeWithTag("tab-$route").assertIsDisplayed()
         ui.onNodeWithTag("tab-$route").performTouchInput {
             click(Offset(width / 2f, height * yFraction))
         }
@@ -32,7 +90,7 @@ class NavigationTouchTest {
     }
 
     private fun assertHome() {
-        ui.onNodeWithTag("screen-inicio").assertIsDisplayed()
+        waitForScreen("inicio")
         ui.onNodeWithTag("tab-inicio").assertIsSelected()
     }
 
@@ -80,11 +138,15 @@ class NavigationTouchTest {
 
     @Test fun homeWorksAfterLandscapeRotation() {
         tapTab("configuracoes")
+        waitForScreen("configuracoes")
+        val beforeRotation = ui.activity
+        phase = "recriação da Activity após rotação"
         ui.runOnUiThread { ui.activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
-        ui.waitUntil(10_000) {
-            val node = ui.onAllNodesWithTag("screen-configuracoes").fetchSemanticsNodes().singleOrNull()
-            node != null && node.size.width > node.size.height
+        ui.waitUntil(15_000) {
+            runCatching { ui.activity !== beforeRotation }.getOrDefault(false)
         }
+        waitForOrientation(Configuration.ORIENTATION_LANDSCAPE)
+        waitForScreen("configuracoes")
         tapTab("inicio")
         assertHome()
     }
