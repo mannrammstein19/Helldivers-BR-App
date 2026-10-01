@@ -1,6 +1,6 @@
 {
-  "versionCode": 24,
-  "versionName": "24.0.0",
-  "apkUrl": "https://pub-f324221f4e5e42b08ecfa5062afd5960.r2.dev/helldivers-br/apps/helldivers-br-v24.apk",
-  "notes": "V24: assinatura permanente e verificação de atualização pela Cloudflare. Primeira instalação substitui a base Debug antiga."
+  "versionCode": 25,
+  "versionName": "25.0.0",
+  "apkUrl": "https://pub-f324221f4e5e42b08ecfa5062afd5960.r2.dev/helldivers-br/apps/helldivers-br-v25.apk",
+  "notes": "Melhorias e Correções do Sistema."
 }
