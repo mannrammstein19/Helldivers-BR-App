@@ -29,7 +29,7 @@ class NavigationTouchTest {
     @get:Rule(order = 1) val evidence = object : TestWatcher() {
         override fun failed(error: Throwable, description: Description) {
             Log.e("NavigationTouchTest", "Falha em ${description.methodName}: $phase", error)
-            runCatching { ui.onRoot(useUnmergedTree = true).printToLog("NavigationTouchTest") }
+            runCatching { ui.onAllNodes(isRoot(), useUnmergedTree = true).printToLog("NavigationTouchTest") }
             runCatching {
                 val instrumentation = InstrumentationRegistry.getInstrumentation()
                 val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "navigation-failures")
@@ -48,18 +48,29 @@ class NavigationTouchTest {
     }
 
     private fun waitForOrientation(orientation: Int) {
+        phase = "aguardando orientação $orientation e janela pronta"
         ui.waitUntil(15_000) {
-            runCatching {
-                val activity = ui.activity
+            var ready = false
+            // A rotação substitui a Activity; consulte a instância atual no thread da UI.
+            ui.activityRule.scenario.onActivity { activity ->
                 val window = activity.window.decorView
-                activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
+                ready = activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
                     activity.resources.configuration.orientation == orientation &&
                     window.hasWindowFocus() && window.width > 0 && window.height > 0 &&
                     (if (orientation == Configuration.ORIENTATION_LANDSCAPE)
                         window.width > window.height else window.height > window.width)
-            }.getOrDefault(false)
+            }
+            ready
         }
         ui.waitForIdle()
+    }
+
+    private fun waitForVisible(tag: String) {
+        phase = "aguardando componente $tag"
+        ui.waitUntil(10_000) {
+            runCatching { ui.onNodeWithTag(tag).isDisplayed() }.getOrDefault(false)
+        }
+        ui.onNodeWithTag(tag).assertIsDisplayed()
     }
 
     private fun waitForScreen(route: String) {
@@ -71,14 +82,20 @@ class NavigationTouchTest {
     }
 
     @Before fun dismissTutorial() {
-        // Cada teste inicia na mesma orientação, independentemente da ordem de execução.
-        ui.runOnUiThread { ui.activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
+        // Primeiro aguarde a abertura: o tutorial só é composto depois dela.
+        ui.activityRule.scenario.onActivity {
+            it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+        waitForScreen("inicio")
         ui.waitForIdle()
         if (ui.onAllNodesWithText("ENTENDI").fetchSemanticsNodes().isNotEmpty()) {
             ui.onNodeWithText("ENTENDI").performClick()
+            ui.waitUntil(5_000) {
+                ui.onAllNodesWithText("ENTENDI").fetchSemanticsNodes().isEmpty()
+            }
         }
         waitForOrientation(Configuration.ORIENTATION_PORTRAIT)
-        waitForScreen("inicio")
+        assertHome()
     }
 
     private fun tapTab(route: String, yFraction: Float = .5f) {
@@ -88,7 +105,7 @@ class NavigationTouchTest {
         ui.onNodeWithTag("tab-$route").performTouchInput {
             click(Offset(width / 2f, height * yFraction))
         }
-        ui.waitForIdle()
+        waitForScreen(route)
     }
 
     private fun assertHome() {
@@ -115,6 +132,7 @@ class NavigationTouchTest {
         ui.onNodeWithTag("screen-guerra").performTouchInput {
             swipe(Offset(2f, height * .5f), Offset(width * .65f, height * .5f), 500)
         }
+        waitForVisible("navigation-drawer")
         ui.onNodeWithTag("drawer-inicio").performScrollTo().assertIsDisplayed()
             .performTouchInput { click(center) }
         assertHome()
@@ -125,12 +143,15 @@ class NavigationTouchTest {
         ui.onNodeWithTag("screen-ordem").performTouchInput {
             swipe(Offset(2f, height * .5f), Offset(width * .65f, height * .5f), 500)
         }
-        ui.onNodeWithTag("drawer-inicio").assertIsDisplayed()
+        waitForVisible("navigation-drawer")
+        ui.onNodeWithTag("drawer-inicio").performScrollTo().assertIsDisplayed()
         pressBack()
+        ui.waitUntil(5_000) { !ui.onNodeWithTag("navigation-drawer").isDisplayed() }
         ui.onNodeWithTag("screen-ordem").assertIsDisplayed()
         ui.onNodeWithTag("screen-ordem").performTouchInput {
             swipe(Offset(2f, height * .5f), Offset(width * .65f, height * .5f), 500)
         }
+        waitForVisible("navigation-drawer")
         ui.onNodeWithTag("drawer-inicio").performScrollTo().performTouchInput { click(center) }
         assertHome()
         tapTab("guerra")
@@ -141,11 +162,14 @@ class NavigationTouchTest {
     @Test fun homeWorksAfterLandscapeRotation() {
         tapTab("configuracoes")
         waitForScreen("configuracoes")
-        val beforeRotation = ui.activity
+        var beforeRotation: MainActivity? = null
+        ui.activityRule.scenario.onActivity { beforeRotation = it }
         phase = "recriação da Activity após rotação"
-        ui.runOnUiThread { ui.activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
+        ui.activityRule.scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
         ui.waitUntil(15_000) {
-            runCatching { ui.activity !== beforeRotation }.getOrDefault(false)
+            var recreated = false
+            ui.activityRule.scenario.onActivity { recreated = it !== beforeRotation }
+            recreated
         }
         waitForOrientation(Configuration.ORIENTATION_LANDSCAPE)
         waitForScreen("configuracoes")
@@ -169,9 +193,9 @@ class NavigationTouchTest {
         ui.onNodeWithTag("open-menu").assertDoesNotExist()
         ui.onNodeWithTag("settings-notifications").assertIsDisplayed()
         ui.onNodeWithText("NOTIFICAÇÕES").performScrollTo().performClick()
-        ui.onNodeWithTag("screen-notificacoes").assertIsDisplayed()
+        waitForScreen("notificacoes")
         pressBack()
-        ui.onNodeWithTag("screen-configuracoes").assertIsDisplayed()
+        waitForScreen("configuracoes")
         tapTab("inicio")
         assertHome()
     }
