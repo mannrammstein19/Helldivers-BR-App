@@ -29,6 +29,7 @@ class NavigationTouchTest {
     @get:Rule(order = 1) val evidence = object : TestWatcher() {
         override fun failed(error: Throwable, description: Description) {
             Log.e("NavigationTouchTest", "Falha em ${description.methodName}: $phase", error)
+            runCatching { ui.onRoot(useUnmergedTree = true).printToLog("NavigationTouchTest") }
             runCatching {
                 val instrumentation = InstrumentationRegistry.getInstrumentation()
                 val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "navigation-failures")
@@ -83,6 +84,7 @@ class NavigationTouchTest {
     private fun tapTab(route: String, yFraction: Float = .5f) {
         phase = "toque físico na aba $route"
         ui.onNodeWithTag("tab-$route").assertIsDisplayed()
+        Log.i("NavigationTouchTest", "$phase: ${ui.onNodeWithTag("tab-$route").fetchSemanticsNode().boundsInRoot}")
         ui.onNodeWithTag("tab-$route").performTouchInput {
             click(Offset(width / 2f, height * yFraction))
         }
@@ -147,6 +149,7 @@ class NavigationTouchTest {
         }
         waitForOrientation(Configuration.ORIENTATION_LANDSCAPE)
         waitForScreen("configuracoes")
+        ui.onNodeWithTag("navigation-drawer").assertIsNotDisplayed()
         tapTab("inicio")
         assertHome()
     }

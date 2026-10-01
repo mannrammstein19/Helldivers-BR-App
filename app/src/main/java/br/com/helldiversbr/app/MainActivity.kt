@@ -447,10 +447,13 @@ private fun AppDrawer(
     }
     fun show(vararg labels: String): Boolean = query.isBlank() || labels.any { br.com.helldiversbr.app.data.searchKey(it).contains(query) }
 
+    // Material3 1.2 fecha o painel deslocando-o pela largura máxima padrão.
+    // fillMaxWidth(.72f) podia ultrapassá-la em paisagem e deixar o painel sobre as abas.
+    val drawerWidth = minOf(LocalConfiguration.current.screenWidthDp.dp * .72f, androidx.compose.material3.DrawerDefaults.MaximumDrawerWidth)
     ModalDrawerSheet(
         drawerContainerColor = HD.BgDeep,
         drawerContentColor = HD.Text,
-        modifier = Modifier.fillMaxWidth(0.72f),
+        modifier = Modifier.width(drawerWidth).testTag("navigation-drawer"),
     ) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             // Cabeçalho semelhante ao painel lateral mobile do site.
