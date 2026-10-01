@@ -58,16 +58,18 @@ fun observations(data: HomeData): List<NumberObservation> = buildList {
     if ("campanhas" !in data.staleSources) data.campaigns.forEach { campaign ->
         val p = campaign.planet
         add(NumberObservation(progressKey(campaign), OrderRepository.campaignPercent(campaign), true,
-            "${data.telemetrySource}:${p.currentOwner}:${p.maxHealth}:${p.event?.maxHealth}"))
+            "${data.campaignTelemetrySource}:${p.currentOwner}:${p.maxHealth}:${p.event?.maxHealth}"))
     }
-    val planets = (if ("planetas" !in data.staleSources) data.planets else emptyList()) +
-        (if ("campanhas" !in data.staleSources) data.campaigns.map { it.planet } else emptyList())
+    val planets = data.planets + data.campaigns.map { it.planet }
     planets.associateBy { it.index }.values.forEach { p ->
-        val s = p.statistics
-        listOf("bulletsFired" to s.bulletsFired, "bulletsHit" to s.bulletsHit,
-            "terminidKills" to s.terminidKills, "automatonKills" to s.automatonKills,
-            "illuminateKills" to s.illuminateKills).forEach { (field, value) ->
-            if (value != null && value >= 0 && (field.startsWith("bullets") || field == killCounterField(p))) add(NumberObservation(counterKey(p.index, field), value.toDouble(), false, data.telemetrySource))
+        br.com.helldiversbr.app.data.CounterTelemetry.values(p.statistics).forEach { (field, value) ->
+            val reading = p.statistics.counterReadings[field]
+            val fallbackFresh = ("planetas" !in data.staleSources || "campanhas" !in data.staleSources)
+            if (value != null && value >= 0 && (reading?.stale == false || reading == null && fallbackFresh) &&
+                (field.startsWith("bullets") || field == killCounterField(p))) {
+                add(NumberObservation(counterKey(p.index, field), value.toDouble(), false,
+                    reading?.source ?: data.campaignTelemetrySource, reading?.readAtMillis))
+            }
         }
     }
 }

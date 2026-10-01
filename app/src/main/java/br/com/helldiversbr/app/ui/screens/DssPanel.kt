@@ -255,7 +255,7 @@ private fun DssUnavailableCard(reading: DssReading, tall: Boolean = false, portr
         border = BorderStroke(1.dp, HD.Border),
     ) {
         Column {
-            Box(Modifier.fillMaxWidth().aspectRatio(if (portrait) 9f / 16f else if (tall) 4f / 3f else 16f / 7.2f)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(if (portrait) 1f else if (tall) 4f / 3f else 16f / 7.2f)) {
                 AsyncImage(
                     model = DSS_UNAVAILABLE,
                     contentDescription = "Estação Espacial da Democracia",
@@ -295,7 +295,19 @@ private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean
         border = BorderStroke(1.dp, HD.Yellow.copy(alpha = .62f)),
     ) {
         Column {
-            Box(Modifier.fillMaxWidth().aspectRatio(if (portrait) 9f / 16f else if (tall) 4f / 3f else 16f / 7.0f)) {
+            if (portrait) Row(
+                Modifier.fillMaxWidth().padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AsyncImage(model = DSS_MODEL, contentDescription = "DSS", modifier = Modifier.size(60.dp), contentScale = ContentScale.Fit)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("ESTAÇÃO DEMOCRACIA", color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Text(location.name.uppercase(), color = HD.Text, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                    Text(location.sector.uppercase(), color = HD.TextMuted, fontSize = 9.sp)
+                    if (stale) Text("ÚLTIMA LEITURA PRESERVADA", color = HD.Gold, fontSize = 8.sp)
+                }
+            } else Box(Modifier.fillMaxWidth().aspectRatio(if (tall) 4f / 3f else 16f / 7.0f)) {
                 AsyncImage(
                     model = location.image,
                     contentDescription = location.name,

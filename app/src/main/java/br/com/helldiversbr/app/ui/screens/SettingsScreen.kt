@@ -57,6 +57,7 @@ import br.com.helldiversbr.app.update.UpdateCheckResult
 import br.com.helldiversbr.app.update.UpdateChecker
 import br.com.helldiversbr.app.update.UpdatePreferences
 import kotlinx.coroutines.launch
+import coil.compose.SubcomposeAsyncImage
 
 private const val DISCORD_DEVELOPER = "adonai_elohim"
 private const val DISCORD_OFFICIAL_URL = "https://discord.gg/helldiversbr"
@@ -137,13 +138,13 @@ fun SettingsScreen(
 
     val entries = listOf(
         CommunityEntry(
-            title = "DISCORD OFICIAL",
+            title = "Helldivers BR",
             subtitle = "Servidor oficial da comunidade HELLDIVERS-BR.",
             imageRes = R.drawable.discord_oficial,
             url = DISCORD_OFFICIAL_URL,
         ),
         CommunityEntry(
-            title = "FEEDBACK / DESENVOLVEDOR",
+            title = DISCORD_DEVELOPER,
             subtitle = "$DISCORD_DEVELOPER · bugs e sugestões.",
             imageRes = R.drawable.developer_daryl,
             copyText = DISCORD_DEVELOPER,
@@ -156,13 +157,13 @@ fun SettingsScreen(
             url = WHATSAPP_URL,
         ),
         CommunityEntry(
-            title = "CANAL NO YOUTUBE",
+            title = "Luis Games",
             subtitle = "Luis Play Games Oficial.",
             imageRes = R.drawable.youtube_canal,
             url = YOUTUBE_URL,
         ),
         CommunityEntry(
-            title = "CANAL PARCEIRO",
+            title = "Pirata Perdido",
             subtitle = "HELLDIVERS — Pirata Perdido.",
             imageRes = R.drawable.canal_parceiro,
             url = PARTNER_CHANNEL_URL,
@@ -212,42 +213,42 @@ fun SettingsScreen(
         }
         item { SettingsSectionLabel("COMUNIDADE") }
         item {
-            SettingsCommunityGrid("DISCORD", R.drawable.discord_oficial, listOf(entries[0], entries[1])) { entry ->
+            SettingsCommunityGrid("DISCORD", "logo-discord", "DC", listOf(entries[0], entries[1])) { entry ->
                 entry.url?.let(::openUrl) ?: entry.copyText?.let { copyText(it, "Discord do desenvolvedor copiado: $it") }
             }
         }
         item {
-            SettingsCommunityGrid("YOUTUBE", R.drawable.youtube_canal, listOf(entries[3], entries[4])) { entry ->
+            SettingsCommunityGrid("YOUTUBE", "logo-youtube", "YT", listOf(entries[3], entries[4])) { entry ->
                 entry.url?.let(::openUrl)
             }
         }
         item {
-            SettingsCommunityGrid("WHATSAPP", R.drawable.logo_whatsapp, listOf(entries[2])) { entry ->
+            SettingsCommunityGrid("WHATSAPP", "logo-whatsapp", "WA", listOf(entries[2])) { entry ->
                 entry.url?.let(::openUrl)
             }
         }
         item {
             SettingsCompactCard {
-                SettingsTextRow("↗", "COMPARTILHAR HD2 BR", "Convide seus amigos para a comunidade.", "COMPARTILHAR", ::shareApp)
+                SettingsTextRow("↗", "COMPARTILHAR HD2 BR", "Convide seus amigos para a comunidade.", "COMPARTILHAR", ::shareApp, iconFile = "icone-compartilhar")
                 HorizontalDivider(color = HD.BorderSoft)
-                SettingsTextRow("◎", "SITE HELLDIVERS-BR", SITE_URL.removePrefix("https://").removeSuffix("/"), "ABRIR ↗", { openUrl(SITE_URL) })
+                SettingsTextRow("◎", "SITE HELLDIVERS-BR", SITE_URL.removePrefix("https://").removeSuffix("/"), "", { openUrl(SITE_URL) }, iconFile = "icone-site")
             }
         }
         item { SettingsSectionLabel("PREFERÊNCIAS") }
         item {
             SettingsCompactCard {
-                SettingsSwitchRow("↗", "CONTADORES DINÂMICOS", "Movimento dos números entre atualizações", dynamicNumbers, onDynamicNumbers)
+                SettingsSwitchRow("↗", "CONTADORES DINÂMICOS", "Movimento dos números entre atualizações", dynamicNumbers, onDynamicNumbers, iconFile = "icone-contadores")
                 HorizontalDivider(color = HD.BorderSoft)
                 SettingsSwitchRow(if (themeMode == HdThemeMode.MERIDIA) "◉" else "◐", "TEMA DO APLICATIVO",
                     if (themeMode == HdThemeMode.MERIDIA) "Meridian" else "Padrão HELLDIVERS-BR",
                     themeMode == HdThemeMode.MERIDIA,
-                    { enabled -> onThemeMode(if (enabled) HdThemeMode.MERIDIA else HdThemeMode.DEFAULT) })
+                    { enabled -> onThemeMode(if (enabled) HdThemeMode.MERIDIA else HdThemeMode.DEFAULT) }, iconFile = "icone-tema")
             }
         }
         item { SettingsSectionLabel("ATUALIZAÇÕES") }
         item {
             SettingsCompactCard {
-                SettingsTextRow("↻", "VERIFICAR ATUALIZAÇÕES", updateMessage, if (checkingUpdate) "..." else "VERIFICAR", ::checkUpdates)
+                SettingsTextRow("↻", "VERIFICAR ATUALIZAÇÕES", updateMessage, if (checkingUpdate) "..." else "VERIFICAR", ::checkUpdates, iconFile = "icone-atualizacao")
                 availableUpdate?.let { version ->
                     HorizontalDivider(color = HD.BorderSoft)
                     SettingsTextRow("↓", "BAIXAR ${version.versionName}", version.notes.ifBlank { "Nova versão disponível." }, "BAIXAR ↗",
@@ -255,7 +256,7 @@ fun SettingsScreen(
                 }
                 HorizontalDivider(color = HD.BorderSoft)
                 SettingsSwitchRow("⌁", "VERIFICAR AO ABRIR O APP", "Consulta automática ao iniciar o HD2 BR.", autoUpdates,
-                    { enabled -> autoUpdates = enabled; UpdatePreferences.setAutoCheckEnabled(context, enabled) })
+                    { enabled -> autoUpdates = enabled; UpdatePreferences.setAutoCheckEnabled(context, enabled) }, iconFile = "icone-verificar-inicio")
             }
         }
         item { SettingsSectionLabel("SOBRE") }
@@ -296,26 +297,25 @@ private fun SettingsNotificationCard(active: Boolean, blocked: Boolean, count: I
 }
 
 @Composable
-private fun SettingsCommunityGrid(title: String, logo: Int, entries: List<CommunityEntry>, onEntry: (CommunityEntry) -> Unit) {
+private fun SettingsCommunityGrid(title: String, logoFile: String, fallback: String, entries: List<CommunityEntry>, onEntry: (CommunityEntry) -> Unit) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(HD.Surface)
-        .border(1.dp, HD.BorderSoft, RoundedCornerShape(16.dp)).padding(14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        .border(1.dp, HD.BorderSoft, RoundedCornerShape(16.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            Image(painterResource(logo), null, Modifier.size(28.dp), contentScale = ContentScale.Fit)
+            SettingsCustomIcon(logoFile, fallback, Modifier.size(24.dp))
             Text(title, color = HD.Text, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             entries.forEach { entry ->
                 Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable { onEntry(entry) }
-                    .padding(8.dp).heightIn(min = 110.dp), horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    .padding(horizontal = 6.dp, vertical = 4.dp).heightIn(min = 84.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Image(painterResource(entry.imageRes), null,
-                        Modifier.size(64.dp).clip(CircleShape).background(HD.SurfaceHigh)
+                        Modifier.size(58.dp).clip(CircleShape).background(HD.SurfaceHigh)
                             .border(1.dp, if (entry.highlight) HD.Yellow else HD.Border, CircleShape), contentScale = ContentScale.Crop)
-                    Text(if (entry.highlight) "DESENVOLVEDOR" else entry.title,
+                    Text(entry.title,
                         color = if (entry.highlight) HD.Yellow else HD.Text, fontSize = 10.sp,
                         lineHeight = 13.sp, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Text(if (entry.copyText != null) "COPIAR CONTATO" else "ABRIR ↗", color = HD.TextMuted, fontSize = 8.sp)
                 }
             }
         }
@@ -342,6 +342,7 @@ private fun SettingsTextRow(
     action: String,
     onClick: () -> Unit,
     accent: Boolean = false,
+    iconFile: String? = null,
 ) {
     Row(
         Modifier
@@ -354,7 +355,8 @@ private fun SettingsTextRow(
             Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(if (accent) HD.Yellow.copy(alpha = .10f) else HD.SurfaceHigh),
             contentAlignment = Alignment.Center,
         ) {
-            Text(symbol, color = if (accent) HD.Yellow else HD.TextDim, fontSize = 17.sp, fontWeight = FontWeight.Black)
+            if (iconFile != null) SettingsCustomIcon(iconFile, symbol, Modifier.size(26.dp))
+            else Text(symbol, color = if (accent) HD.Yellow else HD.TextDim, fontSize = 17.sp, fontWeight = FontWeight.Black)
         }
         Column(Modifier.weight(1f).padding(start = 11.dp, end = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(title, color = if (accent) HD.Yellow else HD.Text, fontSize = 10.5.sp, fontWeight = FontWeight.Black)
@@ -371,6 +373,7 @@ private fun SettingsSwitchRow(
     subtitle: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    iconFile: String? = null,
 ) {
     Row(
         Modifier
@@ -383,7 +386,8 @@ private fun SettingsSwitchRow(
             Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(HD.SurfaceHigh),
             contentAlignment = Alignment.Center,
         ) {
-            Text(symbol, color = if (checked) HD.Yellow else HD.TextMuted, fontSize = 17.sp, fontWeight = FontWeight.Black)
+            if (iconFile != null) SettingsCustomIcon(iconFile, symbol, Modifier.size(26.dp))
+            else Text(symbol, color = if (checked) HD.Yellow else HD.TextMuted, fontSize = 17.sp, fontWeight = FontWeight.Black)
         }
         Column(Modifier.weight(1f).padding(start = 11.dp, end = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(title, color = HD.Text, fontSize = 10.5.sp, fontWeight = FontWeight.Black)
@@ -396,4 +400,24 @@ private fun SettingsSwitchRow(
 @Composable
 private fun SettingsSectionLabel(text: String) {
     Text(text, color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.0.sp)
+}
+
+/** Ícones locais opcionais: ausência do arquivo mantém um símbolo legível. */
+@Composable
+private fun SettingsCustomIcon(fileName: String, fallback: String, modifier: Modifier = Modifier) {
+    SubcomposeAsyncImage(
+        model = "file:///android_asset/icones-configuracoes/$fileName.png",
+        contentDescription = null,
+        modifier = modifier,
+        contentScale = ContentScale.Fit,
+        loading = { SettingsIconFallback(fallback) },
+        error = { SettingsIconFallback(fallback) },
+    )
+}
+
+@Composable
+private fun SettingsIconFallback(symbol: String) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(symbol, color = HD.TextDim, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
 }

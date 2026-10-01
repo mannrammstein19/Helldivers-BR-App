@@ -98,6 +98,7 @@ data class PlanetStatistics(
     val terminidKills: Long? = null,
     val automatonKills: Long? = null,
     val illuminateKills: Long? = null,
+    val counterReadings: Map<String, CounterReading> = emptyMap(),
 )
 
 /** Evento ativo de um planeta. Quando presente, normalmente representa uma defesa. */

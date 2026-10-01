@@ -30,6 +30,7 @@ data class HomeData(
     val staleSources: List<String> = emptyList(),
     /** community | direct | cache | mixed */
     val telemetrySource: String = "community",
+    val campaignTelemetrySource: String = "community",
 ) {
     val helldiversOnFront: Long get() = campaigns.sumOf { it.planet.statistics.playerCount.coerceAtLeast(0) }
     val liberationCount: Int get() = campaigns.count { it.planet.event == null }
@@ -54,6 +55,8 @@ object OrderRepository {
         val cached = lastGood ?: TelemetryCache.loadHome() ?: return null
         val stale = (cached.staleSources + listOf("campanhas", "planetas", "despachos", "Ordem Maior", "DSS")).distinct()
         return cached.copy(
+            planets = cached.planets.map { p -> p.copy(statistics = p.statistics.copy(counterReadings = p.statistics.counterReadings.mapValues { it.value.copy(stale = true) })) },
+            campaigns = cached.campaigns.map { c -> c.copy(planet = c.planet.copy(statistics = c.planet.statistics.copy(counterReadings = c.planet.statistics.counterReadings.mapValues { it.value.copy(stale = true) }))) },
             dss = cached.dss.copy(stale = true, source = "cache"),
             staleSources = stale,
             telemetrySource = "cache",
@@ -69,11 +72,14 @@ object OrderRepository {
         val disk = TelemetryCache.loadHome()
         val fallback = lastGood ?: disk
 
+        var communityCampaignTime = 0L
+        var communityPlanetTime = 0L
+        var directWarTime = 0L
         val liveDeferred = async { runCatching { HelldiversApi.liveAssignments().firstOrNull { it.tasks.isNotEmpty() } } }
         val snapshotDeferred = async { runCatching { HelldiversApi.orderSnapshot() } }
         val dispatchDeferred = async { runCatching { HelldiversApi.dispatches().sortedByDescending { it.published.orEmpty() }.take(10) } }
-        val campaignsDeferred = async { runCatching { HelldiversApi.campaigns() } }
-        val planetsDeferred = async { runCatching { HelldiversApi.planets() } }
+        val campaignsDeferred = async { runCatching { HelldiversApi.campaigns().also { communityCampaignTime = System.currentTimeMillis() } } }
+        val planetsDeferred = async { runCatching { HelldiversApi.planets().also { communityPlanetTime = System.currentTimeMillis() } } }
         val planetCatalogDeferred = async { runCatching { HelldiversApi.planetCatalog() } }
         val dssDeferred = async { DssRepository.load() }
 
@@ -91,7 +97,7 @@ object OrderRepository {
         var directWar: Result<DirectGameApi.DirectWarData>? = null
         suspend fun directWarData(): Result<DirectGameApi.DirectWarData> {
             directWar?.let { return it }
-            return runCatching { DirectGameApi.warData(catalog) }.also { directWar = it }
+            return runCatching { DirectGameApi.warData(catalog).also { directWarTime = System.currentTimeMillis() } }.also { directWar = it }
         }
 
         fun validDispatches(items: List<Dispatch>): Boolean =
@@ -200,6 +206,15 @@ object OrderRepository {
         }
 
         val now = System.currentTimeMillis()
+        val counterReadings = CounterTelemetry.collect(
+            fallback?.let { it.planets + it.campaigns.map { c -> c.planet } }.orEmpty(),
+            fallback?.updatedAtMillis ?: 0L,
+            listOf(planets to planetSource, campaigns.map { it.planet } to campaignSource), now,
+            listOf(if (planetSource == "community") communityPlanetTime else directWarTime,
+                if (campaignSource == "community") communityCampaignTime else directWarTime),
+        )
+        val enrichedPlanets = planets.map { CounterTelemetry.enrich(it, counterReadings) }
+        val enrichedCampaigns = campaigns.map { it.copy(planet = CounterTelemetry.enrich(it.planet, counterReadings)) }
         val names = catalog.mapValues { (_, p) -> p.displayName }.filterValues { it.isNotBlank() }
         val campaignsFresh = campaignSource != "cache"
         val rates = if (campaignsFresh) updateCampaignRates(campaigns, now) else fallback?.campaignRates.orEmpty()
@@ -231,14 +246,15 @@ object OrderRepository {
             dispatches = dispatches,
             planetNames = names,
             planetCatalog = catalog,
-            planets = planets,
-            campaigns = campaigns,
+            planets = enrichedPlanets,
+            campaigns = enrichedCampaigns,
             campaignRates = rates,
             dss = dss,
             updatedAtMillis = dataTimestamp,
             orderRates = objectiveRates,
             staleSources = stale,
             telemetrySource = telemetrySource,
+            campaignTelemetrySource = campaignSource,
         ).also { result ->
             lastGood = result
             // Não regrava um fallback puro como se ele fosse novo.

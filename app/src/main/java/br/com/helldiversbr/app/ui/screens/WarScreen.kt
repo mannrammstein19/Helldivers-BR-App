@@ -330,9 +330,9 @@ private fun WarHeader(data: HomeData, onRefresh: () -> Unit) {
         }
         val sourceLabel = when {
             hasSavedTelemetry -> "ÚLTIMA LEITURA SALVA"
-            data.telemetrySource == "direct" -> "TELEMETRIA DIRETA"
-            data.telemetrySource == "mixed" -> "TELEMETRIA MISTA"
-            else -> "TELEMETRIA ONLINE"
+            data.telemetrySource == "direct" -> "API DIRETA DO JOGO"
+            data.telemetrySource == "mixed" -> "FONTES COMBINADAS"
+            else -> "API DA COMUNIDADE"
         }
         Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.clip(RoundedCornerShape(50)).background(sourceColor).size(7.dp))
@@ -531,7 +531,7 @@ fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
 private fun ProgressBlock(label: String, value: Double, color: Color, valueOverride: String? = null) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = HD.TextDim, fontSize = 10.sp)
-        Text(valueOverride ?: pct(value), color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.Black)
+        Text(valueOverride ?: pct(value), fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.Black)
     }
     ProgressBar(value, color)
 }
@@ -644,7 +644,7 @@ private fun DossierFact(label: String, value: String, modifier: Modifier = Modif
     Column(modifier.padding(end = 8.dp)) {
         Text(label, color = HD.TextMuted, fontSize = 9.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(value, color = HD.Text, fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(value, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = HD.Text, fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }

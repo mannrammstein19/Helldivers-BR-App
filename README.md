@@ -1,6 +1,6 @@
-# HELLDIVERS-BR — Android V17.0.0
+# HELLDIVERS-BR — Android V28.0.0
 
-Projeto Kotlin + Jetpack Compose, atualizado sobre a V16. Este pacote contém o projeto completo para gerar o APK pelo GitHub Actions.
+Projeto Kotlin + Jetpack Compose. Este pacote contém o projeto completo V28 para gerar o APK Release assinado pelo GitHub Actions. Consulte ALTERACOES-V28.md para as mudanças e a publicação. Os tópicos antigos abaixo documentam a base herdada.
 
 ## V17: navegação nativa e telemetria
 
@@ -43,10 +43,10 @@ Veja CHANGES-V8.md para escopo completo, recursos ainda exclusivos do site e lim
 4. Abra Actions → Build APK Helldivers BR → Run workflow.
 5. Se a compilação terminar com sucesso, baixe Helldivers-BR-apk em Artifacts. Dentro estará Helldivers-BR.apk.
 
-Não publique tag/release antes de validar o APK no celular. O fluxo existente produz APK debug.
+Valide o APK no celular antes de atualizar o JSON público. O workflow produz APK Release com a assinatura permanente já cadastrada nos Secrets.
 
 ## O que depende de internet
-Telemetria ao vivo, primeira tradução, hino e imagens ainda hospedadas no site dependem de internet. Catálogo, fichas nativas importadas, 105 ícones, fundo Meridian, traduções já armazenadas e favoritos funcionam sem rede. As últimas leituras de telemetria e o histórico de ritmo ficam em memória.
+Telemetria ao vivo, primeira tradução, hino e imagens ainda hospedadas no site dependem de internet. Catálogo, fichas nativas importadas, 105 ícones, fundo Meridian, traduções já armazenadas e favoritos funcionam sem rede. A última telemetria válida e os metadados dos contadores são salvos no aparelho. Projeções visuais permanecem somente em memória.
 
 ## Atualizar o catálogo a partir do site
 Use Python 3, sem bibliotecas adicionais:

@@ -321,7 +321,7 @@ private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeDa
             if (percent != null) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(if (defense) "Progresso da defesa" else "Libertação", color = HD.TextDim, fontSize = 11.sp)
-                    Text("%.4f%%".format(Locale("pt", "BR"), displayedPercent ?: percent), color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("%.4f%%".format(Locale("pt", "BR"), displayedPercent ?: percent), fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
                 ProgressBar(displayedPercent ?: percent, accent)
                 if (defense) OrderRepository.defenseEnemyProgress(planet.event)?.let { invasion ->

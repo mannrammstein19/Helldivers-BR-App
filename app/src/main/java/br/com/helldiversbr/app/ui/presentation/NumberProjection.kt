@@ -2,7 +2,7 @@ package br.com.helldiversbr.app.ui.presentation
 
 
 /** Apenas apresentação. Nenhum valor desta classe é gravado no cache ou enviado aos alertas. */
-data class NumberObservation(val key: String, val value: Double, val percentage: Boolean, val source: String)
+data class NumberObservation(val key: String, val value: Double, val percentage: Boolean, val source: String, val sampledAt: Long? = null)
 
 data class NumberProjection(
     val actual: Double,
@@ -45,19 +45,19 @@ class NumberProjectionTracker {
     }
 
     fun update(observations: List<NumberObservation>, sampledAt: Long, now: Long): NumberFrame {
-        if (sampledAt <= 0 || now < sampledAt || now - sampledAt > MAX_AGE) return reset()
-        val frame = observations.filter { it.value.isFinite() && it.value >= 0 }.associate { observation ->
+        val frame = observations.filter { it.value.isFinite() && it.value >= 0 && (it.sampledAt ?: sampledAt).let { time -> time > 0 && now >= time && now - time <= MAX_AGE } }.associate { observation ->
+            val time = observation.sampledAt ?: sampledAt
             val old = history[observation.key]
-            val elapsed = old?.let { sampledAt - it.time } ?: 0L
+            val elapsed = old?.let { time - it.time } ?: 0L
             val comparable = old != null && old.observation.source == observation.source &&
                 old.observation.percentage == observation.percentage && elapsed in MIN_INTERVAL..MAX_AGE
             val delta = if (comparable) observation.value - old!!.observation.value else 0.0
             val rate = if (comparable && (observation.percentage || delta >= 0)) delta / (elapsed / 1000.0) else 0.0
             // Amostras iguais, reinício de contador, fonte diferente ou lacuna longa não geram movimento.
             if (old == null || elapsed >= MIN_INTERVAL || elapsed < 0 || old.observation.source != observation.source || delta < 0 && !observation.percentage) {
-                history[observation.key] = Sample(observation, sampledAt)
+                history[observation.key] = Sample(observation, time)
             }
-            observation.key to NumberProjection(observation.value, sampledAt, rate,
+            observation.key to NumberProjection(observation.value, time, rate,
                 elapsed.coerceIn(0L, MAX_HORIZON), observation.percentage)
         }
         history.keys.retainAll(frame.keys)
