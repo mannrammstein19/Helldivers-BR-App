@@ -51,13 +51,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (_home.value is HomeState.Loading) _home.value = HomeState.Ready(cached, refreshing = true)
             }
         }
-        // Atualiza sozinho a cada 60 s enquanto o app está aberto (mesmo intervalo do site).
-        viewModelScope.launch {
-            while (true) {
-                refresh()
-                delay(60_000)
-            }
-        }
+        // A Activity controla as próximas consultas pelo ciclo de vida visível.
+        refresh()
         if (UpdatePreferences.isAutoCheckEnabled(application)) {
             viewModelScope.launch {
                 _update.value = UpdateChecker.check()

@@ -77,4 +77,28 @@ class RegionTelemetryTest {
         assertNull(current.regions.single().owner)
         assertEquals(RegionState.UNKNOWN,regionPresentation(current.regions.single()).state)
     }
+
+    @Test fun partialPayloadKeepsConfirmedRecoveryWithOriginalDate() {
+        val previous = Planet(index=199, regions=listOf(songguo.copy(owner=JsonPrimitive(1),
+            isAvailable=false,health=100000,telemetryReadAtMillis=1000)))
+        val partial = RegionTelemetry.parse("""{"planetRegions":[{"planetIndex":199,"regionIndex":0,"owner":1}]}""",2000,"direct")
+        val current = RegionTelemetry.enrich(Planet(index=199,regions=listOf(songguo)),partial,previous,2000,true).regions.single()
+        assertEquals(RegionState.RECOVERED,regionPresentation(current).state)
+        assertTrue(current.telemetryStale)
+        assertEquals(1000L,current.telemetryReadAtMillis)
+    }
+    @Test fun changedOwnerCannotInheritRecoveredAvailabilityFromPartialPayload() {
+        val previous = Planet(index=199, regions=listOf(songguo.copy(owner=JsonPrimitive(1),isAvailable=false)))
+        val partial = RegionTelemetry.parse("""{"planetRegions":[{"planetIndex":199,"regionIndex":0,"owner":3}]}""",2000,"direct")
+        val current = RegionTelemetry.enrich(Planet(index=199,regions=listOf(songguo)),partial,previous,2000,true).regions.single()
+        assertEquals(3,RegionTelemetry.ownerId(current.owner))
+        assertEquals(RegionState.UNKNOWN,regionPresentation(current).state)
+    }
+    @Test fun diskSnapshotCannotAppearAsLiveRegionalConfirmation() {
+        val planet = Planet(regions=listOf(songguo.copy(owner=JsonPrimitive(1),isAvailable=false,telemetryReadAtMillis=1000)))
+        val saved = planet.asSavedTelemetry().regions.single()
+        assertTrue(saved.telemetryStale)
+        assertEquals(1000L,saved.telemetryReadAtMillis)
+        assertEquals(RegionState.RECOVERED,regionPresentation(saved).state)
+    }
 }

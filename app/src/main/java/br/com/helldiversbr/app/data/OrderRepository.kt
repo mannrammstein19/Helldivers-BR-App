@@ -3,6 +3,7 @@ package br.com.helldiversbr.app.data
 import java.time.Instant
 import kotlinx.serialization.Serializable
 import kotlinx.coroutines.async
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.coroutineScope
 
 /** Estado de tela da Ordem Maior. */
@@ -31,6 +32,7 @@ data class HomeData(
     /** community | direct | cache | mixed */
     val telemetrySource: String = "community",
     val campaignTelemetrySource: String = "community",
+    val campaignReadAtMillis: Long = 0L,
 ) {
     val helldiversOnFront: Long get() = campaigns.sumOf { it.planet.statistics.playerCount.coerceAtLeast(0) }
     val liberationCount: Int get() = campaigns.count { it.planet.event == null }
@@ -39,6 +41,7 @@ data class HomeData(
 }
 
 object OrderRepository {
+    private val loadGate = kotlinx.coroutines.sync.Mutex()
 
     private data class RateSnapshot(
         val progress: Double,
@@ -47,7 +50,7 @@ object OrderRepository {
     )
 
     private val objectiveTracker = OrderRateTracker()
-    private var lastGood: HomeData? = null
+    @Volatile private var lastGood: HomeData? = null
     private val rateHistory = mutableMapOf<String, RateSnapshot>()
 
     /** Exibe instantaneamente o último estado salvo enquanto a rede é revalidada. */
@@ -55,12 +58,13 @@ object OrderRepository {
         val cached = lastGood ?: TelemetryCache.loadHome() ?: return null
         val stale = (cached.staleSources + listOf("campanhas", "planetas", "despachos", "Ordem Maior", "DSS")).distinct()
         return cached.copy(
-            planets = cached.planets.map { p -> p.copy(statistics = p.statistics.copy(counterReadings = p.statistics.counterReadings.mapValues { it.value.copy(stale = true) })) },
-            campaigns = cached.campaigns.map { c -> c.copy(planet = c.planet.copy(statistics = c.planet.statistics.copy(counterReadings = c.planet.statistics.counterReadings.mapValues { it.value.copy(stale = true) }))) },
+            planets = cached.planets.map { it.asSavedTelemetry() },
+            campaigns = cached.campaigns.map { it.copy(planet = it.planet.asSavedTelemetry()) },
             dss = cached.dss.copy(stale = true, source = "cache"),
             staleSources = stale,
             telemetrySource = "cache",
-        ).also { lastGood = it }
+            campaignTelemetrySource = "cache",
+        )
     }
 
     /**
@@ -68,7 +72,7 @@ object OrderRepository {
      * Community API -> API direta do jogo -> último cache persistente.
      * O snapshot do HELLDIVERS-BR continua sendo a autoridade para ordens já encerradas.
      */
-    suspend fun load(): HomeData = coroutineScope {
+    suspend fun load(): HomeData = loadGate.withLock { coroutineScope {
         val disk = TelemetryCache.loadHome()
         val fallback = lastGood ?: disk
 
@@ -264,13 +268,18 @@ object OrderRepository {
             staleSources = stale,
             telemetrySource = telemetrySource,
             campaignTelemetrySource = campaignSource,
+            campaignReadAtMillis = when (campaignSource) {
+                "community" -> communityCampaignTime
+                "direct" -> directWarTime
+                else -> fallback?.campaignReadAtMillis ?: 0L
+            },
         ).also { result ->
             lastGood = result
             // Não regrava um fallback puro como se ele fosse novo.
             val gotFreshNetworkData = campaignSource != "cache" || planetSource != "cache" || dispatchSource != "cache" || orderSource != "cache" || snapshot.isSuccess || !dss.stale
             if (gotFreshNetworkData) TelemetryCache.saveHome(result)
         }
-    }
+    } }
 
     fun campaignKey(campaign: Campaign): String {
         val p = campaign.planet

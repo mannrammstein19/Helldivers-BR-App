@@ -1,7 +1,9 @@
 package br.com.helldiversbr.app.update
 
 import br.com.helldiversbr.app.BuildConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import java.net.URI
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -41,12 +43,10 @@ object UpdateChecker {
             client.newCall(request).execute().use { resp ->
                 if (!resp.isSuccessful) return@withContext UpdateCheckResult.Failed("Servidor respondeu HTTP ${resp.code}.")
                 val remote = json.decodeFromString(RemoteVersion.serializer(), resp.body?.string().orEmpty())
-                if (remote.versionCode > BuildConfig.VERSION_CODE && remote.apkUrl.startsWith("https://")) {
-                    UpdateCheckResult.Available(remote)
-                } else {
-                    UpdateCheckResult.Latest
-                }
+                evaluateVersion(remote, BuildConfig.VERSION_CODE)
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             UpdateCheckResult.Failed(error.message ?: "Não foi possível verificar a atualização.")
         }
@@ -58,4 +58,11 @@ object UpdateChecker {
         UpdateCheckResult.Latest -> null
         is UpdateCheckResult.Failed -> null
     }
+}
+
+internal fun evaluateVersion(remote: RemoteVersion, installedCode: Int): UpdateCheckResult {
+    val url = runCatching { URI(remote.apkUrl) }.getOrNull()
+    if (remote.versionCode <= 0 || remote.versionName.isBlank() || url?.scheme != "https" || url.host.isNullOrBlank())
+        return UpdateCheckResult.Failed("Metadados da atualização inválidos. Verifique o arquivo versao-app.json.")
+    return if (remote.versionCode > installedCode) UpdateCheckResult.Available(remote) else UpdateCheckResult.Latest
 }

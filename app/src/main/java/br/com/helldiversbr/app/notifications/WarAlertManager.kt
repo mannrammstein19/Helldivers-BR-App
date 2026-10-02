@@ -115,6 +115,7 @@ object WarAlertManager {
      * Processa um snapshot completo. Cada família só avança o baseline quando sua fonte não
      * está marcada como cache/stale, impedindo dado velho de virar evento novo.
      */
+    @Synchronized
     fun processHomeData(context: Context, data: HomeData) {
         if (!NotificationPreferences.isMasterEnabled(context)) return
 
@@ -126,7 +127,7 @@ object WarAlertManager {
         val freshDss = !data.dss.stale
 
         if (freshCampaigns) processCampaignAndPlanetEvents(context, data.campaigns, if (freshPlanets) data.planets else emptyList())
-        if (freshPlanets) processPlanetAndRegionOwnership(context, data.planets, data.campaigns)
+        if (freshPlanets) processPlanetAndRegionOwnership(context, data.planets, data.campaigns, freshCampaigns)
         if (freshDispatches) processDispatches(context, data)
         if (freshOrder) processOrder(context, data)
         if (freshDss) processDss(context, data)
@@ -213,10 +214,11 @@ object WarAlertManager {
             .apply()
     }
 
-    private fun processPlanetAndRegionOwnership(context: Context, planets: List<Planet>, campaigns: List<Campaign>) {
+    private fun processPlanetAndRegionOwnership(context: Context, planets: List<Planet>, campaigns: List<Campaign>, freshCampaigns: Boolean) {
         if (planets.isEmpty()) return
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val currentOwners = planets.associate { it.index.toString() to normalizedOwner(it.currentOwner) }
+            .filterValues { it in setOf("humans", "terminids", "automatons", "illuminate") }
         val regionOwners = linkedMapOf<String, String>()
         val regionAttacks = linkedSetOf<String>()
         val regionDefenses = linkedSetOf<String>()
@@ -231,7 +233,7 @@ object WarAlertManager {
                 val max = region.maxHealth
                 val health = region.health ?: max
                 if (isHumanOwner(owner) && max > 0L && health > 0L && health < max) regionAttacks += key
-                if (planet.index in defensePlanetIds && isHumanOwner(owner) && region.isAvailable != false) regionDefenses += key
+                if (freshCampaigns && planet.index in defensePlanetIds && isHumanOwner(owner) && region.isAvailable != false) regionDefenses += key
             }
         }
 
@@ -265,7 +267,7 @@ object WarAlertManager {
                     "liberated-${planet.index}",
                 )
             }
-            if (isHumanOwner(previousOwner) && !isHumanOwner(currentOwner) && currentOwner.isNotBlank() &&
+            if (isHumanOwner(previousOwner) && currentOwner in setOf("terminids", "automatons", "illuminate") &&
                 NotificationPreferences.isEnabled(context, AlertType.PLANET_LOST)) {
                 sendAlert(
                     context,
@@ -293,10 +295,11 @@ object WarAlertManager {
         }
 
         prefs.edit()
-            .putStringSet(BASE_PLANET_OWNERS, encodeMap(currentOwners))
-            .putStringSet(BASE_REGION_OWNERS, encodeMap(regionOwners))
-            .putStringSet(BASE_REGION_ATTACKS, regionAttacks)
-            .putStringSet(BASE_REGION_DEFENSES, regionDefenses)
+            .putStringSet(BASE_PLANET_OWNERS, encodeMap(previousOwners + currentOwners))
+            .putStringSet(BASE_REGION_OWNERS, encodeMap(previousRegionOwners + regionOwners))
+            .putStringSet(BASE_REGION_ATTACKS, retainUnobserved(previousRegionAttacks, regionOwners.keys, regionAttacks))
+            .putStringSet(BASE_REGION_DEFENSES, if (freshCampaigns)
+                retainUnobserved(previousRegionDefenses, regionOwners.keys, regionDefenses) else previousRegionDefenses)
             .apply()
     }
 
@@ -318,7 +321,7 @@ object WarAlertManager {
                     "region-liberated-$key",
                 )
             }
-            if (isHumanOwner(previousOwner) && !isHumanOwner(currentOwner) && currentOwner.isNotBlank() &&
+            if (isHumanOwner(previousOwner) && currentOwner in setOf("terminids", "automatons", "illuminate") &&
                 NotificationPreferences.isEnabled(context, AlertType.REGION_LOST)) {
                 sendAlert(
                     context,
@@ -600,6 +603,10 @@ object WarAlertManager {
             .setContentIntent(pending)
             .build()
 
-        NotificationManagerCompat.from(context).notify(requestCode, notification)
+        try {
+            NotificationManagerCompat.from(context).notify(requestCode, notification)
+        } catch (_: SecurityException) {
+            // A permissão pode ser revogada entre a verificação e o envio.
+        }
     }
 }

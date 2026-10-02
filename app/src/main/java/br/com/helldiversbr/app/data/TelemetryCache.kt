@@ -1,6 +1,9 @@
 package br.com.helldiversbr.app.data
 
 import android.content.Context
+import android.util.AtomicFile
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,6 +15,7 @@ import kotlinx.serialization.json.Json
  * leitura real; salvar novamente um fallback nunca transforma dado velho em dado novo.
  */
 object TelemetryCache {
+    private val ioGate = Mutex()
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
@@ -36,25 +40,26 @@ object TelemetryCache {
     suspend fun loadGalaxy(): GalaxyCache? = read("galaxy.json") { json.decodeFromString(GalaxyCache.serializer(), it) }
     suspend fun saveGalaxy(data: GalaxyCache) = write("galaxy.json", json.encodeToString(GalaxyCache.serializer(), data))
 
-    private suspend fun <T> read(name: String, decode: (String) -> T): T? = withContext(Dispatchers.IO) {
+    private suspend fun <T> read(name: String, decode: (String) -> T): T? = ioGate.withLock { withContext(Dispatchers.IO) {
         val target = file(name) ?: return@withContext null
-        if (!target.isFile) return@withContext null
-        runCatching { decode(target.readText()) }.getOrNull()
-    }
+        runCatching { decode(AtomicFile(target).openRead().bufferedReader().use { it.readText() }) }.getOrNull()
+    } }
 
-    private suspend fun write(name: String, body: String) = withContext(Dispatchers.IO) {
+    private suspend fun write(name: String, body: String) = ioGate.withLock { withContext(Dispatchers.IO) {
         val target = file(name) ?: return@withContext
         target.parentFile?.mkdirs()
-        val temp = File(target.parentFile, "$name.tmp")
-        runCatching {
-            temp.writeText(body)
-            if (!temp.renameTo(target)) {
-                target.writeText(body)
-                temp.delete()
-            }
-        }.onFailure { temp.delete() }
+        val atomic = AtomicFile(target)
+        var output: java.io.FileOutputStream? = null
+        try {
+            output = atomic.startWrite()
+            output.write(body.toByteArray(Charsets.UTF_8))
+            atomic.finishWrite(output)
+        } catch (_: Exception) {
+            output?.let { atomic.failWrite(it) }
+        }
         Unit
-    }
+    } }
+
 }
 
 @Serializable

@@ -54,10 +54,11 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
             .ifBlank { state.planetCatalog[station.planet.index]?.displayName.orEmpty() }
             .ifBlank { data?.campaigns?.firstOrNull { it.planet.index == station.planet.index }?.planet?.nameText.orEmpty() }
     }.orEmpty()
-    val planets = remember(state.planets, campaigns) {
-        (state.planets.map { campaigns[it.index]?.planet?.copy(
-            position = it.mapPosition, waypoints = it.waypoints, attacking = it.attacking, disabled = it.disabled) ?: it } +
-            campaigns.values.map { it.planet }).distinctBy { it.index }
+    val preferCampaigns = data != null && data.campaignTelemetrySource != "cache" &&
+        "campanhas" !in data.staleSources &&
+        (state.telemetrySource == "cache" || data.campaignReadAtMillis >= (state.updatedAtMillis ?: 0L))
+    val planets = remember(state.planets, campaigns, preferCampaigns) {
+        mergeMapPlanets(state.planets, campaigns.values.toList(), preferCampaigns)
     }
     var query by rememberSaveable { mutableStateOf("") }
     var activeOnly by rememberSaveable { mutableStateOf(false) }
@@ -92,7 +93,7 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
         if (selectedId != null && selected == null) selectedId = null
     }
     val dossierPlanet = planets.firstOrNull { it.index == dossierId }
-    if (dossierPlanet != null && data != null) PlanetDossierDialog(data, campaigns[dossierPlanet.index] ?: Campaign(planet = dossierPlanet)) { dossierId = null }
+    if (dossierPlanet != null && data != null) PlanetDossierDialog(data, campaigns[dossierPlanet.index]?.copy(planet = dossierPlanet) ?: Campaign(planet = dossierPlanet)) { dossierId = null }
     val dssSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     if (dssOpen) ModalBottomSheet(
         onDismissRequest = { dssOpen = false },
@@ -252,7 +253,7 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
                     border = androidx.compose.foundation.BorderStroke(1.dp, factionColor(selected.currentOwner)),
                     modifier = Modifier.fillMaxWidth().heightIn(max = panelMaxHeight)) {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
-                        FloatingPlanetCard(selected, campaigns[selected.index], data, stale = home is HomeState.Error,
+                        FloatingPlanetCard(selected, campaigns[selected.index]?.copy(planet = selected), data, stale = home is HomeState.Error,
                             onClose = { selectedId = null }, onDossier = { dossierId = selected.index })
                     }
                 }

@@ -1,5 +1,6 @@
 package br.com.helldiversbr.app.data
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.*
@@ -52,8 +53,9 @@ object RegionTelemetry {
         latest = runCatching {
             parse(HelldiversApi.regionStatus(), System.currentTimeMillis(), "community-raw")
         }.getOrElse {
+            if (it is CancellationException) throw it
             runCatching { parse(DirectGameApi.regionStatus(), System.currentTimeMillis(), "direct") }
-                .getOrDefault(emptyMap())
+                .getOrElse { if (it is CancellationException) throw it; emptyMap() }
         }
         latest
     }
@@ -68,6 +70,12 @@ object RegionTelemetry {
                 else region.hash != null && region.hash == it.hash
             }
             when {
+                fresh != null && fresh.available == null && prior?.isAvailable != null && ownerId(prior.owner) == fresh.owner ->
+                    region.copy(owner = prior.owner, health = prior.health, maxHealth = prior.maxHealth,
+                        isAvailable = prior.isAvailable, availabilityFactor = prior.availabilityFactor,
+                        players = prior.players, regenPerSecond = prior.regenPerSecond,
+                        telemetryReadAtMillis = prior.telemetryReadAtMillis,
+                        telemetrySource = prior.telemetrySource, telemetryStale = true)
                 fresh != null -> region.copy(owner = JsonPrimitive(fresh.owner), health = fresh.health,
                     isAvailable = fresh.available, availabilityFactor = fresh.availabilityFactor,
                     players = fresh.players, regenPerSecond = fresh.regen,
@@ -84,3 +92,9 @@ object RegionTelemetry {
             }
         })
 }
+
+/** Reusing a saved snapshot never refreshes a field's actual observation time. */
+fun Planet.asSavedTelemetry(): Planet = copy(
+    regions = regions.map { it.copy(telemetryStale = true) },
+    statistics = statistics.copy(counterReadings = statistics.counterReadings.mapValues { it.value.copy(stale = true) }),
+)

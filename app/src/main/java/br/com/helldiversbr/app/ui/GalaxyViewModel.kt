@@ -2,6 +2,9 @@ package br.com.helldiversbr.app.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import br.com.helldiversbr.app.data.RegionTelemetry
+import br.com.helldiversbr.app.data.CounterTelemetry
+import br.com.helldiversbr.app.data.asSavedTelemetry
 import br.com.helldiversbr.app.data.DirectGameApi
 import br.com.helldiversbr.app.data.DssReading
 import br.com.helldiversbr.app.data.DssRepository
@@ -45,7 +48,7 @@ class GalaxyViewModel : ViewModel() {
                 val previous = mutableState.value
                 if (previous.planets.isEmpty() && disk != null && disk.planets.isNotEmpty()) {
                     mutableState.value = GalaxyState(
-                        planets = disk.planets,
+                        planets = disk.planets.map { it.asSavedTelemetry() },
                         loading = true,
                         error = "Exibindo a última leitura salva enquanto a rede é revalidada.",
                         updatedAtMillis = disk.updatedAtMillis,
@@ -54,7 +57,8 @@ class GalaxyViewModel : ViewModel() {
                         telemetrySource = "cache",
                     )
                 }
-                val (catalog, dss) = supervisorScope {
+                val (catalog, dss, regional) = supervisorScope {
+                    val regionalTask = async { RegionTelemetry.load() }
                     val station = async {
                         try { DssRepository.load() }
                         catch (e: CancellationException) { throw e }
@@ -68,30 +72,30 @@ class GalaxyViewModel : ViewModel() {
                         catch (e: CancellationException) { throw e }
                         catch (_: Exception) { previous.planetCatalog.ifEmpty { disk?.planetCatalog.orEmpty() } }
                     }
-                    catalogTask.await() to station.await()
+                    Triple(catalogTask.await(), station.await(), regionalTask.await())
                 }
 
-                val community = runCatching { HelldiversApi.planets() }
+                val community = runCatching { HelldiversApi.planets() }.also { if (it.exceptionOrNull() is CancellationException) throw it.exceptionOrNull()!! }
                 val source: String
                 val planets: List<Planet>
                 val updated: Long
                 when {
-                    community.isSuccess && community.getOrThrow().isNotEmpty() -> {
+                    community.isSuccess && community.getOrThrow().size >= 10 -> {
                         source = "community"
                         planets = community.getOrThrow()
                         updated = System.currentTimeMillis()
                     }
                     else -> {
-                        val direct = runCatching { DirectGameApi.warData(catalog).planets }
-                        if (direct.isSuccess && direct.getOrThrow().isNotEmpty()) {
+                        val direct = runCatching { DirectGameApi.warData(catalog).planets }.also { if (it.exceptionOrNull() is CancellationException) throw it.exceptionOrNull()!! }
+                        if (direct.isSuccess && direct.getOrThrow().size >= 10) {
                             source = "direct"
                             planets = direct.getOrThrow()
                             updated = System.currentTimeMillis()
                         } else {
-                            val cached = disk?.takeIf { it.planets.isNotEmpty() }
-                                ?: previous.takeIf { it.planets.isNotEmpty() }?.let {
+                            val cached = listOfNotNull(disk?.takeIf { it.planets.isNotEmpty() },
+                                previous.takeIf { it.planets.isNotEmpty() }?.let {
                                     GalaxyCache(it.planets, it.dss, it.planetCatalog, it.updatedAtMillis ?: 0L, "cache")
-                                }
+                                }).maxByOrNull { it.updatedAtMillis }
                                 ?: throw (direct.exceptionOrNull() ?: community.exceptionOrNull() ?: IllegalStateException("Sem mapa salvo"))
                             source = "cache"
                             planets = cached.planets
@@ -100,8 +104,19 @@ class GalaxyViewModel : ViewModel() {
                     }
                 }
 
+                val prior = listOfNotNull(disk, previous.takeIf { it.planets.isNotEmpty() }?.let {
+                    GalaxyCache(it.planets, it.dss, it.planetCatalog, it.updatedAtMillis ?: 0L, it.telemetrySource)
+                }).maxByOrNull { it.updatedAtMillis }
+                val oldById = prior?.planets.orEmpty().associateBy { it.index }
+                val now = System.currentTimeMillis()
+                val counters = CounterTelemetry.collect(prior?.planets.orEmpty(), prior?.updatedAtMillis ?: 0L,
+                    listOf(planets to source), now, listOf(updated))
+                val enriched = planets.map { planet ->
+                    RegionTelemetry.enrich(CounterTelemetry.enrich(planet, counters), regional,
+                        oldById[planet.index], now, source != "cache")
+                }
                 val next = GalaxyState(
-                    planets = planets,
+                    planets = enriched,
                     updatedAtMillis = updated,
                     dss = dss,
                     planetCatalog = catalog.ifEmpty { disk?.planetCatalog.orEmpty() },
@@ -119,7 +134,8 @@ class GalaxyViewModel : ViewModel() {
             } catch (_: Exception) {
                 mutableState.value = mutableState.value.copy(
                     loading = false,
-                    error = "Não foi possível atualizar o mapa e ainda não existe leitura salva no aparelho.",
+                    error = if (mutableState.value.planets.isNotEmpty()) "Não foi possível atualizar o mapa. Exibindo a última leitura disponível."
+                        else "Não foi possível atualizar o mapa e ainda não existe leitura salva no aparelho.",
                 )
             }
         }

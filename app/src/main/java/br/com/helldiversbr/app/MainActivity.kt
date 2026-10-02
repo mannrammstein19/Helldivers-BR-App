@@ -110,6 +110,8 @@ import br.com.helldiversbr.app.ui.theme.HelldiversTheme
 import br.com.helldiversbr.app.ui.theme.ThemePreferences
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import androidx.lifecycle.repeatOnLifecycle
 
 private data class Tab(
     val route: String,
@@ -161,6 +163,11 @@ private fun App(
 
     val anthem = remember(context) { AnthemPlayer(context.applicationContext) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(vm, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) { vm.refresh(); delay(60_000) }
+        }
+    }
     DisposableEffect(anthem, lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_STOP) anthem.pause() }
         lifecycleOwner.lifecycle.addObserver(observer)

@@ -1,6 +1,6 @@
-# HELLDIVERS-BR — Android V30.0.0
+# HELLDIVERS-BR — Android V32.0.0
 
-Projeto Kotlin + Jetpack Compose. Este pacote contém o projeto completo V30 para gerar o APK Release assinado pelo GitHub Actions. Consulte ALTERACOES-V30.md para as mudanças e a publicação. Os tópicos antigos abaixo documentam a base herdada.
+Projeto Kotlin + Jetpack Compose. Este pacote contém o projeto completo V32 para gerar o APK Release assinado pelo GitHub Actions. Consulte ALTERACOES-V32.md para as mudanças e a publicação. Os tópicos antigos abaixo documentam a base herdada.
 
 ## V17: navegação nativa e telemetria
 
