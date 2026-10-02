@@ -224,6 +224,7 @@ object WarAlertManager {
 
         planets.forEach { planet ->
             planet.regions.forEachIndexed { index, region ->
+                if (region.telemetryStale || br.com.helldiversbr.app.data.RegionTelemetry.ownerId(region.owner) == null) return@forEachIndexed
                 val key = regionKey(planet, index)
                 val owner = normalizedOwner(localizedText(region.owner))
                 regionOwners[key] = owner
@@ -254,7 +255,7 @@ object WarAlertManager {
         currentOwners.forEach { (id, currentOwner) ->
             val previousOwner = previousOwners[id] ?: return@forEach
             val planet = planetById[id] ?: return@forEach
-            if (!isHumanOwner(previousOwner) && isHumanOwner(currentOwner) &&
+            if (previousOwner in setOf("terminids", "automatons", "illuminate") && isHumanOwner(currentOwner) &&
                 NotificationPreferences.isEnabled(context, AlertType.PLANET_LIBERATED)) {
                 sendAlert(
                     context,
@@ -307,7 +308,7 @@ object WarAlertManager {
     ) {
         current.forEach { (key, currentOwner) ->
             val previousOwner = previous[key] ?: return@forEach
-            if (!isHumanOwner(previousOwner) && isHumanOwner(currentOwner) &&
+            if (previousOwner in setOf("terminids", "automatons", "illuminate") && isHumanOwner(currentOwner) &&
                 NotificationPreferences.isEnabled(context, AlertType.REGION_LIBERATED)) {
                 sendAlert(
                     context,

@@ -35,14 +35,14 @@ class VisualRulesTest {
         assertNull(human.players)
         val closed = regionPresentation(PlanetRegion(owner=JsonPrimitive("Automatons"),health=700,maxHealth=1000,isAvailable=false))
         assertNull(closed.percent)
-        assertEquals("Bloqueada para operações",closed.status)
+        assertEquals("Bloqueado para operações",closed.status)
         val active = regionPresentation(PlanetRegion(owner=JsonPrimitive("Automatons"),health=750,maxHealth=1000,isAvailable=true,players=20))
         assertEquals(25.0,active.percent!!,0.001)
         assertEquals(20L,active.players!!)
         assertNull(regionPresentation(PlanetRegion(health=null,maxHealth=1000)).percent)
     }
     @Test fun regionalProgressCannotReplaceZeroPlanetProgress() {
-        val region = PlanetRegion(health=47_100,maxHealth=1_000_000,isAvailable=true)
+        val region = PlanetRegion(owner=JsonPrimitive(3),health=47_100,maxHealth=1_000_000,isAvailable=true)
         val planet = Planet(health=1_500_000,maxHealth=1_500_000,regions=listOf(region))
         assertEquals(0.0,OrderRepository.campaignPercent(Campaign(planet=planet)),0.00001)
         assertEquals(95.29,regionPresentation(region).percent!!,0.00001)

@@ -6,6 +6,21 @@ import androidx.compose.material3.Surface
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material3.Icon
+import br.com.helldiversbr.app.R
+import br.com.helldiversbr.app.data.RegionTelemetry
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -22,32 +37,46 @@ import kotlinx.serialization.json.Json
 import java.text.NumberFormat
 import java.util.Locale
 
-data class RegionPresentation(val status: String, val percent: Double?, val players: Long?, val note: String)
+enum class RegionState { AVAILABLE, BLOCKED, RECOVERED, UNKNOWN }
 
-/** Region ownership is independent of the planet's ownership and operation. */
+data class RegionPresentation(
+    val status: String, val percent: Double?, val players: Long?, val note: String,
+    val state: RegionState = RegionState.UNKNOWN,
+)
+
+/** Ownership is authoritative: captured regions may already have reset to full health. */
 fun regionPresentation(region: PlanetRegion): RegionPresentation {
-    val owner = localizedText(region.owner).lowercase()
-    val human = owner in listOf("1", "human", "humans")
+    val owner = RegionTelemetry.ownerId(region.owner)
+    val state = when {
+        region.isAvailable == true -> RegionState.AVAILABLE
+        owner == 1 && region.isAvailable == false -> RegionState.RECOVERED
+        owner in 2..4 && region.isAvailable == false -> RegionState.BLOCKED
+        else -> RegionState.UNKNOWN
+    }
     val hp = region.health
     val valid = hp != null && region.maxHealth > 0 && hp in 0..region.maxHealth
-    val completed = !human && valid && hp == 0L
-    val unavailable = !human && !completed && region.isAvailable == false
     val percent = when {
-        human || completed -> 100.0
-        unavailable -> null
-        valid -> (1.0 - hp!!.toDouble() / region.maxHealth) * 100.0
+        state == RegionState.RECOVERED -> 100.0
+        state == RegionState.AVAILABLE && valid && owner in 2..4 ->
+            (1.0 - hp!!.toDouble() / region.maxHealth) * 100.0
         else -> null
     }
-    val status = when {
-        human -> "Sob controle da Super Terra"
-        completed -> "Objetivo regional concluído"
-        unavailable -> "Bloqueada para operações"
-        region.isAvailable == true -> "Em operação"
-        else -> "Disponibilidade não informada"
-    }
-    return RegionPresentation(status, percent,
-        if (!human && !completed && !unavailable) region.players?.takeIf { it >= 0 } else null,
-        if (unavailable) "Indisponibilidade não confirma conquista." else "")
+    return RegionPresentation(when (state) {
+        RegionState.AVAILABLE -> "Disponível para operações"
+        RegionState.RECOVERED -> "Limpo / Recuperado"
+        RegionState.BLOCKED -> "Bloqueado para operações"
+        RegionState.UNKNOWN -> "Aguardando confirmação"
+    }, percent, if (state == RegionState.AVAILABLE) region.players?.takeIf { it >= 0 } else null,
+        "", state)
+}
+
+fun regionalSummary(planet: Planet): String {
+    val states = planet.regions.groupingBy { regionPresentation(it).state }.eachCount()
+    return listOf(
+        RegionState.AVAILABLE to "disponíveis", RegionState.RECOVERED to "recuperadas",
+        RegionState.BLOCKED to "bloqueadas", RegionState.UNKNOWN to "sem confirmação",
+    ).mapNotNull { (state, label) -> states[state]?.takeIf { it > 0 }?.let { "$it $label" } }
+        .joinToString(" • ")
 }
 
 @Composable
@@ -66,30 +95,73 @@ fun PlanetRegions(planet: Planet) {
             val info = regionPresentation(region)
             val type = types[region.hash?.toString()]
             val identity = if (type == "factory") "Megafábrica" else when (region.size) {
-                "Settlement" -> "Assentamento"
-                "Town" -> "Vila"
-                "City" -> "Cidade"
-                "MegaCity" -> "Megacidade"
+                "Settlement", "0" -> "Assentamento"
+                "Town", "1" -> "Vila"
+                "City", "2" -> "Cidade"
+                "MegaCity", "3" -> "Megacidade"
                 else -> "Metrópole"
             }
+            val accent = when (info.state) {
+                RegionState.AVAILABLE -> HD.Yellow
+                RegionState.BLOCKED -> Color(0xFFFF6565)
+                RegionState.RECOVERED -> HD.DefenseBlue
+                RegionState.UNKNOWN -> HD.TextMuted
+            }
+            val artwork = when (info.state) {
+                RegionState.AVAILABLE -> R.drawable.region_operacao
+                RegionState.BLOCKED -> R.drawable.region_bloqueado
+                RegionState.RECOVERED -> R.drawable.region_recuperado
+                RegionState.UNKNOWN -> null
+            }
             Surface(color = HD.Surface, shape = RoundedCornerShape(10.dp),
-                border = BorderStroke(1.dp, if (info.percent == 100.0) HD.Green else HD.Border)) {
-            Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (type != null) SiteImage(type, identity, Modifier.size(28.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(localizedText(region.name).ifBlank { "Região ${index + 1}" }, color = HD.Text, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 18.sp)
-                        Text("$identity • ${info.status}", color = HD.TextDim, fontSize = 11.sp, lineHeight = 14.sp)
+                border = BorderStroke(1.dp, accent.copy(alpha = .55f))) {
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))) {
+                    artwork?.let {
+                        Image(painterResource(it), contentDescription = null,
+                            contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+                    }
+                    Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
+                        listOf(Color.Black.copy(alpha = .82f), Color.Black.copy(alpha = .55f)))))
+                    Column(Modifier.fillMaxWidth().heightIn(min = 94.dp).padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (type != null) SiteImage(type, identity, Modifier.size(28.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(localizedText(region.name).ifBlank { "Região ${index + 1}" },
+                                    color = HD.Text, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 18.sp)
+                                Text(identity, color = HD.TextDim, fontSize = 11.sp)
+                            }
+                            Icon(when (info.state) {
+                                RegionState.AVAILABLE -> Icons.Filled.PlayArrow
+                                RegionState.BLOCKED -> Icons.Filled.Lock
+                                RegionState.RECOVERED -> Icons.Filled.CheckCircle
+                                RegionState.UNKNOWN -> Icons.Filled.HelpOutline
+                            }, null, tint = accent, modifier = Modifier.size(20.dp))
+                        }
+                        Text(info.status, color = accent, fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp, lineHeight = 16.sp)
+                        if (info.state == RegionState.AVAILABLE) {
+                            info.percent?.let {
+                                Text("Libertação: ${"%.2f".format(Locale("pt", "BR"), it)}%",
+                                    color = HD.Text, fontSize = 12.sp)
+                                ProgressBar(it, accent)
+                            }
+                            info.players?.let {
+                                Text("${NumberFormat.getIntegerInstance(Locale("pt", "BR")).format(it)} Helldivers na região",
+                                    color = HD.TextDim, fontSize = 11.sp)
+                            }
+                        }
                     }
                 }
-                Text(info.percent?.let { "Progresso da região: ${"%.2f".format(Locale("pt", "BR"), it)}%" }
-                    ?: "Progresso indisponível", color = HD.Yellow, fontSize = 13.sp, lineHeight = 17.sp)
-                info.percent?.let { ProgressBar(it, HD.Yellow) }
-                info.players?.let { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("${NumberFormat.getInstance(Locale("pt", "BR")).format(it)} Helldivers na região", color = HD.TextDim, fontSize = 12.sp, lineHeight = 16.sp) } }
-                if (info.note.isNotEmpty()) Text(info.note, color = HD.TextMuted, fontSize = 11.sp, lineHeight = 15.sp)
             }
-            }
+        }
+        val savedTime = regions.filter { it.telemetryStale }.map { it.telemetryReadAtMillis }.filter { it > 0 }.minOrNull()
+        if (regions.any { it.telemetryStale && RegionTelemetry.ownerId(it.owner) != null }) {
+            val date = savedTime?.let {
+                java.text.SimpleDateFormat("dd/MM HH:mm", Locale("pt", "BR")).format(java.util.Date(it))
+            } ?: "sem data registrada"
+            Text("Regiões: última confirmação salva · $date", color = HD.TextMuted, fontSize = 10.sp)
         }
         Text("Progresso regional independente do progresso do planeta. Dados da última leitura da API.", color = HD.TextMuted, fontSize = 11.sp, lineHeight = 15.sp)
     }

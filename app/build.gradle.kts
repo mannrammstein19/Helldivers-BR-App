@@ -15,8 +15,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Incremente versionCode e versionName a cada novo APK publicado.
         // O app compara versionCode com o valor de versao-app.json para avisar de atualizações.
-        versionCode = 30
-        versionName = "30.0.0"
+        versionCode = 31
+        versionName = "31.0.0"
     }
 
     signingConfigs {

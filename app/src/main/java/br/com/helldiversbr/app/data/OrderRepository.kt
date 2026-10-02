@@ -82,6 +82,7 @@ object OrderRepository {
         val planetsDeferred = async { runCatching { HelldiversApi.planets().also { communityPlanetTime = System.currentTimeMillis() } } }
         val planetCatalogDeferred = async { runCatching { HelldiversApi.planetCatalog() } }
         val dssDeferred = async { DssRepository.load() }
+        val regionStatusDeferred = async { RegionTelemetry.load() }
 
         val communityOrder = liveDeferred.await()
         val snapshot = snapshotDeferred.await()
@@ -205,6 +206,7 @@ object OrderRepository {
                 ?: IllegalStateException("Sem dados de telemetria"))
         }
 
+        val regionReadings = regionStatusDeferred.await()
         val now = System.currentTimeMillis()
         val counterReadings = CounterTelemetry.collect(
             fallback?.let { it.planets + it.campaigns.map { c -> c.planet } }.orEmpty(),
@@ -213,8 +215,15 @@ object OrderRepository {
             listOf(if (planetSource == "community") communityPlanetTime else directWarTime,
                 if (campaignSource == "community") communityCampaignTime else directWarTime),
         )
-        val enrichedPlanets = planets.map { CounterTelemetry.enrich(it, counterReadings) }
-        val enrichedCampaigns = campaigns.map { it.copy(planet = CounterTelemetry.enrich(it.planet, counterReadings)) }
+        val priorPlanets = fallback?.let { it.campaigns.map { c -> c.planet } + it.planets }.orEmpty().associateBy { it.index }
+        val enrichedPlanets = planets.map {
+            RegionTelemetry.enrich(CounterTelemetry.enrich(it, counterReadings), regionReadings,
+                priorPlanets[it.index], now, planetSource != "cache")
+        }
+        val enrichedCampaigns = campaigns.map {
+            it.copy(planet = RegionTelemetry.enrich(CounterTelemetry.enrich(it.planet, counterReadings),
+                regionReadings, priorPlanets[it.planet.index], now, campaignSource != "cache"))
+        }
         val names = catalog.mapValues { (_, p) -> p.displayName }.filterValues { it.isNotBlank() }
         val campaignsFresh = campaignSource != "cache"
         val rates = if (campaignsFresh) updateCampaignRates(campaigns, now) else fallback?.campaignRates.orEmpty()

@@ -6,6 +6,8 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
@@ -48,6 +50,21 @@ object HelldiversApi {
             if (!resp.isSuccessful) error("HTTP ${resp.code} em $url")
             return resp.body?.string() ?: error("Resposta vazia em $url")
         }
+    }
+
+    @Volatile private var regionWarId: Pair<Long, Long>? = null
+
+    /** Uma única resposta contém todas as regiões, sem uma chamada por planeta. */
+    suspend fun regionStatus(): String = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        val warId = regionWarId?.takeIf { now - it.first < 6 * 60 * 60 * 1000L }?.second
+            ?: json.parseToJsonElement(get("https://api.helldivers2.dev/raw/api/WarSeason/current/WarID", true))
+                .let { value ->
+                    (value as? JsonObject)?.get("id")?.jsonPrimitive?.longOrNull
+                        ?: (value as? kotlinx.serialization.json.JsonPrimitive)?.longOrNull
+                        ?: error("WarID regional inválido")
+                }.also { regionWarId = now to it }
+        get("https://api.helldivers2.dev/raw/api/WarSeason/$warId/Status", true)
     }
 
     /** A API às vezes devolve lista direta, às vezes {"data": [...]}. */

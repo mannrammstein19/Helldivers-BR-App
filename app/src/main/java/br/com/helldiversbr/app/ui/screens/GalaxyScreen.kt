@@ -285,7 +285,6 @@ private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeDa
     val rate = if (fresh && data != null && campaign != null) OrderRepository.campaignRate(data, campaign) else null
     val eta = if (percent != null) OrderRepository.etaFromRate(percent, rate) else null
     val accent = if (defense) HD.DefenseBlue else factionColor(planet.currentOwner)
-    val count = planet.regions.count { it.isAvailable == true }
     val landscape = PlanetVisuals.planetImage(planet.index, planet.nameText, data?.planetCatalog?.get(planet.index))
     Box {
         if (expanded) {
@@ -348,7 +347,7 @@ private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeDa
             }
             if (campaign != null && eta == null) Text(if (!fresh) "Previsão suspensa: aguardando dados atualizados." else if (rate == null) "Aguardando amostras para calcular o ritmo." else "Sem previsão de vitória no ritmo atual.", color = HD.TextMuted, fontSize = 10.sp)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (count > 0) "$count regiões disponíveis" else "${galaxyFaction(planet)}", color = HD.TextDim, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                Text(if (planet.regions.isNotEmpty()) regionalSummary(planet) else galaxyFaction(planet), color = HD.TextDim, fontSize = 11.sp, modifier = Modifier.weight(1f))
                 TextButton(onClick = onDossier, enabled = data != null) { Text("DOSSIÊ ↗", fontSize = 11.sp) }
             }
             }

@@ -116,6 +116,7 @@ data class PlanetEvent(
 /** Regiões internas dos planetas mais recentes. */
 @Serializable
 data class PlanetRegion(
+    val id: Int? = null,
     val name: JsonElement? = null,
     val hash: Long? = null,
     val size: String? = null,
@@ -124,7 +125,11 @@ data class PlanetRegion(
     val maxHealth: Long = 0,
     val regenPerSecond: Double? = null,
     val isAvailable: Boolean? = null,
+    val availabilityFactor: Double? = null,
     val players: Long? = null,
+    val telemetryReadAtMillis: Long = 0L,
+    val telemetrySource: String = "community",
+    val telemetryStale: Boolean = false,
 )
 
 @Serializable

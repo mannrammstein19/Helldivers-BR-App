@@ -1,6 +1,6 @@
 {
-  "versionCode": 30,
-  "versionName": "30.0.0",
-  "apkUrl": "https://pub-f324221f4e5e42b08ecfa5062afd5960.r2.dev/helldivers-br/apps/helldivers-br-v30.apk",
-  "notes": "V30: abertura com arte, logo, zoom suave e carregamento em paralelo; alerta pulsante de defesa no mapa."
+  "versionCode": 31,
+  "versionName": "31.0.0",
+  "apkUrl": "https://pub-f324221f4e5e42b08ecfa5062afd5960.r2.dev/helldivers-br/apps/helldivers-br-v31.apk",
+  "notes": "V31: controle regional confirmado pela API bruta; estados disponível, bloqueado e recuperado; três fundos compactos; confirmação salva com data e proteção dos alertas."
 }

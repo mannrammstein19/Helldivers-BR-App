@@ -111,6 +111,11 @@ object DirectGameApi {
         RawWarBundle(warId, status, info, startMillis).also { cachedBundle = now to it }
     }
 
+    suspend fun regionStatus(): String = withContext(Dispatchers.IO) {
+        cachedBundle?.takeIf { System.currentTimeMillis() - it.first < BUNDLE_TTL }
+            ?.second?.status?.toString() ?: get("/api/WarSeason/${currentWarId()}/Status")
+    }
+
     suspend fun assignment(): Assignment? = withContext(Dispatchers.IO) {
         val warId = currentWarId()
         val raw = rootArray(get("/api/v2/Assignment/War/$warId")).firstOrNull() as? JsonObject ?: return@withContext null
@@ -192,14 +197,18 @@ object DirectGameApi {
                 val regionIndex = int(region, "regionIndex") ?: 0
                 val ri = regionInfo[index to regionIndex]
                 PlanetRegion(
+                    id = regionIndex,
                     name = JsonPrimitive("REGIÃO ${regionIndex + 1}"),
                     hash = long(ri, "settingsHash"),
                     size = int(ri, "regionSize")?.toString(),
                     owner = int(region, "owner")?.let { JsonPrimitive(raceName(it)) },
                     health = long(region, "health"),
                     maxHealth = long(ri, "maxHealth") ?: 0L,
-                    regenPerSecond = double(region, "regenPerSecond"),
+                    regenPerSecond = double(region, "regenPerSecond", "regerPerSecond"),
                     isAvailable = bool(region, "isAvailable"),
+                    availabilityFactor = double(region, "availabilityFactor"),
+                    telemetrySource = "direct",
+                    telemetryReadAtMillis = System.currentTimeMillis(),
                     players = long(region, "players"),
                 )
             }
