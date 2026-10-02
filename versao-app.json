@@ -1,6 +1,6 @@
 {
-  "versionCode": 32,
-  "versionName": "32.0.0",
-  "apkUrl": "https://pub-f324221f4e5e42b08ecfa5062afd5960.r2.dev/helldivers-br/apps/helldivers-br-v32.apk",
-  "notes": "V32: revisão de consistência entre Guerra e Mapa; cache atômico; confirmações regionais preservadas; alertas protegidos durante falhas; consultas vinculadas ao ciclo de vida; validação dos metadados de atualização."
+  "versionCode": 33,
+  "versionName": "33.0.0",
+  "apkUrl": "https://pub-f324221f4e5e42b08ecfa5062afd5960.r2.dev/helldivers-br/apps/helldivers-br-v33.apk",
+  "notes": "V33: modo noturno; fundo padrão mais visível; aviso inicial em cinza chumbo; ícones maiores e canais de alerta; Ordem recolhida na Guerra; facções em uma linha; notícias Steam com cache."
 }

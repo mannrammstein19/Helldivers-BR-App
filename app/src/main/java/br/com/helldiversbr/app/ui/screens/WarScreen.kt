@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -186,7 +187,7 @@ private fun WarList(
             }
         }
 
-        item(key = "war-section-6") { OrderCard(data, collapsible = true, initiallyExpanded = true) }
+        item(key = "war-section-6") { OrderCard(data, collapsible = true, initiallyExpanded = false) }
 
         item(key = "war-dss") {
             DssWarCard(
@@ -268,12 +269,10 @@ private fun WarList(
 
                         HorizontalDivider(color = HD.BorderSoft)
                         SectionLabel("Facção inimiga", HD.TextMuted)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             FactionFilter("all", "TODAS", HD.Yellow, factionFilter, { factionFilter = it }, Modifier.weight(1f))
-                            FactionFilter("terminids", "TERMINÍDEOS", HD.TerminidOrange, factionFilter, { factionFilter = it }, Modifier.weight(1f))
-                        }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FactionFilter("automatons", "AUTÔMATOS", HD.AutomatonRed, factionFilter, { factionFilter = it }, Modifier.weight(1f))
+                            FactionFilter("terminids", "INSETOS", HD.TerminidOrange, factionFilter, { factionFilter = it }, Modifier.weight(1f))
+                            FactionFilter("automatons", "ROBÔS", HD.AutomatonRed, factionFilter, { factionFilter = it }, Modifier.weight(1f))
                             FactionFilter("illuminates", "ILUMINADOS", HD.IlluminatePurple, factionFilter, { factionFilter = it }, Modifier.weight(1f))
                         }
                     }
@@ -363,33 +362,17 @@ private fun FactionFilter(id: String, label: String, accent: Color, selected: St
         colors = CardDefaults.cardColors(containerColor = if (active) accent.copy(alpha = 0.15f) else HD.BgDeep),
         border = BorderStroke(if (active) 1.4.dp else 1.dp, if (active) accent else HD.Border),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
+        Column(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).padding(horizontal = 2.dp, vertical = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
         ) {
             if (id != "all") {
-                SiteImage(
-                    when (id) {
-                        "terminids" -> "terminid"
-                        "automatons" -> "automaton"
-                        else -> "illuminate"
-                    },
-                    label,
-                    Modifier.size(25.dp),
-                )
-                Box(Modifier.size(7.dp))
-            } else {
-                Text("◎", color = if (active) accent else HD.TextMuted, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                Box(Modifier.size(7.dp))
-            }
-            Text(
-                label,
-                color = if (active) accent else HD.TextDim,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = .15.sp,
-            )
+                SiteImage(when (id) { "terminids" -> "terminid"; "automatons" -> "automaton"; else -> "illuminate" },
+                    when (id) { "terminids" -> "Terminídeos"; "automatons" -> "Autômatos"; else -> "Iluminados" }, Modifier.size(21.dp))
+            } else Text("◎", color = if (active) accent else HD.TextMuted, fontSize = 19.sp, fontWeight = FontWeight.Black)
+            Text(label, color = if (active) accent else HD.TextDim, fontSize = 8.sp,
+                fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

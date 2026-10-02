@@ -24,6 +24,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.LocationCity
+import androidx.compose.material.icons.filled.Article
+import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.filled.SatelliteAlt
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.SubcomposeAsyncImage
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.OpenInNew
@@ -222,7 +229,7 @@ fun NotificationSettingsScreen(
                             Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(HD.Yellow.copy(alpha = .08f)),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(visual.icon, color = HD.Yellow, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                            AlertGroupIcon(visual.group, Modifier.fillMaxSize())
                         }
                         Column(Modifier.weight(1f).padding(start = 10.dp)) {
                             Text(visual.title, color = HD.Text, fontSize = 10.5.sp, fontWeight = FontWeight.Black, letterSpacing = .25.sp)
@@ -287,4 +294,26 @@ fun NotificationSettingsScreen(
             }
         }
     }
+}
+
+@Composable
+private fun AlertGroupIcon(group: AlertGroup, modifier: Modifier = Modifier) {
+    val name = when (group) {
+        AlertGroup.PLANETS -> "planetas"
+        AlertGroup.REGIONS -> "regioes"
+        AlertGroup.NEWS -> "noticias"
+        AlertGroup.MAJOR_ORDER -> "ordem-maior"
+        AlertGroup.DSS -> "dss"
+    }
+    val icon = when (group) {
+        AlertGroup.PLANETS -> Icons.Filled.Public
+        AlertGroup.REGIONS -> Icons.Filled.LocationCity
+        AlertGroup.NEWS -> Icons.Filled.Article
+        AlertGroup.MAJOR_ORDER -> Icons.Filled.Assignment
+        AlertGroup.DSS -> Icons.Filled.SatelliteAlt
+    }
+    SubcomposeAsyncImage(model = "file:///android_asset/icones-alertas/$name.png", contentDescription = null,
+        modifier = modifier, contentScale = ContentScale.Crop,
+        loading = { Icon(icon, null, tint = HD.Yellow, modifier = Modifier.padding(6.dp)) },
+        error = { Icon(icon, null, tint = HD.Yellow, modifier = Modifier.padding(6.dp)) })
 }

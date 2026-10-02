@@ -174,6 +174,7 @@ private fun App(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer); anthem.release() }
     }
 
+    val steam by vm.steam.collectAsState()
     val home by vm.home.collectAsState()
     val update by vm.update.collectAsState()
     val numberFrame by vm.numbers.collectAsState()
@@ -267,7 +268,7 @@ private fun App(
                         when {
                             current == "inicio" -> key(homeVisit) {
                                 HomeScreen(
-                                    state = home, update = update, onRefresh = vm::refresh,
+                                    state = home, update = update, steam = steam, onRefresh = vm::refresh,
                                     onDismissUpdate = vm::dismissUpdate,
                                     onOpenWar = { navigate("guerra") },
                                     onOpenOrder = { navigate("ordem") },
@@ -352,6 +353,7 @@ private fun drawerEdgeGesture(enabled: Boolean, onOpen: () -> Unit): Modifier {
 
 @Composable
 private fun AppBackdrop(themeMode: HdThemeMode) {
+    if (themeMode == HdThemeMode.NIGHT) return
     val image = if (themeMode == HdThemeMode.MERIDIA) {
         "file:///android_asset/backgrounds/meridian.png"
     } else {
@@ -362,15 +364,15 @@ private fun AppBackdrop(themeMode: HdThemeMode) {
         contentDescription = null,
         modifier = Modifier.fillMaxSize(),
         contentScale = ContentScale.Crop,
-        alpha = if (themeMode == HdThemeMode.MERIDIA) 1f else 0.16f,
+        alpha = if (themeMode == HdThemeMode.MERIDIA) 1f else 0.65f,
     )
     Box(
         Modifier.fillMaxSize().background(
             Brush.verticalGradient(
                 listOf(
-                    HD.Bg.copy(alpha = if (themeMode == HdThemeMode.MERIDIA) 0.45f else 0.70f),
-                    HD.Bg.copy(alpha = if (themeMode == HdThemeMode.MERIDIA) 0.60f else 0.90f),
-                    HD.Bg.copy(alpha = if (themeMode == HdThemeMode.MERIDIA) 0.72f else 0.98f),
+                    HD.Bg.copy(alpha = if (themeMode == HdThemeMode.MERIDIA) 0.45f else 0.48f),
+                    HD.Bg.copy(alpha = if (themeMode == HdThemeMode.MERIDIA) 0.60f else 0.60f),
+                    HD.Bg.copy(alpha = if (themeMode == HdThemeMode.MERIDIA) 0.72f else 0.74f),
                 )
             )
         )
@@ -472,7 +474,7 @@ private fun AppDrawer(
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.94f))
+                    .background(if (themeMode == HdThemeMode.NIGHT) HD.BgDeep else Color.Black.copy(alpha = 0.94f))
                     .clickable { onClose() },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -543,7 +545,7 @@ private fun AppDrawer(
                     themeMode = themeMode,
                     onToggle = {
                         onThemeMode(
-                            if (themeMode == HdThemeMode.DEFAULT) HdThemeMode.MERIDIA else HdThemeMode.DEFAULT
+                            themeMode.next()
                         )
                     },
                 )
@@ -672,7 +674,7 @@ private fun DrawerThemeControl(themeMode: HdThemeMode, onToggle: () -> Unit) {
         }
         Column(Modifier.padding(start = 10.dp).weight(1f)) {
             Text("TEMA", color = HD.TextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = 1.0.sp)
-            Text(if (meridia) "MERIDIAN" else "PADRÃO", color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp)
+            Text(when (themeMode) { HdThemeMode.DEFAULT -> "PADRÃO"; HdThemeMode.MERIDIA -> "MERIDIAN"; HdThemeMode.NIGHT -> "NOTURNO" }, color = HD.Text, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp)
         }
         Text("ALTERAR", color = HD.Yellow, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp)
     }

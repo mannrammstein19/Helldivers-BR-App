@@ -70,6 +70,7 @@ private fun fmtHome(n: Long): String = NumberFormat.getInstance(ptBrHome).format
 @Composable
 fun HomeScreen(
     state: HomeState,
+    steam: br.com.helldiversbr.app.data.SteamReading,
     update: RemoteVersion?,
     onRefresh: () -> Unit,
     onDismissUpdate: () -> Unit,
@@ -100,6 +101,7 @@ fun HomeScreen(
 
             is HomeState.Ready -> HomeList(
                 data = state.data,
+                steam = steam,
                 refreshing = state.refreshing,
                 errorBanner = null,
                 update = update,
@@ -118,6 +120,7 @@ fun HomeScreen(
                 if (last != null) {
                     HomeList(
                         data = last,
+                        steam = steam,
                         refreshing = false,
                         errorBanner = state.message,
                         update = update,
@@ -163,6 +166,7 @@ fun HomeScreen(
 @Composable
 private fun HomeList(
     data: HomeData,
+    steam: br.com.helldiversbr.app.data.SteamReading,
     refreshing: Boolean,
     errorBanner: String?,
     update: RemoteVersion?,
@@ -312,6 +316,7 @@ private fun HomeList(
         }
 
         if (data.dispatches.isNotEmpty()) item(key = "home-dispatch-feed") { DispatchFeed(data.dispatches) }
+        item(key = "home-steam-news") { SteamNewsPanel(steam) }
 
     }
 }

@@ -6,6 +6,9 @@ import br.com.helldiversbr.app.ui.presentation.NumberProjectionTracker
 import br.com.helldiversbr.app.ui.presentation.observations
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import br.com.helldiversbr.app.data.SteamReading
+import br.com.helldiversbr.app.data.SteamNewsRepository
+import br.com.helldiversbr.app.data.TelemetryCache
 import br.com.helldiversbr.app.data.HomeData
 import br.com.helldiversbr.app.data.OrderRepository
 import br.com.helldiversbr.app.update.RemoteVersion
@@ -37,6 +40,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _startupDone = MutableStateFlow(false)
     val startupDone = _startupDone.asStateFlow()
 
+    private var steamJob: Job? = null
+    private val _steam = MutableStateFlow(SteamReading(loading = true))
+    val steam = _steam.asStateFlow()
     private var refreshJob: Job? = null
     private val numberTracker = NumberProjectionTracker()
     private val _numbers = MutableStateFlow(NumberFrame())
@@ -61,6 +67,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refresh() {
+        refreshSteam()
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch {
             val previous = when (val s = _home.value) {
@@ -84,6 +91,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 HomeState.Error("Sem conexão com a telemetria da Super Terra.", latest)
             }
+        }
+    }
+
+    private fun refreshSteam() {
+        if (steamJob?.isActive == true) return
+        steamJob = viewModelScope.launch {
+            if (_steam.value.readAtMillis == 0L) TelemetryCache.loadSteam()?.let {
+                _steam.value = it.copy(stale = true, source = "cache", loading = true)
+            }
+            _steam.value = SteamNewsRepository.load()
         }
     }
 

@@ -52,7 +52,7 @@ fun FirstRunDrawerHint(onDismiss: () -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(HD.BgDeep.copy(alpha = 0.98f), RoundedCornerShape(18.dp))
+                    .background(Color(0xFF292D34), RoundedCornerShape(18.dp))
                     .border(1.dp, HD.Yellow.copy(alpha = 0.72f), RoundedCornerShape(18.dp))
                     .padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -83,7 +83,7 @@ fun FirstRunDrawerHint(onDismiss: () -> Unit) {
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.36f), RoundedCornerShape(12.dp))
+                        .background(Color(0xFF20242B), RoundedCornerShape(12.dp))
                         .padding(horizontal = 14.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

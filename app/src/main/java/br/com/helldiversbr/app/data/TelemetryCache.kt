@@ -40,6 +40,9 @@ object TelemetryCache {
     suspend fun loadGalaxy(): GalaxyCache? = read("galaxy.json") { json.decodeFromString(GalaxyCache.serializer(), it) }
     suspend fun saveGalaxy(data: GalaxyCache) = write("galaxy.json", json.encodeToString(GalaxyCache.serializer(), data))
 
+    suspend fun loadSteam(): SteamReading? = read("steam.json") { json.decodeFromString(SteamReading.serializer(), it) }
+    suspend fun saveSteam(data: SteamReading) = write("steam.json", json.encodeToString(SteamReading.serializer(), data))
+
     private suspend fun <T> read(name: String, decode: (String) -> T): T? = ioGate.withLock { withContext(Dispatchers.IO) {
         val target = file(name) ?: return@withContext null
         runCatching { decode(AtomicFile(target).openRead().bufferedReader().use { it.readText() }) }.getOrNull()

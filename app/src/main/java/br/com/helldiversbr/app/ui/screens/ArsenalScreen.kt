@@ -52,7 +52,7 @@ fun ArsenalScreen(onOpenEntry: (StratagemEntry) -> Unit, contentPadding: Padding
         }
     }
     Box(Modifier.fillMaxSize()) {
-    if (themeMode != br.com.helldiversbr.app.ui.theme.HdThemeMode.MERIDIA) {
+    if (themeMode == br.com.helldiversbr.app.ui.theme.HdThemeMode.DEFAULT) {
         SiteImage("arsenal_background", null, Modifier.matchParentSize(), scale = ContentScale.Crop)
         Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .62f)))
     }

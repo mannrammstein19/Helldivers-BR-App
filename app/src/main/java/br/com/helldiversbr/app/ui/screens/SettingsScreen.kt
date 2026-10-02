@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -239,10 +241,7 @@ fun SettingsScreen(
             SettingsCompactCard {
                 SettingsSwitchRow("↗", "CONTADORES DINÂMICOS", "Movimento dos números entre atualizações", dynamicNumbers, onDynamicNumbers, iconFile = "icone-contadores")
                 HorizontalDivider(color = HD.BorderSoft)
-                SettingsSwitchRow(if (themeMode == HdThemeMode.MERIDIA) "◉" else "◐", "TEMA DO APLICATIVO",
-                    if (themeMode == HdThemeMode.MERIDIA) "Meridian" else "Padrão HELLDIVERS-BR",
-                    themeMode == HdThemeMode.MERIDIA,
-                    { enabled -> onThemeMode(if (enabled) HdThemeMode.MERIDIA else HdThemeMode.DEFAULT) }, iconFile = "icone-tema")
+                SettingsThemeRow(themeMode, onThemeMode)
             }
         }
         item { SettingsSectionLabel("ATUALIZAÇÕES") }
@@ -355,7 +354,7 @@ private fun SettingsTextRow(
             Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(if (accent) HD.Yellow.copy(alpha = .10f) else HD.SurfaceHigh),
             contentAlignment = Alignment.Center,
         ) {
-            if (iconFile != null) SettingsCustomIcon(iconFile, symbol, Modifier.size(26.dp))
+            if (iconFile != null) SettingsCustomIcon(iconFile, symbol, Modifier.fillMaxSize(), ContentScale.Crop)
             else Text(symbol, color = if (accent) HD.Yellow else HD.TextDim, fontSize = 17.sp, fontWeight = FontWeight.Black)
         }
         Column(Modifier.weight(1f).padding(start = 11.dp, end = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -386,7 +385,7 @@ private fun SettingsSwitchRow(
             Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(HD.SurfaceHigh),
             contentAlignment = Alignment.Center,
         ) {
-            if (iconFile != null) SettingsCustomIcon(iconFile, symbol, Modifier.size(26.dp))
+            if (iconFile != null) SettingsCustomIcon(iconFile, symbol, Modifier.fillMaxSize(), ContentScale.Crop)
             else Text(symbol, color = if (checked) HD.Yellow else HD.TextMuted, fontSize = 17.sp, fontWeight = FontWeight.Black)
         }
         Column(Modifier.weight(1f).padding(start = 11.dp, end = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -404,12 +403,12 @@ private fun SettingsSectionLabel(text: String) {
 
 /** Ícones locais opcionais: ausência do arquivo mantém um símbolo legível. */
 @Composable
-private fun SettingsCustomIcon(fileName: String, fallback: String, modifier: Modifier = Modifier) {
+private fun SettingsCustomIcon(fileName: String, fallback: String, modifier: Modifier = Modifier, scale: ContentScale = ContentScale.Fit) {
     SubcomposeAsyncImage(
         model = "file:///android_asset/icones-configuracoes/$fileName.png",
         contentDescription = null,
         modifier = modifier,
-        contentScale = ContentScale.Fit,
+        contentScale = scale,
         loading = { SettingsIconFallback(fallback) },
         error = { SettingsIconFallback(fallback) },
     )
@@ -419,5 +418,19 @@ private fun SettingsCustomIcon(fileName: String, fallback: String, modifier: Mod
 private fun SettingsIconFallback(symbol: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(symbol, color = HD.TextDim, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun SettingsThemeRow(mode: HdThemeMode, onSelect: (HdThemeMode) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        SettingsTextRow("◐", "TEMA DO APLICATIVO", mode.label, "ALTERAR", { open = true }, iconFile = "icone-tema")
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            HdThemeMode.entries.forEach { theme ->
+                DropdownMenuItem(text = { Text(theme.label + if (theme == mode) " ✓" else "") },
+                    onClick = { onSelect(theme); open = false })
+            }
+        }
     }
 }

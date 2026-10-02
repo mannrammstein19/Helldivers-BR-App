@@ -113,6 +113,8 @@ object HelldiversApi {
         }
     }
 
+    suspend fun steamNews(): String = withContext(Dispatchers.IO) { get("$API/steam", true) }
+
     suspend fun orderSnapshot(): OrderSnapshot = withContext(Dispatchers.IO) {
         json.decodeFromString(OrderSnapshot.serializer(), get(SNAPSHOT_URL, false))
     }
