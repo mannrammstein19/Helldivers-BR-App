@@ -2,6 +2,9 @@ package br.com.helldiversbr.app.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import br.com.helldiversbr.app.data.CentralApi
+import br.com.helldiversbr.app.data.withCentralReading
+import br.com.helldiversbr.app.data.withPlanetReference
 import br.com.helldiversbr.app.data.RegionTelemetry
 import br.com.helldiversbr.app.data.CounterTelemetry
 import br.com.helldiversbr.app.data.asSavedTelemetry
@@ -31,7 +34,7 @@ data class GalaxyState(
     /** community | direct | cache */
     val telemetrySource: String = "community",
 ) {
-    val dssHost: Long? get() = dss.station?.planet?.index?.takeIf { it > 0L }
+    val dssHost: Long? get() = dss.station?.planet?.index?.takeIf { it > 0L } ?: dss.lastPlanetIndex
 }
 
 class GalaxyViewModel : ViewModel() {
@@ -56,6 +59,30 @@ class GalaxyViewModel : ViewModel() {
                         planetCatalog = disk.planetCatalog,
                         telemetrySource = "cache",
                     )
+                }
+                val central = try { CentralApi.read("/api/v1/planets") }
+                    catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+                if (central != null) {
+                    val raw = CentralApi.planets(central)
+                    require(raw.size >= 10 && raw.map { it.index }.distinct().size == raw.size)
+                    val prior = disk?.planets.orEmpty()
+                    val counters = CounterTelemetry.collect(prior, disk?.updatedAtMillis ?: 0,
+                        listOf(raw to central.source), central.time, listOf(central.time))
+                    val fresh = raw.map { CounterTelemetry.enrich(it, counters).withCentralReading(central).let { p -> if (central.stale) p.asSavedTelemetry() else p } }
+                    val dss = DssRepository.load().withPlanetReference(fresh, central)
+                    TelemetryCache.saveDss(dss)
+                    val catalog = HelldiversApi.planetCatalog()
+                    val source = if (central.stale) "cache" else central.source
+                    mutableState.value = GalaxyState(fresh, false, if (central.stale) "Última leitura salva" else null,
+                        central.time, dss, catalog, source)
+                    TelemetryCache.saveGalaxy(GalaxyCache(fresh, dss, catalog, central.time, source))
+                    return@launch
+                }
+                if (disk != null && disk.planets.isNotEmpty()) {
+                    mutableState.value = GalaxyState(disk.planets.map { it.asSavedTelemetry() }, false,
+                        "Central sem atualização • última leitura salva", disk.updatedAtMillis,
+                        disk.dss.copy(stale = true, source = "cache"), disk.planetCatalog, "cache")
+                    return@launch
                 }
                 val (catalog, dss, regional) = supervisorScope {
                     val regionalTask = async { RegionTelemetry.load() }

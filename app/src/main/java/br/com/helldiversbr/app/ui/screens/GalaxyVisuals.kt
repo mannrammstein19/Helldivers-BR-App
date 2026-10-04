@@ -17,7 +17,7 @@ fun mapFaction(raw: String): String = when {
     else -> "unknown"
 }
 fun mapColor(key: String): Color = when (key) {
-    "human" -> Color(0xFFD7D52C)
+    "human" -> Color(0xFF4DA6FF)
     "terminid" -> Color(0xFFFF9900)
     "automaton" -> Color(0xFFFF4242)
     "illuminate" -> Color(0xFF8B3FD6)

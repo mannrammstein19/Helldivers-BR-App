@@ -129,6 +129,7 @@ object HelldiversApi {
      */
     suspend fun planetCatalog(): Map<Long, PlanetCatalogEntry> {
         planetCatalogCache?.let { return it }
+        if (MapAssets.catalog.isNotEmpty()) return MapAssets.catalog
         return withContext(Dispatchers.IO) {
             runCatching {
                 val root = json.parseToJsonElement(get(PLANETS_URL, false)) as JsonObject

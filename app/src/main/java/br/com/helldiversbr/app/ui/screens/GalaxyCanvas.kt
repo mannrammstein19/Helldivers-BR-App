@@ -29,6 +29,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.PathParser
 import androidx.core.graphics.drawable.toBitmap
+import br.com.helldiversbr.app.data.MapAssets
+import br.com.helldiversbr.app.data.PlanetPresences
+import br.com.helldiversbr.app.data.planetTitle
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import br.com.helldiversbr.app.data.Planet
 import br.com.helldiversbr.app.data.SiteAssets
 import br.com.helldiversbr.app.ui.theme.HD
@@ -47,33 +52,30 @@ import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.*
 
+private data class MapRoute(val a: Offset, val b: Offset, val from: Planet, val to: Planet)
+
 private data class MapCaption(val text: String, val at: Offset, val color: Color, val small: Boolean = false)
 
 private data class MapArt(val bitmaps: Map<String, Bitmap> = emptyMap(), val failed: Int = 0, val done: Boolean = false)
 
 @Composable
 fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sectors: Boolean, territories: Boolean,
-                 invasions: Boolean, selected: Long?, active: Set<Long>, dssHost: Long?, onSelect: (Long) -> Unit, modifier: Modifier = Modifier) {
+                 invasions: Boolean, selected: Long?, active: Set<Long>, dssHost: Long?, onSelect: (Long) -> Unit, modifier: Modifier = Modifier, options: MapDisplayOptions = MapDisplayOptions(), stale: Boolean = false, readAtMillis: Long = 0L, dssLive: Boolean = false, routeFocus: Set<Long>? = null) {
     val context = LocalContext.current
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     var zoom by remember { mutableStateOf(1f) }
     var pan by remember { mutableStateOf(Offset.Zero) }
     var viewport by remember { mutableStateOf(IntSize.Zero) }
     val art by produceState(MapArt(), context) {
-        val keys = listOf("human", "automaton", "terminid", "illuminate", "earth", "defense", "liberation",
-            "galaxy", "penta", "meridia", "wreckage", "hive_lord", "draco_barata")
+        val files = MapAssets.all().filterKeys { it in listOf("human", "automaton", "terminid", "illuminate", "earth", "defense", "liberation", "galaxy", "penta", "meridia", "wreckage", "hive-lord", "draco-barata", "dss-operacional", "dss-inoperante") || it.startsWith("nave-") || it.startsWith("imagens/guerra/presencas/") } +
+            MapAssets.planetEntries().mapKeys { "planet:${it.key}" }
+        val semaphore = Semaphore(8)
         val loaded = coroutineScope {
-            keys.map { key -> async {
-                var bitmap: Bitmap? = null
-                for (url in SiteAssets.urls(context, key)) {
-                    val result = context.imageLoader.execute(ImageRequest.Builder(context).data(url)
-                        .size(if (key == "galaxy") 1200 else 192).allowHardware(false).build())
-                    if (result is SuccessResult) {
-                        bitmap = result.drawable.toBitmap(); break
-                    }
-                }
-                key to bitmap
-            } }.awaitAll()
+            files.map { (key, file) -> async { semaphore.withPermit {
+                val result = context.imageLoader.execute(ImageRequest.Builder(context).data("file:///android_asset/$file")
+                    .size(if (key == "galaxy") 1200 else if(key.startsWith("planet:")) 96 else 192).allowHardware(false).build())
+                key to if(result is SuccessResult) result.drawable.toBitmap() else null
+            } } }.awaitAll()
         }
         value = MapArt(loaded.mapNotNull { (key, bitmap) -> bitmap?.let { key to it } }.toMap(), loaded.count { it.second == null }, true)
     }
@@ -88,8 +90,8 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
     val positioned = remember(planets, all) { planets.mapNotNull { p -> mapPosition(p, all)?.let { p to Offset(it.x.toFloat() * 500f, -it.y.toFloat() * 500f) } } }
     val attacked = remember(positioned) { positioned.filter { isPlanetUnderAttack(it.first) } }
     // Apenas esta camada leve é redesenhada; geografia, imagens e dados continuam estáticos.
-    val alertPhase = produceState(0f, attacked.isNotEmpty(), lifecycle) {
-        if (attacked.isNotEmpty()) lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+    val alertPhase = produceState(0f, attacked.isNotEmpty() && options.motion && !stale, lifecycle) {
+        if (attacked.isNotEmpty() && options.motion && !stale) lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
             val start = android.os.SystemClock.elapsedRealtime()
             while (true) {
                 value = ((android.os.SystemClock.elapsedRealtime() - start) % 1_800) / 1_800f
@@ -108,15 +110,14 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
         result.mapValues { it.value.sorted() }
     }
     // Static geography is rasterized only when its inputs change, never on pinch frames.
-    val backdrop = remember(art, outlines, enemySectors, territories, sectors) {
+    val backdrop = remember(art, outlines, enemySectors, territories, sectors, options.stripes) {
         Bitmap.createBitmap(1200, 1200, Bitmap.Config.ARGB_8888).also { bitmap ->
             val c = android.graphics.Canvas(bitmap)
             c.translate(600f, 600f); c.scale(1.2f, 1.2f)
             c.clipPath(Path().apply { addCircle(0f, 0f, 500f, Path.Direction.CW) })
             val brush = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
             art.bitmaps["galaxy"]?.let { c.drawBitmap(it, null, RectF(-500f,-500f,500f,500f), brush) }
-            brush.color = Color.Black.copy(alpha = .35f).toArgb()
-            c.drawCircle(0f,0f,500f,brush)
+
             outlines.forEach { (key, path) ->
                 val enemies = enemySectors[key].orEmpty()
                 if (territories && enemies.isNotEmpty()) {
@@ -128,9 +129,16 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                             enemies.map { mapColor(it).copy(alpha = .20f).toArgb() }.toIntArray(), null, android.graphics.Shader.TileMode.CLAMP)
                     }
                     c.drawPath(path, brush); brush.shader = null
+                    if (options.stripes) {
+                        c.save(); c.clipPath(path)
+                        brush.style = Paint.Style.STROKE; brush.strokeWidth = 2f
+                        brush.color = mapColor(enemies.first()).copy(alpha = .10f).toArgb()
+                        for (i in -1000..1000 step 18) c.drawLine(i.toFloat(),-500f,i+700f,500f,brush)
+                        c.restore()
+                    }
                 }
                 if (sectors) {
-                    brush.style = Paint.Style.STROKE; brush.strokeWidth = 1f
+                    brush.style = Paint.Style.STROKE; brush.strokeWidth = 1.5f
                     brush.color = (enemies.firstOrNull()?.let { mapColor(it).copy(alpha = .48f) } ?: Color(0x6659606C)).toArgb()
                     c.drawPath(path, brush)
                 }
@@ -138,12 +146,12 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
         }
     }
     val indexed = remember(positioned) { positioned.associate { it.first.index to it.first } }
-    val edges = remember(positioned) {
+    val edges = remember(positioned, routeFocus) {
         val seen = mutableSetOf<Pair<Long, Long>>()
         positioned.flatMap { (p, a) -> p.waypoints.mapNotNull { id ->
             val b = positions[id]
-            if (b != null && seen.add(min(p.index,id) to max(p.index,id)))
-                Triple(a, b, mapFaction(p.currentOwner) != mapFaction(indexed.getValue(id).currentOwner))
+            if (b != null && (b-a).getDistance()>0 && (routeFocus == null || p.index in routeFocus || id in routeFocus) && seen.add(min(p.index,id) to max(p.index,id)))
+                MapRoute(a, b, p, indexed.getValue(id))
             else null
         } }
     }
@@ -156,7 +164,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
         } }
     }
     val captions = remember(positioned) { positioned.associate { (p, _) ->
-        p.index to (p.nameText to "${mapPlayerCount(p.statistics.playerCount)} HD")
+        p.index to (planetTitle(p.nameText) to "${mapPlayerCount(p.statistics.playerCount)} HD")
     } }
     // Selecting a search result or marker brings it below the floating summary.
     // Live API updates do not reset the camera.
@@ -198,21 +206,22 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
             textPaint.setShadowLayer(2f / unit, 0f, 1f / unit, android.graphics.Color.BLACK)
             val occupied = mutableListOf<RectF>()
             val pendingLabels = mutableListOf<MapCaption>()
-            val now = System.currentTimeMillis()
+            val now = if(stale) readAtMillis else System.currentTimeMillis()
             canvas.save(); canvas.translate(origin.x, origin.y); canvas.scale(unit, unit)
             fun circle(at: Offset, radius: Float, color: Color, stroke: Float = 0f) {
                 paint.shader = null; paint.color = color.toArgb(); paint.style = if (stroke > 0) Paint.Style.STROKE else Paint.Style.FILL; paint.strokeWidth = stroke
                 canvas.drawCircle(at.x, at.y, radius, paint)
             }
-            fun icon(key: String, at: Offset, width: Float, height: Float = width, alpha: Int = 255): Boolean {
+            fun icon(key: String, at: Offset, width: Float, height: Float = width, alpha: Int = 255, tint: Color? = null): Boolean {
                 val image = art.bitmaps[key] ?: return false
                 paint.shader = null; paint.style = Paint.Style.FILL; paint.color = android.graphics.Color.WHITE
                 paint.alpha = alpha
+                paint.colorFilter = tint?.let { android.graphics.PorterDuffColorFilter(it.toArgb(), android.graphics.PorterDuff.Mode.SRC_IN) }
                 // Fit rather than stretching source artwork.
                 val ratio = min(width / image.width, height / image.height)
                 val w = image.width * ratio; val h = image.height * ratio
                 canvas.drawBitmap(image, null, RectF(at.x - w / 2, at.y - h / 2, at.x + w / 2, at.y + h / 2), paint)
-                paint.alpha = 255
+                paint.alpha = 255; paint.colorFilter = null
                 return true
             }
             fun arc(at: Offset, radius: Float, percent: Double?, color: Color, stroke: Float) {
@@ -228,13 +237,15 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
             }
             paint.shader = null; paint.style = Paint.Style.FILL; paint.color = android.graphics.Color.WHITE
             canvas.drawBitmap(backdrop, null, RectF(-500f,-500f,500f,500f), paint)
-            if (routes) edges.forEach { (a, b, front) ->
+            if (routes) edges.forEach { (a, b, source, target) ->
                 val sa = origin + a * unit; val sb = origin + b * unit
                 if (max(sa.x,sb.x) >= 0 && min(sa.x,sb.x) <= size.width &&
                     max(sa.y,sb.y) >= 0 && min(sa.y,sb.y) <= size.height) {
-                    paint.style = Paint.Style.STROKE; paint.strokeWidth = (if (front) 1f else .65f) / unit
-                    paint.color = (if (front) Color(0x9991B7C7) else Color(0x40526577)).toArgb()
-                    canvas.drawLine(a.x,a.y,b.x,b.y,paint)
+                    paint.style = Paint.Style.STROKE; paint.strokeWidth = 2.2f / unit
+                    val ca = mapColor(mapFaction(source.currentOwner)).toArgb()
+                    val cb = mapColor(mapFaction(target.currentOwner)).toArgb()
+                    paint.shader = android.graphics.LinearGradient(a.x,a.y,b.x,b.y,intArrayOf(ca,ca,cb,cb),floatArrayOf(0f,.4f,.6f,1f),android.graphics.Shader.TileMode.CLAMP)
+                    canvas.drawLine(a.x,a.y,b.x,b.y,paint); paint.shader = null
                 }
             }
             if (invasions) positioned.forEach { (source,a) ->
@@ -258,7 +269,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 val screen = origin + at * unit
                 if(screen.x < -100 || screen.y < -100 || screen.x > size.width+100 || screen.y > size.height+100) return@forEach
                 val special=mapSpecial(p);val capital=mapEarth(p);val key=mapFaction(p.currentOwner)
-                val defense=special==null&&p.event!=null;val offensive=mapOffensive(p,active)
+                val defense=special==null&&p.event!=null;val offensive=mapOffensive(p,active) && (mapProgress(p) ?: 0.0) >= .5
                 val r = max(1000f / 260f, (if (defense || offensive) 3.4.dp else 1.8.dp).toPx() / unit) * (if (capital) 1.9f else 1f)
                 val quiet = key == "human" && !defense && !offensive && selected != p.index
                 val color = if (quiet) Color(0xFF617984) else mapColor(key)
@@ -269,29 +280,43 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 }
                 if(capital) listOf(4f,3f,2.2f).forEachIndexed { i,v->circle(at,r*v,Color(0xFFFFE68A).copy(alpha=.025f+i*.015f)) }
                 circle(at,r*(if(defense||offensive)2.7f else 2.1f),color.copy(alpha=.12f))
-                if(defense||offensive) arc(at,r*2.08f,mapProgress(p),if(defense)Color(0xFF4DA6FF)else mapColor("human"),r*.48f)
+                if(defense||offensive) arc(at,r*2.08f,mapProgress(p),mapColor("human"),r*.48f)
+                if(offensive) arc(at,r*2.72f,100.0-(mapProgress(p) ?: 0.0),color,r*.32f)
                 if(defense) arc(at,r*2.72f,mapInvasionProgress(p,now),mapColor(mapFaction(p.event!!.faction)),r*.32f)
                 val dotR=if(defense||offensive)r*1.38f else r
                 paint.style=Paint.Style.FILL
                 paint.shader = null; paint.color = color.toArgb()
                 canvas.drawCircle(at.x, at.y, dotR, paint)
-                val iconSize=r*(if(key=="human") {if(defense||offensive)2.76f else 2f} else {if(defense||offensive)2.05f else 1.55f})
+                val iconSize=r*(if(key=="human")2f else 1.55f)
                 if(capital) { if(!icon("earth",at,r*2)) icon("human",at,iconSize) }
                 else if(special!=null) {
                     if(!icon(special,at,r*5)) {circle(at,r*1.7f,Color.Black);circle(at,r*1.8f,color,.7f/unit)}
-                } else icon(if(key=="unknown")"human" else key,at,iconSize, alpha = if (quiet && zoom < 5f) 95 else 255)
-                if(defense||offensive) icon(if (defense) "defense" else "liberation",at+Offset(-r*3.1f,-r*3.9f),r*2.2f)
-                if(defense) {
-                    val attacker=mapFaction(p.event!!.faction); val badge=at+Offset(r*2.65f,-r*2.65f)
-                    circle(badge,r*1.05f,Color(0xFF090D12));circle(badge,r*1.05f,mapColor(attacker),.6f/unit);icon(attacker,badge,r*1.8f)
+                } else if(!icon("planet:${p.index}",at,dotR*2)) icon(if(key=="unknown")"human" else key,at,iconSize)
+                circle(at,dotR,color,.7f/unit)
+                if(!defense && key !in listOf("human","unknown") && !options.clean) icon(key,at+Offset(0f,-r*2.3f),r*1.6f)
+                if(options.progress && (defense||offensive)) {
+                    val humanBadge = at+Offset(-r*3.8f,r*.9f)
+                    icon(if(defense) "defense" else "liberation",humanBadge,r*1.8f)
+                    if(defense) icon(mapFaction(p.event!!.faction),at+Offset(-r*3.8f,-r*1.8f),r*1.8f)
                 }
-                if(mapName(p)=="omicron") {icon("hive_lord",at+Offset(r*4.65f,-r*3.25f),r*2.5f);icon("draco_barata",at+Offset(r*5.35f,-r*.25f),r*2.5f)}
-                if(dssHost==p.index) {
-                    val dssAt=at+Offset(0f,-r*3.2f);val d=r*.95f
-                    val diamond=Path().apply {moveTo(dssAt.x,dssAt.y-d);lineTo(dssAt.x+d,dssAt.y);lineTo(dssAt.x,dssAt.y+d);lineTo(dssAt.x-d,dssAt.y);close()}
-                    paint.style=Paint.Style.FILL;paint.color=Color(0xFFFFD23F).toArgb();canvas.drawPath(diamond,paint)
-                    // DSS text joins the collision-controlled caption group below.
+                if(options.presences) {
+                    val models = mutableSetOf<String>()
+                    PlanetPresences.list(p).take(3).forEachIndexed { i, presence ->
+                        val badge=at+Offset(r*3f, r*(i*3f-.4f))
+                        paint.style=Paint.Style.STROKE; paint.color=mapColor(presence.faction).copy(alpha=.5f).toArgb(); paint.strokeWidth=.4f/unit
+                        canvas.drawLine(at.x+dotR,at.y,badge.x-r,badge.y,paint)
+                        icon("imagens/guerra/presencas/${presence.file}",badge,r*2.3f,tint=if(presence.file.endsWith(".svg"))mapColor(presence.faction) else null)
+                        val model=presence.model
+                        if(options.ships && model!=null && models.add(model)) {
+                            if(presence.formation==3) listOf(Offset(-.6f,-2f),Offset(.6f,-2f),Offset(0f,-2.7f)).forEach { offset ->
+                                icon(model,badge+offset*r,r*1.05f,r*.9f)
+                            } else icon(model,badge+Offset(r,-r*2.2f),r*(if(model=="nave-automata")3.3f*1.03f else 2.7f),r*2.2f)
+                        }
+                    }
                 }
+                // Editorial Omicron landmarks are not live unit counts.
+                if(options.ships && mapName(p)=="omicron") {icon("hive-lord",at+Offset(r*4f,-r*2.7f),r*3.5f);icon("draco-barata",at+Offset(r*4f,r*.1f),r*3.5f)}
+                if(dssHost==p.index) icon(if(dssLive)"dss-operacional" else "dss-inoperante",at+Offset(0f,-r*4f),r*3.8f)
                 if (p.regions.any { it.isAvailable == true } && (zoom >= 2.3f || selected == p.index)) {
                     circle(at + Offset(r * 2.3f, r * 1.8f), 2.dp.toPx() / unit, Color(0xFFB1C6CD))
                 }
@@ -299,17 +324,15 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 if (detail) {
                     val gap = 17.sp.toPx() / unit
                     val caption = captions.getValue(p.index)
-                    val progress = if (defense || offensive) mapPercent(mapProgress(p)) else null
-                    val regionText = if (p.regions.any { it.isAvailable == true }) "${p.regions.count { it.isAvailable == true }} regiões" else null
-                    val lines = mutableListOf(
-                        MapCaption(caption.first, at+Offset(0f,r*3.2f+gap), if(quiet) Color(0xFF94A4AB) else Color.White, quiet),
-                        MapCaption(caption.second, at+Offset(0f,r*3.2f+gap*2), Color(0xFFADB7C5), true))
-                    regionText?.let { lines += MapCaption(it,at+Offset(0f,r*3.2f+gap*3),Color(0xFFADB7C5),true) }
-                    if (progress != null) {
-                        lines += MapCaption(progress,at+Offset(0f,-r*3.5f),if(defense) Color(0xFF4DA6FF) else mapColor("human"))
-                        if (defense) lines += MapCaption("INVASÃO ${mapPercent(mapInvasionProgress(p,now))}",at+Offset(0f,-r*3.5f-gap),mapColor(mapFaction(p.event!!.faction)),true)
+                    val progress = if (options.progress && (defense || offensive)) mapPercent(mapProgress(p)) else null
+                    val lines = mutableListOf<MapCaption>()
+                    if(options.names) lines += MapCaption(caption.first,at+Offset(0f,r*3.2f+gap),color,quiet)
+                    if(options.players) lines += MapCaption(caption.second,at+Offset(0f,r*3.2f+gap*(if(options.names)2 else 1)),Color(0xFFADB7C5),true)
+                    if(progress!=null) {
+                        lines += MapCaption(progress,at+Offset(-r*6.4f,r*.9f),mapColor("human"),true)
+                        if(defense) lines += MapCaption(mapPercent(mapInvasionProgress(p,now)),at+Offset(-r*6.4f,-r*1.8f),mapColor(mapFaction(p.event!!.faction)),true)
                     }
-                    if (dssHost == p.index) lines += MapCaption("DSS",at+Offset(0f,-r*3.5f-gap*2),Color(0xFFFFD23F),true)
+                    if(dssHost==p.index) lines += MapCaption(if(dssLive)"DSS" else "DSS · última posição",at+Offset(0f,-r*6.1f),Color(0xFFFFD23F),true)
                     val boxes = lines.map { line ->
                         textPaint.textSize = (if(line.small) 8.sp else 11.sp).toPx()
                         val half = textPaint.measureText(line.text)/2
@@ -347,11 +370,21 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 canvas.drawText(caption.text, anchor.x, anchor.y, textPaint)
             }
         }
-        if (attacked.isNotEmpty()) Canvas(Modifier.matchParentSize()) {
+        if (attacked.isNotEmpty() && options.motion && !stale) Canvas(Modifier.matchParentSize()) {
             val phase = alertPhase.value
             val glow = (.5f + .5f * sin(phase * 2f * PI.toFloat()))
             val unit = size.minDimension / 1120f * zoom
             val origin = center + pan
+            if(invasions && routes) positioned.forEach { (source,a) ->
+                source.attacking.forEach { id ->
+                    val target=indexed[id]; val b=positions[id]
+                    if(b!=null && target?.event!=null && mapFaction(source.currentOwner)==mapFaction(target.event.faction) &&
+                        (routeFocus==null || source.index in routeFocus || id in routeFocus)) {
+                        val at=origin+(a+(b-a)*phase)*unit
+                        drawCircle(mapColor(mapFaction(source.currentOwner)).copy(alpha=.9f),2.dp.toPx(),at)
+                    }
+                }
+            }
             attacked.forEach { (_, point) ->
                 val at = origin + point * unit
                 val radius = max(1000f / 260f * unit, 3.4.dp.toPx())

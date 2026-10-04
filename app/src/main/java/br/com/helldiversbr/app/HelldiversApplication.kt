@@ -12,6 +12,7 @@ class HelldiversApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         TelemetryCache.init(this)
+        br.com.helldiversbr.app.data.MapAssets.init(this)
         WarAlertManager.createChannel(this)
         if (WarAlertManager.isEnabled(this)) WarAlertManager.schedule(this)
     }

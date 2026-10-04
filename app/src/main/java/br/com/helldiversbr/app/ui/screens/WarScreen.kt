@@ -64,6 +64,9 @@ import br.com.helldiversbr.app.data.localizedText
 import br.com.helldiversbr.app.ui.HomeState
 import br.com.helldiversbr.app.ui.theme.HD
 import coil.compose.AsyncImage
+import br.com.helldiversbr.app.data.MapAssets
+import br.com.helldiversbr.app.data.planetTitle
+import br.com.helldiversbr.app.data.campaignLabel
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -323,12 +326,14 @@ private fun WarHeader(data: HomeData, onRefresh: () -> Unit) {
         val time = if (data.updatedAtMillis > 0L) SimpleDateFormat("HH:mm:ss", ptBrWar).format(Date(data.updatedAtMillis)) else "SEM LEITURA"
         val sourceColor = when {
             hasSavedTelemetry -> HD.Gold
+            data.viaCentral -> HD.SignalBlue
             data.telemetrySource == "direct" -> HD.SignalBlue
             data.telemetrySource == "mixed" -> HD.Yellow
             else -> HD.Green
         }
         val sourceLabel = when {
             hasSavedTelemetry -> "ÚLTIMA LEITURA SALVA"
+            data.viaCentral -> "CENTRAL BR"
             data.telemetrySource == "direct" -> "API DIRETA DO JOGO"
             data.telemetrySource == "mixed" -> "FONTES COMBINADAS"
             else -> "API DA COMUNIDADE"
@@ -395,11 +400,12 @@ fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
     val modeColor = if (defense) HD.DefenseBlue else accent
     val percent = OrderRepository.campaignPercent(campaign)
     val displayedPercent = visualCampaignPercent(campaign)
-    val rate = OrderRepository.campaignRate(data, campaign)
+    val rate = OrderRepository.campaignDisplayRate(data, campaign)
     val enemyPressure = if (defense) OrderRepository.defenseEnemyRate(planet.event) else OrderRepository.liberationEnemyPressure(campaign)
-    val invasionProgress = if (defense) OrderRepository.defenseEnemyProgress(planet.event) else null
+    val readingTime = if ("campanhas" in data.staleSources) data.campaignReadAtMillis else System.currentTimeMillis()
+    val invasionProgress = if (defense) OrderRepository.defenseEnemyProgress(planet.event, readingTime) else null
     val etaWin = OrderRepository.etaFromRate(percent, rate)
-    val etaDeadline = if (defense) OrderRepository.remaining(planet.event?.endTime) else null
+    val etaDeadline = if (defense) OrderRepository.remaining(planet.event?.endTime, readingTime) else null
     val headerEta = if (defense) etaDeadline else etaWin
     val totalPlayers = data.helldiversOnFront.coerceAtLeast(1L)
     val share = planet.statistics.playerCount.toDouble() / totalPlayers.toDouble() * 100.0
@@ -436,20 +442,20 @@ fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     AsyncImage(
-                        model = if (defense) "https://helldivers-br.pages.dev/imagens/guerra/operacoes/defesa.png" else "https://helldivers-br.pages.dev/imagens/guerra/operacoes/libertacao.png",
+                        model = MapAssets.file(if(defense) "defense" else "liberation"),
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                         contentScale = ContentScale.Fit,
                     )
-                    Text(if (defense) "DEFESA" else "LIBERTAÇÃO", color = modeColor, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                    Text(campaignLabel(campaign), color = modeColor, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                 }
-                Text(status, color = statusColor, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 0.7.sp)
+                RotatingPlanetStatus(status,planet,"campanhas" in data.staleSources,statusColor)
                 Text(headerEta ?: "—", color = HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
 
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(planet.nameText.uppercase(), color = HD.Text, fontSize = 23.sp, lineHeight = 24.sp, style = androidx.compose.ui.text.TextStyle(platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)), fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(planetTitle(planet.nameText), color = mapColor(mapFaction(ownerFactionRaw)), fontSize = 23.sp, lineHeight = 24.sp, style = androidx.compose.ui.text.TextStyle(platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)), fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(sector.uppercase(), color = HD.TextMuted, fontSize = 10.sp, lineHeight = 12.sp, style = androidx.compose.ui.text.TextStyle(platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)), fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                     if (dssHere) {
                         Text("◆ DSS // ESTAÇÃO DEMOCRACIA", color = HD.Yellow, fontSize = 8.sp, lineHeight = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
@@ -474,6 +480,7 @@ fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 7.2f)) {
                 AsyncImage(model = image, contentDescription = "${planet.nameText} — $biome", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.36f)))))
+                PresenceIcons(planet,stale="campanhas" in data.staleSources,modifier=Modifier.align(Alignment.BottomEnd).padding(11.dp))
                 if (hazards.isNotEmpty()) {
                     Row(Modifier.align(Alignment.BottomStart).padding(11.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         hazards.forEach { HazardBadge(it) }
@@ -486,12 +493,12 @@ fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
                     ProgressBlock("DEFESA HELLDIVERS", displayedPercent, HD.DefenseBlue)
                     ProgressBlock("INVASÃO ${enemyFaction.uppercase()}", invasionProgress ?: 0.0, accent, valueOverride = invasionProgress?.let(::pct) ?: "—")
                 } else {
-                    ProgressBlock("CONTROLE PLANETÁRIO", displayedPercent, accent)
+                    ProgressBlock("LIBERTAÇÃO", displayedPercent, HD.DefenseBlue)
                 }
 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     TacticalMetric("HELLDIVERS OPERANDO", fmtWar(planet.statistics.playerCount), "%.1f%% do efetivo ativo".format(ptBrWar, share), HD.Text, Modifier.weight(1f))
-                    TacticalMetric("■ ${if (defense) "AVANÇO DA DEFESA / HORA" else "AVANÇO LÍQUIDO / HORA"}", rateText(rate), if (rate == null) "aguardando nova amostra" else "saldo planetário observado", if ((rate ?: 0.0) >= 0) HD.DefenseBlue else HD.Red, Modifier.weight(1f))
+                    TacticalMetric("RITMO / HORA", rateText(rate), if (rate == null) "aguardando nova amostra" else if(OrderRepository.campaignRate(data,campaign)==null) "média desde o início da defesa" else "ritmo observado", if ((rate ?: 0.0) >= 0) HD.DefenseBlue else HD.Red, Modifier.weight(1f))
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     TacticalMetric("PRESSÃO ${enemyFaction.uppercase()}", rateText(enemyPressure), if (defense) "ritmo do relógio da invasão" else "regeneração registrada na API", accent, Modifier.weight(1f))
@@ -569,23 +576,25 @@ fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: () -> Uni
     val biome = PlanetVisuals.biomeLabel(catalog)
     val hazards = PlanetVisuals.hazards(catalog)
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(.94f).heightIn(max = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * .88f).coerceAtMost(720.dp)),
             shape = RoundedCornerShape(14.dp),
             colors = CardDefaults.cardColors(containerColor = HD.BgDeep),
             border = BorderStroke(1.dp, accent),
         ) {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
+            Column {
+                Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically) {
+                    Text("INTELIGÊNCIA PLANETÁRIA",color=HD.TextDim,fontSize=10.sp,modifier=Modifier.weight(1f))
+                    IconButton(onClick=onDismiss) { Icon(Icons.Filled.Close,"Fechar",tint=HD.Text) }
+                }
+                Column(Modifier.weight(1f,fill=false).verticalScroll(rememberScrollState())) {
                 Box(Modifier.fillMaxWidth().aspectRatio(16f / 7f)) {
                     AsyncImage(model = image, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.05f), HD.BgDeep))))
-                    IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).background(Color.Black.copy(alpha = 0.58f), RoundedCornerShape(50))) {
-                        Icon(Icons.Filled.Close, contentDescription = "Fechar", tint = Color.White)
-                    }
                     Column(Modifier.align(Alignment.BottomStart).padding(15.dp)) {
                         SectionLabel(if (defense) "DEFESA // DOSSIÊ TÁTICO" else if (data.campaigns.any { it.planet.index == p.index }) "LIBERTAÇÃO // DOSSIÊ TÁTICO" else "DOSSIÊ TÁTICO", accent)
-                        Text(p.nameText.uppercase(), color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                        Text(planetTitle(p.nameText), color = mapColor(mapFaction(ownerFactionRaw)), fontSize = 25.sp, fontWeight = FontWeight.Black)
                         Text(sector.uppercase(), color = HD.TextDim, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
                     }
                 }
@@ -613,9 +622,13 @@ fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: () -> Uni
                         }
                     }
                     HorizontalDivider(color = HD.BorderSoft)
+                    if(br.com.helldiversbr.app.data.PlanetPresences.list(p).isNotEmpty()) SectionLabel(if("planetas" in data.staleSources) "PRESENÇAS · ÚLTIMA LEITURA" else "PRESENÇAS CONFIRMADAS")
+                    PresenceIcons(p, labels=true, stale="planetas" in data.staleSources)
+                    if(mapName(p)=="omicron") Text("Hive Lord e Draco Barata: referências editoriais do mapa, sem confirmação de unidade ao vivo.",color=HD.TextMuted,fontSize=10.sp)
                     PlanetCounters(p)
                     PlanetRegions(p)
                     Text("TELEMETRIA NATIVA // DADOS SINCRONIZADOS COM A CENTRAL DE GUERRA", color = HD.TextMuted, fontSize = 8.sp, lineHeight = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                }
                 }
             }
         }

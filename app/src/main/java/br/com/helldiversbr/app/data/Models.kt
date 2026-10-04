@@ -157,6 +157,7 @@ data class Planet(
     val statistics: PlanetStatistics = PlanetStatistics(),
     val event: PlanetEvent? = null,
     val regions: List<PlanetRegion> = emptyList(),
+    val activeEffects: List<JsonElement> = emptyList(),
 ) {
     val nameText: String get() = localizedText(name).ifBlank { "PLANETA #$index" }
     val mapPosition: PlanetPosition? get() = position
@@ -185,6 +186,7 @@ data class Campaign(
     val id: JsonElement? = null,
     val planet: Planet = Planet(),
     val faction: String = "",
+    val type: Int? = null,
 )
 
 /** Recurso de contribuição de uma ação tática da DSS. */

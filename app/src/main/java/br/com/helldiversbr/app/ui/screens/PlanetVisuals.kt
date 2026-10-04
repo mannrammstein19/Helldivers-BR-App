@@ -75,7 +75,7 @@ object PlanetVisuals {
             ?: planetSpecificByName[name.lowercase().trim()]
             ?: biomeImages[catalog?.biome?.lowercase()?.trim()]
             ?: "Sandy_base_Landscape.png"
-        return "${HelldiversApi.SITE_BASE}/imagens/planetas/$file".replace(" ", "%20")
+        return br.com.helldiversbr.app.data.MapAssets.file("imagens/planetas/$file") ?: ""
     }
 
     fun biomeLabel(catalog: PlanetCatalogEntry?): String {
@@ -97,19 +97,17 @@ object PlanetVisuals {
     }
 
     fun hazardIconUrl(item: HazardVisual): String? = item.iconFile?.let {
-        "${HelldiversApi.SITE_BASE}/imagens/ui/efeito-planeta/${it.replace(" ", "%20")}" 
+        br.com.helldiversbr.app.data.MapAssets.file("imagens/ui/efeito-planeta/$it")
     }
 
     fun factionLogo(raw: String, defense: Boolean = false): String {
-        val n = raw.lowercase()
-        val file = when {
-            "terminid" in n || n == "2" -> "logo%20terminids.png"
-            "automaton" in n || "cyborg" in n || n == "3" -> "logo%20automatons.png"
-            "illuminate" in n || "squid" in n || n == "4" -> "logo%20illuminats.png"
-            "human" in n || "super" in n || n == "1" -> return "${HelldiversApi.SITE_BASE}/imagens/ui/federacao.png"
-            else -> return if (defense) "${HelldiversApi.SITE_BASE}/imagens/ui/federacao.png" else "${HelldiversApi.SITE_BASE}/imagens/ui/federacao.png"
+        val key = when (br.com.helldiversbr.app.data.OrderRepository.factionKey(raw)) {
+            "terminids" -> "terminid"
+            "automatons" -> "automaton"
+            "illuminates" -> "illuminate"
+            else -> "human"
         }
-        return "${HelldiversApi.SITE_BASE}/imagens/guerra/faccoes/$file"
+        return br.com.helldiversbr.app.data.MapAssets.file(key).orEmpty()
     }
 
     private fun pretty(value: String): String = value.replace('_', ' ').split(' ').joinToString(" ") { part ->

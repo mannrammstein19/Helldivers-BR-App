@@ -58,9 +58,8 @@ import java.util.Locale
 private val dssLocale = Locale("pt", "BR")
 private val dssNumber = NumberFormat.getInstance(dssLocale)
 
-private val DSS_ASSET = "${HelldiversApi.SITE_BASE}/imagens/guerra/dss/"
-private val DSS_UNAVAILABLE = "${DSS_ASSET}dss-indisponivel.webp"
-private val DSS_MODEL = "${DSS_ASSET}DSS_Summary_Model.png"
+private val DSS_UNAVAILABLE get() = br.com.helldiversbr.app.data.MapAssets.file("dss-inoperante").orEmpty()
+private val DSS_MODEL get() = br.com.helldiversbr.app.data.MapAssets.file("dss-operacional").orEmpty()
 
 private data class DssLocation(
     val index: Long,
@@ -115,17 +114,17 @@ private fun dssActionInfo(action: DssTacticalAction): DssActionInfo {
         "eagle storm" in key -> DssActionInfo(
             "Águia Tempestiva",
             "A DSS emprega ataques periódicos de Águia para apoiar as operações no planeta.",
-            "${DSS_ASSET}EAGLE%20STORM.png",
+            br.com.helldiversbr.app.data.MapAssets.file("imagens/guerra/dss/EAGLE STORM.png"),
         )
         "orbital blockade" in key -> DssActionInfo(
             "Bloqueio Orbital",
             "Impede o início de novas campanhas de Defesa no planeta e fornece suporte adicional às operações.",
-            "${DSS_ASSET}ORBITAL%20BLOCKADE.png",
+            br.com.helldiversbr.app.data.MapAssets.file("imagens/guerra/dss/ORBITAL BLOCKADE.png"),
         )
         "heavy ordnance distribution" in key -> DssActionInfo(
             "Distribuição de Artilharia Pesada",
             "Fornece suporte de artilharia orbital e acelera os esforços de libertação.",
-            "${DSS_ASSET}HEAVY%20ORDNANCE%20DISTRIBUTION.png",
+            br.com.helldiversbr.app.data.MapAssets.file("imagens/guerra/dss/HEAVY ORDNANCE DISTRIBUTION.png"),
         )
         else -> DssActionInfo(
             raw.ifBlank { "Ação Tática" },
@@ -255,7 +254,7 @@ private fun DssUnavailableCard(reading: DssReading, tall: Boolean = false, portr
         border = BorderStroke(1.dp, HD.Border),
     ) {
         Column {
-            Box(Modifier.fillMaxWidth().aspectRatio(if (portrait) 1f else if (tall) 4f / 3f else 16f / 7.2f)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
                 AsyncImage(
                     model = DSS_UNAVAILABLE,
                     contentDescription = "Estação Espacial da Democracia",

@@ -102,8 +102,8 @@ fun PlanetRegions(planet: Planet) {
                 else -> "Metrópole"
             }
             val accent = when (info.state) {
-                RegionState.AVAILABLE -> HD.Yellow
-                RegionState.BLOCKED -> Color(0xFFFF6565)
+                RegionState.AVAILABLE -> mapColor(mapFaction(br.com.helldiversbr.app.data.OrderRepository.factionFromRaceId(RegionTelemetry.ownerId(region.owner))))
+                RegionState.BLOCKED -> mapColor(mapFaction(br.com.helldiversbr.app.data.OrderRepository.factionFromRaceId(RegionTelemetry.ownerId(region.owner))))
                 RegionState.RECOVERED -> HD.DefenseBlue
                 RegionState.UNKNOWN -> HD.TextMuted
             }
@@ -126,7 +126,7 @@ fun PlanetRegions(planet: Planet) {
                         verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (type != null) SiteImage(type, identity, Modifier.size(28.dp))
+                            if (type != null) SiteImage(type, identity, Modifier.size(28.dp), tint=accent)
                             Column(Modifier.weight(1f)) {
                                 Text(localizedText(region.name).ifBlank { "Região ${index + 1}" },
                                     color = HD.Text, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 18.sp)
@@ -145,7 +145,7 @@ fun PlanetRegions(planet: Planet) {
                             info.percent?.let {
                                 Text("Libertação: ${"%.2f".format(Locale("pt", "BR"), it)}%",
                                     color = HD.Text, fontSize = 12.sp)
-                                ProgressBar(it, accent)
+                                ProgressBar(it, HD.DefenseBlue)
                             }
                             info.players?.let {
                                 Text("${NumberFormat.getIntegerInstance(Locale("pt", "BR")).format(it)} Helldivers na região",

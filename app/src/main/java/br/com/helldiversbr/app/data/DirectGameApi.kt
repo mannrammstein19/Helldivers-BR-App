@@ -55,7 +55,7 @@ object DirectGameApi {
             .url("$BASE$path")
             .header("Accept", "application/json")
             .header("Accept-Language", "pt-BR")
-            .header("User-Agent", "Helldivers-BR-App/22")
+            .header("User-Agent", "Helldivers-BR-App/34")
             .build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) error("API direta HTTP ${response.code} em $path")
@@ -107,7 +107,7 @@ object DirectGameApi {
         val status = rootObject(get("/api/WarSeason/$warId/Status"))
         val info = runCatching { rootObject(get("/api/WarSeason/$warId/WarInfo")) }
             .getOrElse { rootObject(get("/api/WarSeason/$warId/Info")) }
-        val startMillis = epochMillis(long(info, "startDate"))
+        val startMillis = clockBase(long(status, "time"), now)
         RawWarBundle(warId, status, info, startMillis).also { cachedBundle = now to it }
     }
 
@@ -239,6 +239,7 @@ object DirectGameApi {
                     )
                 },
                 regions = regions,
+                activeEffects = array(war.status, "planetActiveEffects").filter { (it as? JsonObject)?.let { e -> long(e, "index", "planetIndex") == index } == true },
             )
         }
         val planetByIndex = planets.associateBy { it.index }
@@ -249,6 +250,7 @@ object DirectGameApi {
                 val planet = planetByIndex[planetIndex] ?: return@mapNotNull null
                 Campaign(
                     id = element(raw, "id", "id32"),
+                    type = int(raw, "type"),
                     planet = planet,
                     faction = raceName(int(raw, "race")),
                 )
@@ -302,6 +304,9 @@ object DirectGameApi {
         4 -> "Illuminate"
         else -> ""
     }
+
+    internal fun clockBase(warSeconds: Long?, observation: Long): Long? =
+        warSeconds?.takeIf { it in 0..10_000_000_000L && observation > 0 }?.let { observation - it * 1000L }
 
     private fun epochMillis(raw: Long?): Long? = when {
         raw == null || raw <= 0L -> null

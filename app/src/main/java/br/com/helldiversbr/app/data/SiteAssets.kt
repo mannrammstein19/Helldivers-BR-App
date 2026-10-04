@@ -13,8 +13,8 @@ object SiteAssets {
             Json.decodeFromString(MapSerializer(String.serializer(), ListSerializer(String.serializer())), it.readText())
         }.also { cache = it }
     }
-    fun urls(context: Context, key: String): List<String> = all(context)[key].orEmpty()
-        .map { "${HelldiversApi.SITE_BASE}/$it" }
+    fun urls(context: Context, key: String): List<String> = MapAssets.file(key)?.let { listOf(it) }
+        ?: all(context)[key].orEmpty().map { "${HelldiversApi.SITE_BASE}/$it" }
     fun orderKey(state: String): String = when (state) {
         "completed" -> "order_completed"
         "failed" -> "order_failed"

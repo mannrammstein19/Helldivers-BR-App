@@ -33,6 +33,7 @@ data class HomeData(
     val telemetrySource: String = "community",
     val campaignTelemetrySource: String = "community",
     val campaignReadAtMillis: Long = 0L,
+    val viaCentral: Boolean = false,
 ) {
     val helldiversOnFront: Long get() = campaigns.sumOf { it.planet.statistics.playerCount.coerceAtLeast(0) }
     val liberationCount: Int get() = campaigns.count { it.planet.event == null }
@@ -75,6 +76,9 @@ object OrderRepository {
     suspend fun load(): HomeData = loadGate.withLock { coroutineScope {
         val disk = TelemetryCache.loadHome()
         val fallback = lastGood ?: disk
+        val central = attempt { loadCentral(fallback) }
+        central.getOrNull()?.let { lastGood = it; TelemetryCache.saveHome(it); return@coroutineScope it }
+        if (fallback?.viaCentral == true) return@coroutineScope loadCached()!!
 
         var communityCampaignTime = 0L
         var communityPlanetTime = 0L
@@ -281,6 +285,73 @@ object OrderRepository {
         }
     } }
 
+    private suspend fun loadCentral(previous: HomeData?): HomeData = coroutineScope {
+        val pTask = async { CentralApi.read("/api/v1/planets") }
+        val cTask = async { CentralApi.read("/api/v1/campaigns") }
+        val oTask = async { attempt { CentralApi.read("/api/v1/assignments") } }
+        val dTask = async { attempt { CentralApi.read("/api/v1/dispatches") } }
+        val sTask = async { attempt { HelldiversApi.orderSnapshot() } }
+        val stationTask = async { DssRepository.load() }
+        val pr = pTask.await(); val cr = cTask.await()
+        val rawPlanets = CentralApi.planets(pr)
+        require(rawPlanets.size >= 10 && rawPlanets.map { it.index }.distinct().size == rawPlanets.size)
+        val counters = CounterTelemetry.collect(previous?.planets.orEmpty(), previous?.updatedAtMillis ?: 0,
+            listOf(rawPlanets to pr.source), pr.time, listOf(pr.time))
+        val planets = rawPlanets.map { CounterTelemetry.enrich(it, counters).withCentralReading(pr).let { p -> if (pr.stale) p.asSavedTelemetry() else p } }
+        val byId = planets.associateBy { it.index }
+        val campaigns = CentralApi.campaigns(cr).mapNotNull { c -> byId[c.planet.index]?.let { c.copy(planet = it) } }
+        val orderReading = oTask.await().getOrNull()
+        val live = orderReading?.let { CentralApi.assignments(it).firstOrNull { a -> a.tasks.isNotEmpty() } }
+        val snapshot = sTask.await().getOrNull()
+        val order = resolveCentralOrder(live, snapshot, previous?.order, orderReading != null && !orderReading.stale)
+        val dispatchReading = dTask.await().getOrNull()
+        val catalog = HelldiversApi.planetCatalog().ifEmpty { previous?.planetCatalog.orEmpty() }
+        val dss = stationTask.await().withPlanetReference(planets, pr)
+        TelemetryCache.saveDss(dss)
+        val fresh = !pr.stale && !cr.stale
+        if (fresh && rateHistory.isEmpty() && previous != null && previous.campaignReadAtMillis > 0 && previous.campaignReadAtMillis < pr.time)
+            updateCampaignRates(previous.campaigns, previous.campaignReadAtMillis)
+        HomeData(order, dispatchReading?.let { CentralApi.dispatches(it).sortedByDescending { d -> d.published.orEmpty() }.take(10) } ?: previous?.dispatches.orEmpty(),
+            catalog.mapValues { it.value.displayName }, catalog, planets, campaigns,
+            if (fresh) updateCampaignRates(campaigns, pr.time) else previous?.campaignRates.orEmpty(), dss, pr.time,
+            orderRates = if (order.order != null && order.state == "active" && orderReading != null && !orderReading.stale && !order.fromSnapshot)
+                objectiveTracker.update(order.order, orderReading.time) else previous?.orderRates.orEmpty(),
+            staleSources = buildList {
+                if (!fresh) add("campanhas")
+                if (pr.stale) add("planetas")
+                if (orderReading == null || orderReading.stale || (order.fromSnapshot && order.state == "active")) add("Ordem Maior")
+                if (dispatchReading == null || dispatchReading.stale) add("despachos")
+                if (dss.stale) add("DSS")
+            }, telemetrySource = pr.source, campaignTelemetrySource = if (fresh) pr.source else "cache",
+            campaignReadAtMillis = pr.time, viaCentral = true)
+    }
+
+    fun resolveCentralOrder(live: Assignment?, snapshot: OrderSnapshot?, previous: OrderUi?, absenceConfirmed: Boolean): OrderUi {
+        val snap = snapshot?.order
+        if (snap != null && snapshot.state in setOf("completed", "failed") &&
+            (live?.id == snap.id || (live == null && (previous?.order == null || previous.order.id == snap.id))))
+            return OrderUi(snap, snapshot.state, snapshot.final_percent ?: computePercent(snap), true)
+        if (live != null) {
+            val expired = runCatching { Instant.parse(live.expiration).toEpochMilli() <= System.currentTimeMillis() }.getOrDefault(false)
+            return OrderUi(live, if (expired) "pending" else "active", computePercent(live), false)
+        }
+        if (absenceConfirmed) return OrderUi(null, "pending", 0.0, false)
+        if (previous != null) return previous
+        if (snap != null) return OrderUi(snap, "pending", snapshot.final_percent ?: computePercent(snap), true)
+        return OrderUi(null, "pending", 0.0, false)
+    }
+
+    fun campaignDisplayRate(data: HomeData, campaign: Campaign): Double? {
+        if ("campanhas" in data.staleSources) return null
+        campaignRate(data, campaign)?.let { return it }
+        val e = campaign.planet.event ?: return null
+        val start = runCatching { Instant.parse(e.startTime).toEpochMilli() }.getOrNull() ?: return null
+        val end = runCatching { Instant.parse(e.endTime).toEpochMilli() }.getOrNull() ?: return null
+        val now = data.campaignReadAtMillis
+        if (now - start < 300_000 || end <= now || end <= start) return null
+        return (campaignPercent(campaign) / ((now - start) / 3_600_000.0)).takeIf { it.isFinite() }
+    }
+
     fun campaignKey(campaign: Campaign): String {
         val p = campaign.planet
         val mode = if (p.event != null) "defense" else "attack"
@@ -319,13 +390,13 @@ object OrderRepository {
     }
 
     /** Relógio da invasão em uma defesa, de 0 a 100%. */
-    fun defenseEnemyProgress(event: PlanetEvent?): Double? {
+    fun defenseEnemyProgress(event: PlanetEvent?, now: Long = System.currentTimeMillis()): Double? {
         if (event == null) return null
         val start = event.startTime?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return null
         val end = event.endTime?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return null
         val total = end.toEpochMilli() - start.toEpochMilli()
         if (total <= 0L) return null
-        return (((System.currentTimeMillis() - start.toEpochMilli()).toDouble() / total) * 100.0).coerceIn(0.0, 100.0)
+        return (((now - start.toEpochMilli()).toDouble() / total) * 100.0).coerceIn(0.0, 100.0)
     }
 
     fun defenseEnemyRate(event: PlanetEvent?): Double? {
@@ -454,10 +525,10 @@ object OrderRepository {
     }
 
     /** Tempo restante formatado como no site (ex.: "3d 20h", "5h 12min"). */
-    fun remaining(expiration: String?): String {
+    fun remaining(expiration: String?, now: Long = System.currentTimeMillis()): String {
         if (expiration.isNullOrBlank()) return "prazo indisponível"
         val end = runCatching { Instant.parse(expiration) }.getOrNull() ?: return "prazo indisponível"
-        val seconds = end.epochSecond - Instant.now().epochSecond
+        val seconds = end.epochSecond - now / 1000
         if (seconds <= 0) return "prazo esgotado"
         val d = seconds / 86400
         val h = seconds % 86400 / 3600
