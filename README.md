@@ -1,6 +1,6 @@
-# HELLDIVERS-BR — Android V33.0.0
+# HELLDIVERS-BR — Android V38.0.0
 
-Projeto Kotlin + Jetpack Compose. Este pacote contém o base V33 para gerar o APK Release assinado pelo GitHub Actions. Consulte ALTERACOES-V33.md para as mudanças e a publicação. Os tópicos antigos abaixo documentam a base herdada.
+Projeto Kotlin + Jetpack Compose. A V38 mantém as animações do mapa independentes da atualização de telemetria e reorganiza o painel “?”. Consulte ALTERACOES-V38.md. Os tópicos antigos abaixo documentam a base herdada.
 
 ## V17: navegação nativa e telemetria
 

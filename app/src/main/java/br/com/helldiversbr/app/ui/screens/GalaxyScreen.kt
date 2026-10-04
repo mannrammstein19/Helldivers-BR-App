@@ -216,8 +216,14 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
         }
     }
     val readingWarning = state.error != null || state.telemetrySource == "cache" || home is HomeState.Error || data?.staleSources?.isNotEmpty() == true
-    val diagnosticNotice = if(readingWarning) "Há fontes sem atualização; suas últimas leituras válidas foram preservadas.\n\n" else ""
-    if(infoOpen) AlertDialog(onDismissRequest={infoOpen=false},confirmButton={TextButton(onClick={infoOpen=false}){Text("ENTENDI")}},title={Text("LEITURA DO MAPA")},text={Text("${diagnosticNotice}Azul: Super Terra. Vermelho: Autômatos. Laranja: Terminídeos. Roxo: Iluminados.\n\nA defesa e a invasão têm anéis independentes. Condições planetárias não confirmam um fenômeno ocorrendo nesta missão.\n\nÚltima leitura: ${state.updatedAtMillis?.let { java.time.Instant.ofEpochMilli(it).toString() } ?: "indisponível"} · ${state.telemetrySource}")})
+    if (infoOpen) MapReadingDialog(
+        state = state,
+        data = data,
+        warning = readingWarning,
+        onDismiss = { infoOpen = false },
+        onPreferences = { infoOpen = false; settingsOpen = true },
+        onRefresh = vm::refresh,
+    )
     // The map owns the whole available destination, including the space behind overlays.
     BoxWithConstraints(Modifier.fillMaxSize().padding(contentPadding).background(Color(0xFF050810))) {
         val landscapeLayout = maxWidth > maxHeight
