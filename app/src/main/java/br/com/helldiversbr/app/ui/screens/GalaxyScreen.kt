@@ -54,7 +54,6 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     val data = when (home) { is HomeState.Ready -> home.data; is HomeState.Error -> home.last; else -> null }
     val campaigns = data?.campaigns.orEmpty().associateBy { it.planet.index }
     val dssStation = state.dss.station
-    val lastDssName = state.dss.lastPlanetIndex?.let { state.planetCatalog[it]?.displayName }.orEmpty()
     val dssPlanetName = dssStation?.let { station ->
         localizedText(station.planet.name)
             .ifBlank { data?.planetCatalog?.get(station.planet.index)?.displayName.orEmpty() }
@@ -80,6 +79,7 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var dossierId by rememberSaveable { mutableStateOf<Long?>(null) }
     var dssOpen by rememberSaveable { mutableStateOf(false) }
+    var dssExpanded by rememberSaveable { mutableStateOf(false) }
     val contextIds = remember(planets, campaigns, state.dssHost, selectedId) {
         val core = planets.filter { it.index in campaigns || it.event != null }
             .map { it.index }.toSet()
@@ -182,7 +182,7 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
                                 contentDescription = planet.nameText, contentScale = ContentScale.Crop,
                                 modifier = Modifier.size(28.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(7.dp)))
                             Column(Modifier.weight(1f)) {
-                                Text(planetTitle(planet.nameText), color = mapColor(mapFaction(planet.currentOwner)), fontWeight = FontWeight.Bold)
+                                Text(planetTitle(planet.nameText), color = mapNameColor(planet.currentOwner), fontWeight = FontWeight.Bold)
                                 Text(planet.sector, color = HD.TextDim, fontSize = 11.sp)
                             }
                             SiteImage("helldivers_active", "Helldivers ativos", Modifier.size(17.dp))
@@ -210,13 +210,14 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
             MapOptionRow("Presenças",options.presences) { update(options.copy(presences=it)) }
             MapOptionRow("Modelos de naves",options.ships) { update(options.copy(ships=it)) }
             MapOptionRow("Faixas dos territórios",options.stripes) { update(options.copy(stripes=it)) }
-            MapOptionRow("Boletim",options.bulletin) { update(options.copy(bulletin=it)) }
             MapOptionRow("Movimento e pulsos",options.motion) { update(options.copy(motion=it)) }
             Text("Naves são ilustrações das presenças confirmadas, não contagem de unidades.",color=HD.TextMuted,fontSize=11.sp)
             Spacer(Modifier.height(20.dp))
         }
     }
-    if(infoOpen) AlertDialog(onDismissRequest={infoOpen=false},confirmButton={TextButton(onClick={infoOpen=false}){Text("ENTENDI")}},title={Text("LEITURA DO MAPA")},text={Text("Azul: Super Terra. Vermelho: Autômatos. Laranja: Terminídeos. Roxo: Iluminados.\n\nA defesa e a invasão têm anéis independentes. Condições planetárias não confirmam um fenômeno ocorrendo nesta missão.\n\nÚltima leitura: ${state.updatedAtMillis?.let { java.time.Instant.ofEpochMilli(it).toString() } ?: "indisponível"} · ${state.telemetrySource}")})
+    val readingWarning = state.error != null || state.telemetrySource == "cache" || home is HomeState.Error || data?.staleSources?.isNotEmpty() == true
+    val diagnosticNotice = if(readingWarning) "Há fontes sem atualização; suas últimas leituras válidas foram preservadas.\n\n" else ""
+    if(infoOpen) AlertDialog(onDismissRequest={infoOpen=false},confirmButton={TextButton(onClick={infoOpen=false}){Text("ENTENDI")}},title={Text("LEITURA DO MAPA")},text={Text("${diagnosticNotice}Azul: Super Terra. Vermelho: Autômatos. Laranja: Terminídeos. Roxo: Iluminados.\n\nA defesa e a invasão têm anéis independentes. Condições planetárias não confirmam um fenômeno ocorrendo nesta missão.\n\nÚltima leitura: ${state.updatedAtMillis?.let { java.time.Instant.ofEpochMilli(it).toString() } ?: "indisponível"} · ${state.telemetrySource}")})
     // The map owns the whole available destination, including the space behind overlays.
     BoxWithConstraints(Modifier.fillMaxSize().padding(contentPadding).background(Color(0xFF050810))) {
         val landscapeLayout = maxWidth > maxHeight
@@ -243,53 +244,24 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
                             Text("FILTROS", fontSize = 11.sp, color = key?.let { mapColor(it) } ?: HD.Yellow)
                         }
                     }
-                    if(options.bulletin) MapBulletin(data, state.telemetrySource=="cache")
                     if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp), color = HD.Yellow)
-                    if (state.error != null || home is HomeState.Error || data?.staleSources?.isNotEmpty() == true) {
-                        Text("Dados sem atualização • exibindo a última leitura disponível", color = HD.Gold, fontSize = 10.sp)
-                    }
+
                 }
             }
             if(data!=null) {
                 TextButton(onClick={frontsOpen=!frontsOpen}) { Text("${if(frontsOpen) "▾" else "▸"} FRENTES EM DESTAQUE",fontSize=11.sp) }
-                if(frontsOpen) Column(Modifier.heightIn(max=panelMaxHeight).verticalScroll(rememberScrollState())) {
+                if(frontsOpen) Column(Modifier.fillMaxWidth(if(landscapeLayout) 1f else .82f).heightIn(max=panelMaxHeight).verticalScroll(rememberScrollState())) {
                     data.campaigns.sortedByDescending { it.planet.statistics.playerCount }.take(3).forEach { c ->
                         if(frontId==c.planet.index) CampaignCard(data,c) { frontId=null }
                         else Surface(color=HD.Surface,shape=androidx.compose.foundation.shape.RoundedCornerShape(12.dp),modifier=Modifier.fillMaxWidth().padding(bottom=4.dp).clickable { frontId=c.planet.index }) {
                             Row(Modifier.padding(10.dp),verticalAlignment=Alignment.CenterVertically) {
-                                Text(planetTitle(c.planet.nameText),color=mapColor(mapFaction(c.planet.currentOwner)),modifier=Modifier.weight(1f),fontWeight=FontWeight.Bold)
+                                Text(planetTitle(c.planet.nameText),color=mapNameColor(c.planet.currentOwner),modifier=Modifier.weight(1f),fontWeight=FontWeight.Bold)
                                 SiteImage("helldivers_active","Helldivers",Modifier.size(16.dp))
                                 Text(mapPlayerCount(c.planet.statistics.playerCount),color=HD.Text,fontSize=11.sp)
                             }
                         }
                         if(frontId==c.planet.index) TextButton(onClick={dossierId=c.planet.index}) { Text("INTELIGÊNCIA ↗") }
                     }
-                }
-            }
-            Surface(
-                color = Color(0xE6090D12),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, if (state.dss.hasStation) HD.Yellow.copy(alpha = .72f) else HD.Border),
-                modifier = Modifier.fillMaxWidth().clickable { dssOpen = true },
-            ) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 11.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    AsyncImage(MapAssets.file(if(state.dss.isLive) "dss-operacional" else "dss-inoperante"),"DSS",modifier=Modifier.size(30.dp))
-                    Column(Modifier.weight(1f).padding(start = 9.dp)) {
-                        Text("DSS // ESTAÇÃO ESPACIAL DA DEMOCRACIA", color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
-                        Text(
-                            when {
-                                state.dss.isLive && dssPlanetName.isNotBlank() -> "ORBITANDO ${dssPlanetName.uppercase()}"
-                                state.dss.availability == DssAvailability.LOCATION_UNKNOWN -> "LOCALIZAÇÃO NÃO INFORMADA"
-                                state.dss.availability == DssAvailability.ABSENT -> "TEMPORARIAMENTE INDISPONÍVEL"
-                                else -> "TELEMETRIA INDISPONÍVEL"
-                            },
-                            color = if (state.dss.stale) HD.Gold else HD.Text,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                    if(!state.dss.isLive && lastDssName.isNotBlank()) Text("Última posição: ${planetTitle(lastDssName)}",color=HD.TextMuted,fontSize=9.sp,modifier=Modifier.widthIn(max=110.dp))
-                    Text("ABRIR  ›", color = HD.TextDim, fontSize = 9.sp, fontWeight = FontWeight.Black)
                 }
             }
             if (selected != null) {
@@ -303,9 +275,26 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
                 }
             }
         }
+        DssMapDock(
+            expanded = dssExpanded,
+            model = MapAssets.file(if(state.dss.isLive) "dss-operacional" else "dss-inoperante"),
+            status = when {
+                state.dss.isLive && dssPlanetName.isNotBlank() -> "Orbitando ${planetTitle(dssPlanetName)}"
+                state.dss.availability == DssAvailability.LOCATION_UNKNOWN -> "Localização não informada"
+                state.dss.availability == DssAvailability.ABSENT -> "Temporariamente indisponível"
+                else -> "Telemetria indisponível"
+            },
+            stale = state.dss.stale,
+            motion = options.motion && android.provider.Settings.Global.getFloat(context.contentResolver,
+                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,1f)>0,
+            onToggle = { dssExpanded = !dssExpanded },
+            onDetails = { dssExpanded = false; dssOpen = true },
+            modifier = Modifier.align(Alignment.TopEnd).padding(top=if(landscapeLayout) 8.dp else 76.dp, end=8.dp)
+                .widthIn(max=(maxWidth-16.dp).coerceAtMost(330.dp)),
+        )
         Column(Modifier.align(Alignment.BottomStart).padding(8.dp)) {
             TextButton(onClick={settingsOpen=true},modifier=Modifier.background(HD.Surface,androidx.compose.foundation.shape.RoundedCornerShape(12.dp))) { Text("⚙",fontSize=22.sp) }
-            TextButton(onClick={infoOpen=true},modifier=Modifier.background(HD.Surface,androidx.compose.foundation.shape.RoundedCornerShape(12.dp))) { Text("?",fontSize=22.sp) }
+            TextButton(onClick={infoOpen=true},modifier=Modifier.background(HD.Surface,androidx.compose.foundation.shape.RoundedCornerShape(12.dp))) { Text(if(readingWarning) "? •" else "?",fontSize=22.sp,color=if(readingWarning) HD.Gold else HD.Yellow) }
         }
 
     }
@@ -343,7 +332,7 @@ private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeDa
         Row(Modifier.fillMaxWidth().align(Alignment.BottomStart).padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             SiteImage(mapFaction(planet.currentOwner), galaxyFaction(planet), Modifier.size(26.dp))
             Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                Text(planetTitle(planet.nameText), color = mapColor(mapFaction(planet.currentOwner)), fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 2)
+                Text(planetTitle(planet.nameText), color = mapNameColor(planet.currentOwner), fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 2)
                 Text("${planet.sector} • ${if (defense) "DEFESA" else if (campaign != null) "LIBERTAÇÃO" else galaxyFaction(planet)}",
                     color = accent, fontSize = 10.sp)
             }

@@ -74,3 +74,38 @@ fun mapPlayerCount(n: Long): String = when {
 /** Evento de defesa recebido da API; libertações não são alertas de invasão. */
 fun isPlanetUnderAttack(planet: br.com.helldiversbr.app.data.Planet): Boolean =
     !planet.disabled && planet.event != null && mapSpecial(planet) == null
+
+/** Name color is independent from blue human progress and supply routes. */
+fun mapNameColor(owner: String): Color = if (mapFaction(owner) == "human") Color(0xFFD7D52C) else mapColor(mapFaction(owner))
+fun mapRouteColor(owner: String): Color = if (mapFaction(owner) == "human") Color(0xFF66C9F1) else mapColor(mapFaction(owner))
+
+data class MapAttackLink(val source: Long, val target: Long, val faction: String)
+/** Direction comes from attacking IDs, never merely from a border or a presence. */
+fun mapAttackLinks(planets: List<Planet>, active: Set<Long>): List<MapAttackLink> {
+    val indexed = planets.associateBy { it.index }
+    return planets.flatMap { source ->
+        val faction = mapFaction(source.currentOwner)
+        if (source.disabled || mapSpecial(source) != null || faction == "unknown") emptyList()
+        else source.attacking.mapNotNull { id ->
+            val target = indexed[id] ?: return@mapNotNull null
+            val a = mapPosition(source, planets) ?: return@mapNotNull null
+            val b = mapPosition(target, planets) ?: return@mapNotNull null
+            if (id == source.index || a == b || mapSpecial(target) != null) return@mapNotNull null
+            val confirmed = if (faction == "human") source.event == null && mapOffensive(target, active)
+                else target.event != null && mapFaction(target.currentOwner) == "human" && mapFaction(target.event.faction) == faction
+            if (confirmed) MapAttackLink(source.index, id, faction) else null
+        }
+    }.distinct()
+}
+
+/** Permanent ownership ring is distinct from independent campaign progress rings. */
+fun mapOwnerColor(owner: String): Color = mapRouteColor(owner)
+fun mapLabelTop(radiusPx: Float, defense: Boolean, offensive: Boolean, gapPx: Float, special: Boolean = false, selected: Boolean = false): Float =
+    radiusPx * when { special -> 3.65f; selected -> 3.5f; defense || offensive -> 2.95f; else -> 1f } + gapPx
+
+/** The two lines follow font metrics, rather than a fixed gap from the map coordinate. */
+fun mapLabelBaselines(topPx: Float, nameAscent: Float, nameDescent: Float, countAscent: Float, showName: Boolean, gapPx: Float): Pair<Float, Float> {
+    val name = topPx - nameAscent
+    val count = if (showName) name + nameDescent + gapPx - countAscent else topPx - countAscent
+    return name to count
+}

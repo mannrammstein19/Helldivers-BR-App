@@ -44,25 +44,3 @@ fun RotatingPlanetStatus(status: String, planet: Planet, stale: Boolean, color: 
     Text(notices[index],color=color,fontSize=9.sp,fontWeight=FontWeight.Black,maxLines=1,
         overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis,modifier=Modifier.widthIn(max=145.dp))
 }
-
-/** Static text swap every ten seconds, without a scrolling animation or new requests. */
-@Composable
-fun MapBulletin(data: HomeData?, stale: Boolean) {
-    val messages=remember(data?.campaigns,data?.order?.state) { buildList {
-        data?.campaigns?.sortedByDescending { it.planet.statistics.playerCount }?.take(3)?.forEach { c ->
-            add("${planetTitle(c.planet.nameText)} · ${if(c.planet.event!=null) "Defesa em andamento" else "Campanha em andamento"} · ${mapPlayerCount(c.planet.statistics.playerCount)} Helldivers")
-        }
-        if(data?.order?.state=="active") add("Ordem Maior em andamento · confira os objetivos")
-    } }
-    if(messages.isEmpty()) return
-    var index by remember(messages) { mutableStateOf(0) }
-    val lifecycle=androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(messages,stale,lifecycle) {
-        index=0
-        if(!stale && messages.size>1) lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while(true) { delay(10_000);index=(index+1)%messages.size }
-        }
-    }
-    Text((if(stale) "Última leitura · " else "")+messages[index],color=HD.TextDim,fontSize=10.sp,maxLines=2,
-        modifier=Modifier.fillMaxWidth().padding(horizontal=10.dp,vertical=4.dp))
-}
