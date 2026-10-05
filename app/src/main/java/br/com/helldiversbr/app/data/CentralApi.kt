@@ -54,6 +54,11 @@ object CentralApi {
             }
         }
     }
+    /** Diagnostic snapshot only: never starts a network request or changes observation time. */
+    fun latest(path: String): Reading? = readings[path]?.let {
+        it.copy(stale = it.stale || retries.containsKey(path))
+    }
+
     fun planets(r: Reading) = json.decodeFromJsonElement(ListSerializer(Planet.serializer()), r.data)
     fun campaigns(r: Reading) = json.decodeFromJsonElement(ListSerializer(Campaign.serializer()), r.data)
     fun assignments(r: Reading) = json.decodeFromJsonElement(ListSerializer(Assignment.serializer()), r.data)

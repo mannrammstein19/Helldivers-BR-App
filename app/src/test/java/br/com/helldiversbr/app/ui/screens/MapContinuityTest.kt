@@ -38,15 +38,27 @@ class MapContinuityTest {
 
     @Test fun readingTimeUsesLocalZoneAndKeepsTheOriginalTimestamp() {
         val reading = Instant.parse("2026-10-04T20:34:47Z").toEpochMilli()
-        assertEquals("04/10/2026 às 17:34:47", mapReadingTime(reading, ZoneId.of("America/Sao_Paulo")))
-        assertEquals("04/10/2026 às 20:34:47", mapReadingTime(reading, ZoneId.of("UTC")))
+        assertEquals("04/10/2026, 17:34:47", mapReadingTime(reading, ZoneId.of("America/Sao_Paulo")))
+        assertEquals("04/10/2026, 20:34:47", mapReadingTime(reading, ZoneId.of("UTC")))
         assertEquals("Sem leitura disponível", mapReadingTime(null))
         assertEquals("Sem leitura disponível", mapReadingTime(0L))
     }
 
+    @Test fun originalGifDurationsLoopWithoutOverflowOrSyntheticRotation() {
+        assertEquals(0, mapGifTimeMillis(0f, 9000))
+        assertEquals(4500, mapGifTimeMillis(4.5f, 9000))
+        assertEquals(0, mapGifTimeMillis(9f, 9000))
+        assertEquals(1000, mapGifTimeMillis(10f, 9000))
+        assertTrue(mapGifTimeMillis(10.57f, 10070) in 499..501)
+        assertTrue(mapGifTimeMillis(3_000_000f, 10070) in 0 until 10070)
+        assertEquals(0, mapGifTimeMillis(-1f, 9000))
+        assertEquals(0, mapGifTimeMillis(Float.NaN, 9000))
+        assertEquals(0, mapGifTimeMillis(1f, 0))
+    }
+
     @Test fun sourcesHaveReadableNamesAndCacheRemainsIdentified() {
-        assertEquals("API da comunidade", mapReadingSource("community"))
-        assertEquals("API direta do jogo", mapReadingSource("direct"))
+        assertEquals("Community API", mapReadingSource("community"))
+        assertEquals("API direta", mapReadingSource("direct"))
         assertEquals("Fontes combinadas", mapReadingSource("mixed"))
         assertEquals("Última leitura salva", mapReadingSource("cache"))
         assertEquals("Fonte indisponível", mapReadingSource("unexpected"))

@@ -1,6 +1,6 @@
-# HELLDIVERS-BR — Android V38.0.0
+# HELLDIVERS-BR — Android V39.0.0
 
-Projeto Kotlin + Jetpack Compose. A V38 mantém as animações do mapa independentes da atualização de telemetria e reorganiza o painel “?”. Consulte ALTERACOES-V38.md. Os tópicos antigos abaixo documentam a base herdada.
+Projeto Kotlin + Jetpack Compose. A V39 reproduz os GIFs originais de Penta e Meridia e traz o painel compacto do “?” conforme as prints. Consulte ALTERACOES-V39.md. Os tópicos antigos abaixo documentam a base herdada.
 
 ## V17: navegação nativa e telemetria
 

@@ -12,3 +12,9 @@ internal class MapAnimationClock {
         return lastSeconds
     }
 }
+
+/** Keep the GIF's real duration; modulo occurs before converting to Int. */
+internal fun mapGifTimeMillis(seconds: Float, durationMillis: Int): Int {
+    if (durationMillis <= 0 || !seconds.isFinite()) return 0
+    return ((seconds.coerceAtLeast(0f).toDouble() * 1000.0).toLong() % durationMillis).toInt()
+}

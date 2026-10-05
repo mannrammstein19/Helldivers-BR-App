@@ -216,14 +216,6 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
         }
     }
     val readingWarning = state.error != null || state.telemetrySource == "cache" || home is HomeState.Error || data?.staleSources?.isNotEmpty() == true
-    if (infoOpen) MapReadingDialog(
-        state = state,
-        data = data,
-        warning = readingWarning,
-        onDismiss = { infoOpen = false },
-        onPreferences = { infoOpen = false; settingsOpen = true },
-        onRefresh = vm::refresh,
-    )
     // The map owns the whole available destination, including the space behind overlays.
     BoxWithConstraints(Modifier.fillMaxSize().padding(contentPadding).background(Color(0xFF050810))) {
         val landscapeLayout = maxWidth > maxHeight
@@ -298,9 +290,19 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
             modifier = Modifier.align(Alignment.TopEnd).padding(top=if(landscapeLayout) 8.dp else 76.dp, end=8.dp)
                 .widthIn(max=(maxWidth-16.dp).coerceAtMost(330.dp)),
         )
+        if (infoOpen) MapReadingPanel(
+            state = state, data = data, warning = readingWarning,
+            onDismiss = { infoOpen = false },
+            onPreferences = { infoOpen = false; settingsOpen = true },
+            onRefresh = vm::refresh,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 8.dp, end = 8.dp, bottom = 112.dp)
+                .width((maxWidth * .78f).coerceAtMost(420.dp))
+                .heightIn(max = (maxHeight - 132.dp).coerceAtLeast(80.dp).coerceAtMost(600.dp)),
+        )
+        androidx.activity.compose.BackHandler(enabled = infoOpen) { infoOpen = false }
         Column(Modifier.align(Alignment.BottomStart).padding(8.dp)) {
             TextButton(onClick={settingsOpen=true},modifier=Modifier.background(HD.Surface,androidx.compose.foundation.shape.RoundedCornerShape(12.dp))) { Text("⚙",fontSize=22.sp) }
-            TextButton(onClick={infoOpen=true},modifier=Modifier.background(HD.Surface,androidx.compose.foundation.shape.RoundedCornerShape(12.dp))) { Text(if(readingWarning) "? •" else "?",fontSize=22.sp,color=if(readingWarning) HD.Gold else HD.Yellow) }
+            TextButton(onClick={infoOpen=!infoOpen},modifier=Modifier.background(HD.Surface,androidx.compose.foundation.shape.RoundedCornerShape(12.dp))) { Text(if(readingWarning) "? •" else "?",fontSize=22.sp,color=if(readingWarning) HD.Gold else HD.Yellow) }
         }
 
     }

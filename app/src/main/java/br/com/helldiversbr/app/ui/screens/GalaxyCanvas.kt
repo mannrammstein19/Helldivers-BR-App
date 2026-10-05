@@ -3,6 +3,8 @@ package br.com.helldiversbr.app.ui.screens
 import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.foundation.Canvas
@@ -85,6 +87,13 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
         }
         value = MapArt(loaded.mapNotNull { (key, bitmap) -> bitmap?.let { key to it } }.toMap(), loaded.count { it.second == null }, true)
     }
+    val gifs by produceState<Map<String, MapGifSprite>>(emptyMap(), context) {
+        value = withContext(Dispatchers.IO) {
+            listOf("penta", "meridia").mapNotNull { key ->
+                MapGifSprite.load(context.assets, "map/static/imagens/planetas/$key.gif")?.let { key to it }
+            }.toMap()
+        }
+    }
     val outlines by produceState<Map<String, Path>>(emptyMap()) {
         value = withContext(Dispatchers.IO) {
             context.assets.open("sectors.json").bufferedReader().use {
@@ -114,15 +123,15 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
             }
         }
     }
-    val animated = options.motion && !stale && (attacked.isNotEmpty() || (invasions && routes && attacks.isNotEmpty()) || ships.isNotEmpty() || specialMarkers.isNotEmpty())
+    // Visual motion is independent of telemetry freshness and refresh requests.
+    // Saved readings still retain their timestamps and do not become live data.
+    val animated = options.motion
+    val animationClock = remember { MapAnimationClock() }
     // Read the clock only in the small overlay; static geography never follows it.
     val animationSeconds = produceState(0f, animated, lifecycle) {
-        value = 0f
         if (animated) lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
-            val start = android.os.SystemClock.elapsedRealtime()
             while (true) {
-                value = (android.os.SystemClock.elapsedRealtime() - start) / 1000f
-                kotlinx.coroutines.delay(50)
+                withFrameNanos { frameTime -> value = animationClock.secondsAt(frameTime) }
             }
         }
     }
@@ -425,23 +434,28 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 }
             }
             val spritePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
+            // Supplied black-hole artwork has an opaque black background. SCREEN
+            // blends that black into the map while retaining the luminous rings.
+            val blackHolePaint = Paint(spritePaint).apply {
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.SCREEN)
+            }
             specialMarkers.forEach { marker ->
                 val radius = max(1000f / 260f * unit, 1.8.dp.toPx())
                 val at = origin + marker.point * unit
                 val margin = radius * 4f
                 if(at.x in -margin..(size.width+margin) && at.y in -margin..(size.height+margin)) {
-                    art.bitmaps[marker.key]?.let { bitmap ->
-                        // Meridia turns once per minute; wreckage once per 90 seconds.
-                        // Penta breathes gently without rotating. No ownership halo or radial.
-                        val period = if(marker.key == "meridia") 60f else 90f
-                        val angle = if(animated && marker.key != "penta") (seconds % period) / period * 360f else 0f
-                        val breathe = if(animated && marker.key == "penta") 1f + .04f * sin(seconds * 2f * PI.toFloat() / 6f) else 1f
-                        val ratio = min(radius * 5f / bitmap.width, radius * 5f / bitmap.height) * breathe
+                    val gif = gifs[marker.key]
+                    val artwork = gif?.frameAt(seconds, animated) ?: art.bitmaps[marker.key]
+                    artwork?.let { bitmap ->
+                        // Black holes play their original GIF frames; only wreckage rotates.
+                        val angle = if(animated && marker.key == "wreckage") (seconds % 90f) / 90f * 360f else 0f
+                        val ratio = min(radius * 5f / bitmap.width, radius * 5f / bitmap.height)
                         val w = bitmap.width * ratio; val h = bitmap.height * ratio
                         val canvas = drawContext.canvas.nativeCanvas
                         canvas.save()
                         canvas.rotate(angle, at.x, at.y)
-                        canvas.drawBitmap(bitmap, null, RectF(at.x-w/2,at.y-h/2,at.x+w/2,at.y+h/2), spritePaint)
+                        val paint = if (marker.key == "penta" || marker.key == "meridia") blackHolePaint else spritePaint
+                        canvas.drawBitmap(bitmap, null, RectF(at.x-w/2,at.y-h/2,at.x+w/2,at.y+h/2), paint)
                         canvas.restore()
                     }
                 }
