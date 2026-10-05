@@ -3,8 +3,6 @@ package br.com.helldiversbr.app.ui.screens
 import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.foundation.Canvas
@@ -116,15 +114,15 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
             }
         }
     }
-    // Visual motion is independent of telemetry freshness and refresh requests.
-    // Saved readings still retain their timestamps and do not become live data.
-    val animated = options.motion
-    val animationClock = remember { MapAnimationClock() }
+    val animated = options.motion && !stale && (attacked.isNotEmpty() || (invasions && routes && attacks.isNotEmpty()) || ships.isNotEmpty() || specialMarkers.isNotEmpty())
     // Read the clock only in the small overlay; static geography never follows it.
     val animationSeconds = produceState(0f, animated, lifecycle) {
+        value = 0f
         if (animated) lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            val start = android.os.SystemClock.elapsedRealtime()
             while (true) {
-                withFrameNanos { frameTime -> value = animationClock.secondsAt(frameTime) }
+                value = (android.os.SystemClock.elapsedRealtime() - start) / 1000f
+                kotlinx.coroutines.delay(50)
             }
         }
     }
@@ -427,11 +425,6 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 }
             }
             val spritePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
-            // Supplied black-hole artwork has an opaque black background. SCREEN
-            // blends that black into the map while retaining the luminous rings.
-            val blackHolePaint = Paint(spritePaint).apply {
-                xfermode = PorterDuffXfermode(PorterDuff.Mode.SCREEN)
-            }
             specialMarkers.forEach { marker ->
                 val radius = max(1000f / 260f * unit, 1.8.dp.toPx())
                 val at = origin + marker.point * unit
@@ -448,8 +441,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                         val canvas = drawContext.canvas.nativeCanvas
                         canvas.save()
                         canvas.rotate(angle, at.x, at.y)
-                        val paint = if (marker.key == "penta" || marker.key == "meridia") blackHolePaint else spritePaint
-                        canvas.drawBitmap(bitmap, null, RectF(at.x-w/2,at.y-h/2,at.x+w/2,at.y+h/2), paint)
+                        canvas.drawBitmap(bitmap, null, RectF(at.x-w/2,at.y-h/2,at.x+w/2,at.y+h/2), spritePaint)
                         canvas.restore()
                     }
                 }
