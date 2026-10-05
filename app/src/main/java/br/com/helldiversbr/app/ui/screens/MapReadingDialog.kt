@@ -38,8 +38,8 @@ internal fun MapReadingPanel(
     val pending = warning || assignments?.stale == true || dispatches?.stale == true || state.dss.stale || regions.any { it.telemetryStale }
     Surface(modifier = modifier, color = Color(0xFF0E181F), shape = RoundedCornerShape(14.dp),
         border = BorderStroke(1.dp, Color(0xFF596572)), shadowElevation = 8.dp) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(when {
                     state.loading -> "Atualizando · dados preservados"
@@ -76,11 +76,13 @@ internal fun MapReadingPanel(
 
 @Composable
 private fun ReadingBlock(title: String, source: String, millis: Long?, saved: Boolean) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, color = Color(0xFFFFEB27), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-        Text(mapReadingTime(millis), color = Color(0xFFB5DBCE), fontSize = 13.sp)
-        Text(mapReadingSource(source), color = Color(0xFF82BFF2), fontSize = 13.sp)
-        if (saved) Text("Última leitura salva · aguardando atualização", color = Color(0xFFE2C686), fontSize = 12.sp)
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, modifier = Modifier.weight(1f), color = Color(0xFFFFEB27), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text(mapReadingTime(millis), color = Color(0xFFB5DBCE), fontSize = 10.sp)
+        }
+        Text(mapReadingSource(source), color = Color(0xFF82BFF2), fontSize = 10.sp)
+        if (saved) Text("Última leitura salva · aguardando atualização", color = Color(0xFFE2C686), fontSize = 10.sp)
         HorizontalDivider(color = Color(0xFF394650), modifier = Modifier.padding(top = 4.dp))
     }
 }

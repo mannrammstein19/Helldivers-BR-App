@@ -56,7 +56,7 @@ import kotlin.math.*
 
 private const val EARTH_MAP_SCALE = 1.9f * 1.05f
 
-private data class MapSpecialMarker(val point: Offset, val key: String)
+private data class MapSpecialMarker(val point: Offset, val key: String, val name: String)
 
 private data class MapRoute(val a: Offset, val b: Offset, val from: Planet, val to: Planet)
 
@@ -104,7 +104,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
     }
     val positioned = remember(planets, all) { planets.mapNotNull { p -> mapPosition(p, all)?.let { p to Offset(it.x.toFloat() * 500f, -it.y.toFloat() * 500f) } } }
     val specialMarkers = remember(positioned) {
-        positioned.mapNotNull { (planet, point) -> mapSpecial(planet)?.let { MapSpecialMarker(point, it) } }
+        positioned.mapNotNull { (planet, point) -> mapSpecial(planet)?.let { MapSpecialMarker(point, it, mapName(planet)) } }
     }
     val attacked = remember(positioned) { positioned.filter { isPlanetUnderAttack(it.first) } }
     val attacks = remember(all, active) { mapAttackLinks(all, active) }
@@ -288,7 +288,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 val screen = origin + at * unit
                 if(screen.x < -100 || screen.y < -100 || screen.x > size.width+100 || screen.y > size.height+100) return@forEach
                 val special=mapSpecial(p);val capital=mapEarth(p);val key=mapFaction(p.currentOwner)
-                val defense=special==null&&p.event!=null;val offensive=mapOffensive(p,active) && (mapProgress(p) ?: 0.0) >= .5
+                val defense=special==null&&p.event!=null;val offensive=special==null && mapOffensive(p,active) && (mapProgress(p) ?: 0.0) >= .5
                 val r = max(1000f / 260f, (if (defense || offensive) 3.4.dp else 1.8.dp).toPx() / unit) * (if (capital) EARTH_MAP_SCALE else 1f)
                 val quiet = key == "human" && !defense && !offensive && selected != p.index
                 val color = mapOwnerColor(p.currentOwner)
@@ -350,7 +350,9 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     val nameMetrics = textPaint.fontMetrics
                     textPaint.textSize = 9.sp.toPx()
                     val countMetrics = textPaint.fontMetrics
-                    val top = mapLabelTop(r*unit, defense, offensive, 4.dp.toPx(), special!=null, selected==p.index) + if(defense || offensive) 0f else 1.dp.toPx()
+                    val top = if (special != null) {
+                        r * unit * when (special) { "penta" -> 1.9f; "meridia" -> 1.7f; else -> 2.9f } + 2.dp.toPx()
+                    } else mapLabelTop(r*unit, defense, offensive, 4.dp.toPx(), false, selected==p.index) + if(defense || offensive) 0f else 1.dp.toPx()
                     val (nameBaseline, countBaseline) = mapLabelBaselines(top, nameMetrics.ascent, nameMetrics.descent,
                         countMetrics.ascent, options.names, 1.dp.toPx())
                     if(options.names) lines += MapCaption(caption.first,at+Offset(0f,nameBaseline/unit),mapNameColor(p.currentOwner),quiet,true)
@@ -448,8 +450,13 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     val artwork = gif?.frameAt(seconds, animated) ?: art.bitmaps[marker.key]
                     artwork?.let { bitmap ->
                         // Black holes play their original GIF frames; only wreckage rotates.
-                        val angle = if(animated && marker.key == "wreckage") (seconds % 90f) / 90f * 360f else 0f
-                        val ratio = min(radius * 5f / bitmap.width, radius * 5f / bitmap.height)
+                        val angle = if (animated && marker.key == "wreckage") when (marker.name) {
+                            "ivis" -> -(seconds % 100f) / 100f * 360f
+                            "moradesh" -> (seconds % 90f) / 90f * 360f
+                            else -> sin(seconds * 2f * PI.toFloat() / 18f) * 22f
+                        } else 0f
+                        val diameter = radius * when (marker.key) { "penta" -> 8f; "meridia" -> 7f; else -> 4f }
+                        val ratio = min(diameter / bitmap.width, diameter / bitmap.height)
                         val w = bitmap.width * ratio; val h = bitmap.height * ratio
                         val canvas = drawContext.canvas.nativeCanvas
                         canvas.save()

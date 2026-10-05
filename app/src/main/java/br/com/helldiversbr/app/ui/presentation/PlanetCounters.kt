@@ -26,19 +26,21 @@ fun PlanetCounters(planet: Planet) {
         Triple("ILUMINADOS ELIMINADOS", "illuminateKills", stats.illuminateKills),
     )
     val format = NumberFormat.getIntegerInstance(Locale("pt", "BR"))
-    HorizontalDivider(color = HD.BorderSoft)
-    Text("ESTATÍSTICAS DO PLANETA", color = HD.Yellow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-    counters.forEach { (label, field, value) ->
-        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Text(label, color = HD.TextDim, fontSize = 10.sp, modifier = Modifier.weight(1f))
-            Text(if (value != null) format.format(visualPlanetCounter(planet, field, value)) else "Indisponível", color = HD.Text,
-                fontSize = 12.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace,
-                textAlign = TextAlign.End, maxLines = 1, modifier = Modifier.widthIn(min = 132.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        HorizontalDivider(color = HD.BorderSoft)
+        Text("ESTATÍSTICAS DO PLANETA", color = HD.Yellow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        counters.forEach { (label, field, value) ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 1.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(label, color = HD.TextDim, fontSize = 10.sp, modifier = Modifier.weight(1f))
+                Text(if (value != null) format.format(visualPlanetCounter(planet, field, value)) else "Indisponível", color = HD.Text,
+                    fontSize = 12.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace,
+                    textAlign = TextAlign.End, maxLines = 1, modifier = Modifier.widthIn(min = 132.dp))
+            }
         }
-    }
-    counterSavedNotice(planet)?.let { notice ->
-        Text(notice, color = HD.TextMuted, fontSize = 8.sp,
-            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
+        counterSavedNotice(planet)?.let { notice ->
+            Text(notice, color = HD.TextMuted, fontSize = 8.sp,
+                modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
+        }
     }
 }
 

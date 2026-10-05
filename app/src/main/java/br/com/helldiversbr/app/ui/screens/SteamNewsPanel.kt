@@ -29,7 +29,7 @@ fun SteamNewsPanel(reading: SteamReading) {
     fun open(url: String) {
         if (SteamNewsRepository.validUrl(url)) runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
     }
-    HdCard(accent = HD.SignalBlue) {
+    HdCard(accent = HD.SignalBlue, contentSpacing = 4.dp) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(R.drawable.steam_logo, null, Modifier.size(27.dp))
             Text("STEAM", color = HD.Text, fontSize = 13.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 9.dp).weight(1f))
@@ -39,7 +39,7 @@ fun SteamNewsPanel(reading: SteamReading) {
         if (reading.items.isEmpty()) Text(if (reading.loading) "Buscando notícias…" else reading.message ?: "Nenhuma notícia disponível.", color = HD.TextDim, fontSize = 11.sp)
         reading.items.forEachIndexed { index, item ->
             if (index > 0) HorizontalDivider(color = HD.BorderSoft)
-            Column(Modifier.fillMaxWidth().clickable { open(item.url) }.padding(vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Column(Modifier.fillMaxWidth().clickable { open(item.url) }.padding(vertical = 3.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 LocalizedText(item.title, color = HD.Text, fontSize = 12.sp, maxLines = 3)
                 Text(if (item.publishedAtMillis > 0L) SimpleDateFormat("dd/MM/yyyy", Locale("pt", "BR")).format(Date(item.publishedAtMillis)) else "Data não informada",
                     color = HD.TextMuted, fontSize = 9.sp)

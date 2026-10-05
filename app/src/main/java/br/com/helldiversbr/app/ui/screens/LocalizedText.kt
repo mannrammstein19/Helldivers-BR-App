@@ -1,6 +1,9 @@
 package br.com.helldiversbr.app.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,10 +44,9 @@ fun LocalizedText(text: String, color: Color, fontSize: TextUnit, lineHeight: Te
             lineHeight = lineHeight, maxLines = maxLines, overflow = overflow)
         if (translating) Text("Traduzindo para PT-BR…", color = HD.TextMuted, fontSize = 10.sp)
         if (translated != text || failed) {
-            TextButton(onClick = { if (failed) retry++ else original = !original }, contentPadding = PaddingValues(0.dp)) {
-                Text(if (failed) "Original · tentar tradução novamente" else if (original) "Ver tradução em PT-BR" else "PT-BR automático · ver original",
-                    color = HD.TextMuted, fontSize = 10.sp)
-            }
+            Text(if (failed) "Tentar tradução novamente" else if (original) "Ver tradução" else "Ver original",
+                color = HD.TextMuted, fontSize = 9.sp,
+                modifier = Modifier.clickable { if (failed) retry++ else original = !original }.padding(vertical = 3.dp))
         }
     }
 }

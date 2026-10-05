@@ -1,6 +1,6 @@
-# HELLDIVERS-BR — Android V39.0.0
+# HELLDIVERS-BR — Android V40.0.0
 
-Projeto Kotlin + Jetpack Compose. A V39 reproduz os GIFs originais de Penta e Meridia e traz o painel compacto do “?” conforme as prints. Consulte ALTERACOES-V39.md. Os tópicos antigos abaixo documentam a base herdada.
+Projeto Kotlin + Jetpack Compose. A V40 compacta estatísticas, despachos, Steam e telemetria; melhora o enquadramento do ícone e os elementos especiais do mapa. Consulte ALTERACOES-V40.md. Os tópicos antigos abaixo documentam a base herdada.
 
 ## V17: navegação nativa e telemetria
 

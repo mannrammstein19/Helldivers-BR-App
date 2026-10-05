@@ -44,6 +44,7 @@ import br.com.helldiversbr.app.ui.theme.HD
 fun HdCard(
     modifier: Modifier = Modifier,
     accent: Color = HD.Border,
+    contentSpacing: androidx.compose.ui.unit.Dp = 10.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
@@ -61,7 +62,7 @@ fun HdCard(
             )
             Column(
                 Modifier.padding(horizontal = 15.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(contentSpacing),
                 content = content,
             )
         }
@@ -201,7 +202,7 @@ fun DispatchCard(dispatch: Dispatch, modifier: Modifier = Modifier) {
         colors = CardDefaults.cardColors(containerColor = HD.Surface),
         border = BorderStroke(1.dp, HD.Border.copy(alpha = .78f)),
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
