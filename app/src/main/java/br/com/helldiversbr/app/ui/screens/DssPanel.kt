@@ -108,6 +108,13 @@ private fun resolveDssLocation(
 }
 
 private fun dssActionInfo(action: DssTacticalAction): DssActionInfo {
+    br.com.helldiversbr.app.data.DssSupport.kind(action)?.let { known ->
+        return DssActionInfo(known.label, when (known) {
+            br.com.helldiversbr.app.data.DssSupport.EAGLE -> "A DSS emprega ataques periódicos de Águia para apoiar as operações no planeta."
+            br.com.helldiversbr.app.data.DssSupport.BLOCKADE -> "Impede o início de novas campanhas de Defesa a partir do planeta e fornece suporte adicional às operações."
+            br.com.helldiversbr.app.data.DssSupport.HEAVY -> "Fornece suporte de artilharia e acelera os esforços de libertação."
+        }, known.icon)
+    }
     val raw = action.name.trim()
     val key = raw.lowercase()
     return when {
@@ -144,9 +151,9 @@ private fun parseDssDate(value: String): Instant? {
         ?: runCatching { OffsetDateTime.parse(value).toInstant() }.getOrNull()
 }
 
-private fun dssTimeLabel(date: Instant?): String {
+private fun dssTimeLabel(date: Instant?, now: Long = System.currentTimeMillis()): String {
     if (date == null) return ""
-    var seconds = (date.toEpochMilli() - System.currentTimeMillis()) / 1000L
+    var seconds = (date.toEpochMilli() - now) / 1000L
     if (seconds <= 0L) return ""
     val days = seconds / 86_400L
     seconds %= 86_400L
@@ -164,20 +171,23 @@ private fun dssTimeLabel(date: Instant?): String {
  * No portal, status numérico 2 é tratado como ação ATIVA; os demais estados são
  * inferidos pelo financiamento e pelo prazo futuro.
  */
-private fun dssActionState(action: DssTacticalAction, pct: Double?): DssVisualState {
+private fun dssActionState(action: DssTacticalAction, pct: Double?, now: Long): DssVisualState {
     val rawStatus = sequenceOf(
         localizedText(action.statusName),
         localizedText(action.state),
         localizedText(action.statusText),
         action.status.toString(),
     ).firstOrNull { it.isNotBlank() }.orEmpty().lowercase()
-    val future = parseDssDate(action.statusExpire)?.takeIf { it.isAfter(Instant.now()) }
+    val expiry = parseDssDate(action.statusExpire)
+    val future = expiry?.takeIf { it.toEpochMilli() > now }
     val activeByText = Regex("(^|\\b)(active|ativa|activated|ativada)(\\b|$)", RegexOption.IGNORE_CASE)
         .containsMatchIn(rawStatus)
     if (action.status == 2 || activeByText) {
+        if (action.statusExpire.isNotBlank() && future == null) return DssVisualState(
+            "AGUARDANDO ATUALIZAÇÃO", "Prazo encerrado ou não confirmado", HD.Gold, false)
         return DssVisualState(
             label = "ATIVA",
-            detail = future?.let { "Termina em ${dssTimeLabel(it)}" }.orEmpty(),
+            detail = future?.let { "Termina em ${dssTimeLabel(it, now)}" }.orEmpty(),
             color = HD.Green,
             showProgress = false,
         )
@@ -185,7 +195,7 @@ private fun dssActionState(action: DssTacticalAction, pct: Double?): DssVisualSt
     if (Regex("cooldown|recharg|recarreg|unavailable|indispon", RegexOption.IGNORE_CASE).containsMatchIn(rawStatus)) {
         return DssVisualState(
             label = "RECARREGANDO",
-            detail = future?.let { "Disponível novamente em ${dssTimeLabel(it)}" }.orEmpty(),
+            detail = future?.let { "Disponível novamente em ${dssTimeLabel(it, now)}" }.orEmpty(),
             color = HD.Red,
             showProgress = false,
         )
@@ -210,7 +220,7 @@ private fun dssActionState(action: DssTacticalAction, pct: Double?): DssVisualSt
     if (future != null) {
         return DssVisualState(
             label = "RECARREGANDO",
-            detail = "Disponível novamente em ${dssTimeLabel(future)}",
+            detail = "Disponível novamente em ${dssTimeLabel(future, now)}",
             color = HD.Red,
             showProgress = false,
         )
@@ -367,12 +377,17 @@ private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean
 }
 
 @Composable
-private fun DssActionCard(action: DssTacticalAction, rich: Boolean) {
+private fun DssActionCard(action: DssTacticalAction, rich: Boolean, reading: DssReading) {
     val info = dssActionInfo(action)
     val cost = action.costs.firstOrNull()
     val pct = cost?.takeIf { it.targetValue > 0.0 }
         ?.let { (it.currentValue / it.targetValue * 100.0).coerceIn(0.0, 100.0) }
-    val state = dssActionState(action, pct)
+    val clock = dssDisplayClock()
+    val saved = !br.com.helldiversbr.app.data.DssSupport.isCurrent(reading, clock)
+    val asOf = if (saved) reading.fetchedAtMillis else clock
+    val observed = dssActionState(action, pct, asOf)
+    val state = if (saved) observed.copy(label = "ÚLTIMA LEITURA",
+        detail = "${observed.label} · estado atual não confirmado", color = HD.Gold, showProgress = false) else observed
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -499,10 +514,10 @@ fun DssPanel(
         DssHero(location, station, reading.stale, portrait = true)
 
         if (station.tacticalActions.isEmpty()) {
-            HdCard { Text("NENHUMA AÇÃO TÁTICA ATIVA NO MOMENTO.", color = HD.TextDim, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            HdCard { Text("NENHUMA AÇÃO TÁTICA INFORMADA NESTA LEITURA.", color = HD.TextDim, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
         } else {
             SectionLabel("Ações táticas", HD.Text)
-            station.tacticalActions.forEach { action -> DssActionCard(action, rich = true) }
+            station.tacticalActions.forEach { action -> DssActionCard(action, rich = true, reading = reading) }
         }
     }
 }
@@ -544,9 +559,9 @@ fun DssWarCard(
 
         DssHero(location, station, reading.stale, tall = true)
         if (station.tacticalActions.isEmpty()) {
-            Text("Nenhuma ação tática ativa no momento.", color = HD.TextMuted, fontSize = 10.sp)
+            Text("Nenhuma ação tática informada nesta leitura.", color = HD.TextMuted, fontSize = 10.sp)
         } else {
-            station.tacticalActions.forEach { DssActionCard(it, rich = false) }
+            station.tacticalActions.forEach { DssActionCard(it, rich = false, reading = reading) }
         }
     }
 }

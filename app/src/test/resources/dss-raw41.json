@@ -1,0 +1,19 @@
+{
+  "observedAtMillis": 1791296413000,
+  "station": {
+    "id32": 749875195,
+    "planetIndex": 200,
+    "activeEffectIds": [
+      1425,
+      1212,
+      1216,
+      1238,
+      1261,
+      1262,
+      1384,
+      1385
+    ],
+    "currentElectionEndWarTime": 83363990,
+    "flags": 1
+  }
+}

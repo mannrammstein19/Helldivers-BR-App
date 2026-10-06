@@ -388,6 +388,7 @@ private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeDa
                 }
             }
             if(rate!=null && data!=null && campaign!=null && OrderRepository.campaignRate(data,campaign)==null) Text("Média desde o início da defesa",color=HD.TextMuted,fontSize=10.sp)
+            DssSupportIcons(data?.dss, planet.index)
             PresenceIcons(planet,labels=true,stale=!fresh)
             if (campaign != null && eta == null) Text(if (!fresh) "Previsão suspensa: aguardando dados atualizados." else if (rate == null) "Aguardando amostras para calcular o ritmo." else "Sem previsão de vitória no ritmo atual.", color = HD.TextMuted, fontSize = 10.sp)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

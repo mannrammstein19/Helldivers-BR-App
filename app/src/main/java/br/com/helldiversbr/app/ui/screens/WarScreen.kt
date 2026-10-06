@@ -481,10 +481,11 @@ fun CampaignCard(data: HomeData, campaign: Campaign, onOpen: () -> Unit) {
                 AsyncImage(model = image, contentDescription = "${planet.nameText} — $biome", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.36f)))))
                 PresenceIcons(planet,stale="campanhas" in data.staleSources,modifier=Modifier.align(Alignment.BottomEnd).padding(11.dp))
-                if (hazards.isNotEmpty()) {
-                    Row(Modifier.align(Alignment.BottomStart).padding(11.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                Column(Modifier.align(Alignment.BottomStart).padding(11.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    if (hazards.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         hazards.forEach { HazardBadge(it) }
                     }
+                    DssSupportIcons(data.dss, planet.index)
                 }
             }
 
@@ -621,6 +622,7 @@ fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: () -> Uni
                             }
                         }
                     }
+                    DssSupportIcons(data.dss, p.index)
                     HorizontalDivider(color = HD.BorderSoft)
                     if(br.com.helldiversbr.app.data.PlanetPresences.list(p).isNotEmpty()) SectionLabel(if("planetas" in data.staleSources) "PRESENÇAS · ÚLTIMA LEITURA" else "PRESENÇAS CONFIRMADAS")
                     PresenceIcons(p, labels=true, stale="planetas" in data.staleSources)

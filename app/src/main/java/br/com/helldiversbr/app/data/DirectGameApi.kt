@@ -48,6 +48,7 @@ object DirectGameApi {
         val status: JsonObject,
         val info: JsonObject,
         val startMillis: Long?,
+        val observedAtMillis: Long,
     )
 
     private fun get(path: String): String {
@@ -108,7 +109,7 @@ object DirectGameApi {
         val info = runCatching { rootObject(get("/api/WarSeason/$warId/WarInfo")) }
             .getOrElse { rootObject(get("/api/WarSeason/$warId/Info")) }
         val startMillis = clockBase(long(status, "time"), now)
-        RawWarBundle(warId, status, info, startMillis).also { cachedBundle = now to it }
+        RawWarBundle(warId, status, info, startMillis, now).also { cachedBundle = now to it }
     }
 
     suspend fun regionStatus(): String = withContext(Dispatchers.IO) {
@@ -267,8 +268,10 @@ object DirectGameApi {
             ?: return@withContext DssReading(
                 station = null,
                 availability = DssAvailability.ABSENT,
-                fetchedAtMillis = System.currentTimeMillis(),
+                fetchedAtMillis = war.observedAtMillis,
                 source = "direct",
+                lastPlanetIndex = previous?.lastPlanetIndex,
+                lastLocationReadAtMillis = previous?.lastLocationReadAtMillis ?: 0L,
             )
         val planetIndex = long(raw, "planetIndex") ?: 0L
         val cat = catalog[planetIndex]
@@ -283,17 +286,20 @@ object DirectGameApi {
                 name = cat?.name ?: cat?.names ?: richer?.planet?.name,
                 sector = cat?.sector ?: richer?.planet?.sector.orEmpty(),
             ),
-            electionEnd = election.ifBlank { richer?.electionEnd.orEmpty() },
-            flags = long(raw, "flags") ?: richer?.flags ?: 0L,
-            // A fonte bruta traz o estado da estação, mas nem sempre o catálogo rico das ações.
-            tacticalActions = richer?.tacticalActions.orEmpty(),
+            electionEnd = election,
+            flags = long(raw, "flags") ?: 0L,
+            // Never promote rich cached action states to current raw telemetry.
+            tacticalActions = DssSupport.actionsFromEffects(array(raw, "activeEffectIds").mapNotNull { (it as? JsonPrimitive)?.longOrNull }),
+            activeEffectIds = (element(raw, "activeEffectIds") as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.longOrNull },
         )
         DssReading(
             station = station,
             availability = if (planetIndex > 0L || localizedText(station.planet.name).isNotBlank()) DssAvailability.LIVE else DssAvailability.LOCATION_UNKNOWN,
-            fetchedAtMillis = System.currentTimeMillis(),
+            fetchedAtMillis = war.observedAtMillis,
             stale = false,
             source = "direct",
+            lastPlanetIndex = planetIndex.takeIf { it > 0 } ?: previous?.lastPlanetIndex,
+            lastLocationReadAtMillis = if (planetIndex > 0) war.observedAtMillis else previous?.lastLocationReadAtMillis ?: 0L,
         )
     }
 
