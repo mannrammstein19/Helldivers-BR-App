@@ -1,5 +1,8 @@
 package br.com.helldiversbr.app.data
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
@@ -115,9 +118,34 @@ object HelldiversApi {
 
     suspend fun steamNews(): String = withContext(Dispatchers.IO) { get("$API/steam", true) }
 
-    suspend fun orderSnapshot(): OrderSnapshot = withContext(Dispatchers.IO) {
-        attempt { CentralApi.orderSnapshot() }.getOrNull()
-            ?: json.decodeFromString(OrderSnapshot.serializer(), get(SNAPSHOT_URL, false))
+    private val orderGate = Mutex()
+    private var lastOrderAttempt = 0L
+    private var savedOrder: OrderSnapshot? = null
+
+    suspend fun orderSnapshot(): OrderSnapshot = orderGate.withLock {
+        val now = System.currentTimeMillis()
+        if (now - lastOrderAttempt < 60_000) return@withLock savedOrder ?: error("Monitor em nova tentativa")
+        lastOrderAttempt = now
+        try {
+            val incoming = attempt { CentralApi.orderSnapshot() }.getOrNull()
+                ?: withContext(Dispatchers.IO) {
+                    // GitHub is historical evidence; downloading it does not make it live.
+                    json.decodeFromString(OrderSnapshot.serializer(), get(SNAPSHOT_URL, false)).let {
+                        val historicalTime = it.telemetry?.time ?: runCatching {
+                            java.time.Instant.parse(it.last_seen_at).toEpochMilli()
+                        }.getOrDefault(0L)
+                        require(historicalTime > 0 && historicalTime <= now + 60_000)
+                        it.copy(telemetry = OrderSnapshotTelemetry(time = historicalTime, stale = true))
+                    }
+                }
+            val oldTime = savedOrder?.telemetry?.time ?: 0L
+            require((incoming.telemetry?.time ?: 0L) >= oldTime) { "Monitor regressivo" }
+            incoming.also { savedOrder = it }
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) {
+            savedOrder?.let { it.copy(telemetry = it.telemetry?.copy(stale = true)) }
+                ?.also { savedOrder = it } ?: throw e
+        }
     }
 
     @Volatile

@@ -14,6 +14,7 @@ data class OrderUi(
     val state: String,
     val percent: Double,
     val fromSnapshot: Boolean,
+    val observedAtMillis: Long = 0L,
 )
 
 @Serializable
@@ -34,6 +35,9 @@ data class HomeData(
     val campaignTelemetrySource: String = "community",
     val campaignReadAtMillis: Long = 0L,
     val viaCentral: Boolean = false,
+    val dispatchReadAtMillis: Long = 0L,
+    val campaignListReadAtMillis: Long = 0L,
+    val planetReadAtMillis: Long = 0L,
 ) {
     val helldiversOnFront: Long get() = campaigns.sumOf { it.planet.statistics.playerCount.coerceAtLeast(0) }
     val liberationCount: Int get() = campaigns.count { it.planet.event == null }
@@ -43,6 +47,7 @@ data class HomeData(
 
 object OrderRepository {
     private val loadGate = kotlinx.coroutines.sync.Mutex()
+    private var lastLoadAttempt = 0L
 
     private data class RateSnapshot(
         val progress: Double,
@@ -76,16 +81,24 @@ object OrderRepository {
     suspend fun load(): HomeData = loadGate.withLock { coroutineScope {
         val disk = TelemetryCache.loadHome()
         val fallback = lastGood ?: disk
+        val loadTime = System.currentTimeMillis()
+        if (loadTime - lastLoadAttempt < 15_000 && fallback != null)
+            return@coroutineScope loadCached()!!
+        lastLoadAttempt = loadTime
         val central = attempt { loadCentral(fallback) }
         central.getOrNull()?.let { lastGood = it; TelemetryCache.saveHome(it); return@coroutineScope it }
-        if (fallback?.viaCentral == true) return@coroutineScope loadCached()!!
+        if (fallback?.viaCentral == true) return@coroutineScope loadCached()!!.also { lastGood = it }
 
         var communityCampaignTime = 0L
         var communityPlanetTime = 0L
         var directWarTime = 0L
-        val liveDeferred = async { runCatching { HelldiversApi.liveAssignments().firstOrNull { it.tasks.isNotEmpty() } } }
+        var communityOrderTime = 0L
+        var directOrderTime = 0L
+        var communityDispatchTime = 0L
+        var directDispatchTime = 0L
+        val liveDeferred = async { runCatching { HelldiversApi.liveAssignments().also { communityOrderTime = System.currentTimeMillis() }.firstOrNull { it.tasks.isNotEmpty() } } }
         val snapshotDeferred = async { runCatching { HelldiversApi.orderSnapshot() } }
-        val dispatchDeferred = async { runCatching { HelldiversApi.dispatches().sortedByDescending { it.published.orEmpty() }.take(10) } }
+        val dispatchDeferred = async { runCatching { HelldiversApi.dispatches().also { communityDispatchTime = System.currentTimeMillis() }.sortedByDescending { it.published.orEmpty() }.take(10) } }
         val campaignsDeferred = async { runCatching { HelldiversApi.campaigns().also { communityCampaignTime = System.currentTimeMillis() } } }
         val planetsDeferred = async { runCatching { HelldiversApi.planets().also { communityPlanetTime = System.currentTimeMillis() } } }
         val planetCatalogDeferred = async { runCatching { HelldiversApi.planetCatalog() } }
@@ -125,11 +138,11 @@ object OrderRepository {
 
         val directOrderDeferred = async {
             if (communityOrderValue == null)
-                runCatching { DirectGameApi.assignment() } else Result.success(null)
+                runCatching { DirectGameApi.assignment().also { directOrderTime = System.currentTimeMillis() } } else Result.success(null)
         }
         val directDispatchesDeferred = async {
             if (!validDispatches(communityDispatchList))
-                runCatching { DirectGameApi.dispatches().take(10) } else Result.success(emptyList())
+                runCatching { DirectGameApi.dispatches().also { directDispatchTime = System.currentTimeMillis() }.take(10) } else Result.success(emptyList())
         }
         val directCampaignsDeferred = async {
             if (!validCampaigns(communityCampaignList) || !validPlanets(communityPlanetList)) directWarData() else null
@@ -178,7 +191,8 @@ object OrderRepository {
         }
 
         val ui = resolveCentralOrder(liveOrder, snap, fallback?.order,
-            communityOrder.isSuccess || directOrder.isSuccess)
+            communityOrderTime > 0 || directOrderTime > 0,
+            if (communityOrderValue != null) communityOrderTime else maxOf(communityOrderTime, directOrderTime))
 
         // Se não sobrou absolutamente nenhum dado útil, a tela de erro continua válida.
         if (ui.order == null && dispatches.isEmpty() && campaigns.isEmpty() && fallback == null) {
@@ -244,6 +258,21 @@ object OrderRepository {
             dss = dss,
             updatedAtMillis = dataTimestamp,
             orderRates = objectiveRates,
+            planetReadAtMillis = when (planetSource) {
+                "community" -> communityPlanetTime
+                "direct" -> directWarTime
+                else -> fallback?.planetReadAtMillis ?: 0L
+            },
+            campaignListReadAtMillis = when (campaignSource) {
+                "community" -> communityCampaignTime
+                "direct" -> directWarTime
+                else -> fallback?.campaignListReadAtMillis ?: 0L
+            },
+            dispatchReadAtMillis = when (dispatchSource) {
+                "community" -> communityDispatchTime
+                "direct" -> directDispatchTime
+                else -> fallback?.dispatchReadAtMillis ?: 0L
+            },
             staleSources = stale,
             telemetrySource = telemetrySource,
             campaignTelemetrySource = campaignSource,
@@ -268,6 +297,8 @@ object OrderRepository {
         val sTask = async { attempt { HelldiversApi.orderSnapshot() } }
         val stationTask = async { DssRepository.load() }
         val pr = pTask.await(); val cr = cTask.await()
+        require(previous == null || !previous.viaCentral ||
+            (pr.time >= previous.updatedAtMillis && cr.time >= previous.campaignListReadAtMillis)) { "Central anterior ao cache persistente" }
         val rawPlanets = CentralApi.planets(pr)
         require(rawPlanets.size >= 10 && rawPlanets.map { it.index }.distinct().size == rawPlanets.size)
         val counters = CounterTelemetry.collect(previous?.planets.orEmpty(), previous?.updatedAtMillis ?: 0,
@@ -280,15 +311,17 @@ object OrderRepository {
         }
         val byId = planets.associateBy { it.index }
         val campaigns = CentralApi.campaigns(cr).mapNotNull { c -> byId[c.planet.index]?.let { c.copy(planet = it) } }
-        val orderReading = oTask.await().getOrNull()
+        val orderReading = oTask.await().getOrNull()?.takeIf { it.time >= (previous?.order?.observedAtMillis ?: 0L) }
         val live = orderReading?.let { CentralApi.assignments(it).firstOrNull { a -> a.tasks.isNotEmpty() } }
         val snapshot = sTask.await().getOrNull()
-        val order = resolveCentralOrder(live, snapshot, previous?.order, orderReading != null && !orderReading.stale)
+        val order = resolveCentralOrder(live, snapshot, previous?.order, orderReading != null && !orderReading.stale, orderReading?.time ?: 0L)
         val monitorFresh = snapshot?.telemetry?.stale == false && snapshot.state == "active" &&
+            order.fromSnapshot && order.observedAtMillis > 0 &&
+            System.currentTimeMillis() - order.observedAtMillis in 0..300_000 &&
             snapshot.order?.id != null && snapshot.order.id == order.order?.id
         val orderTime = if (monitorFresh) snapshot?.telemetry?.assignmentsTime ?: snapshot?.telemetry?.time
             else orderReading?.takeIf { !it.stale && live?.id != null && live.id == order.order?.id }?.time
-        val dispatchReading = dTask.await().getOrNull()
+        val dispatchReading = dTask.await().getOrNull()?.takeIf { it.time >= (previous?.dispatchReadAtMillis ?: 0L) }
         val catalog = attempt { HelldiversApi.planetCatalog() }.getOrElse { previous?.planetCatalog.orEmpty() }
             .ifEmpty { previous?.planetCatalog.orEmpty() }
         val dss = stationTask.await().withPlanetReference(planets, pr)
@@ -304,14 +337,23 @@ object OrderRepository {
             staleSources = buildList {
                 if (!fresh) add("campanhas")
                 if (pr.stale) add("planetas")
-                if (!monitorFresh && (orderReading == null || orderReading.stale || (order.fromSnapshot && order.state == "active"))) add("Ordem Maior")
+                if (order.observedAtMillis <= 0 || System.currentTimeMillis() - order.observedAtMillis !in 0..300_000 ||
+                    (order.fromSnapshot && snapshot?.telemetry?.stale != false) ||
+                    (!order.fromSnapshot && (orderReading == null || orderReading.stale))) add("Ordem Maior")
                 if (dispatchReading == null || dispatchReading.stale) add("despachos")
                 if (dss.stale) add("DSS")
-            }, telemetrySource = pr.source, campaignTelemetrySource = if (fresh) pr.source else "cache",
-            campaignReadAtMillis = pr.time, viaCentral = true)
+            }, telemetrySource = if (pr.stale) "cache" else pr.source, campaignTelemetrySource = if (fresh) pr.source else "cache",
+            campaignReadAtMillis = pr.time, campaignListReadAtMillis = cr.time, planetReadAtMillis = pr.time, viaCentral = true,
+            dispatchReadAtMillis = dispatchReading?.time ?: previous?.dispatchReadAtMillis ?: 0L)
     }
 
-    fun resolveCentralOrder(live: Assignment?, snapshot: OrderSnapshot?, previous: OrderUi?, absenceConfirmed: Boolean): OrderUi {
+    fun resolveCentralOrder(live: Assignment?, snapshot: OrderSnapshot?, previous: OrderUi?, absenceConfirmed: Boolean, liveTime: Long = 0L): OrderUi {
+        val previousTime = previous?.observedAtMillis ?: 0L
+        val snapshotTime = if (snapshot?.state == "active")
+            snapshot.telemetry?.assignmentsTime ?: snapshot.telemetry?.time ?: 0L
+            else snapshot?.telemetry?.time ?: 0L
+        val snapshotAccepted = previousTime == 0L || snapshotTime >= previousTime
+        val liveAccepted = previousTime == 0L || liveTime >= previousTime
         val snap = snapshot?.order
         val prior = previous?.order
         fun same(a: Assignment?, b: Assignment?) = a?.id != null && b?.id != null && a.id == b.id
@@ -328,31 +370,34 @@ object OrderRepository {
         // A confirmed cached result survives an old assignment or disappearance.
         if (previous?.state in setOf("completed", "failed") &&
             (live == null || same(live, prior)) && (snap == null || same(snap, prior))) return previous!!
-        if (snap != null && snapshot.state in setOf("completed", "failed") &&
+        if (snapshotAccepted && snap != null && snapshot.state in setOf("completed", "failed") &&
             (live == null || same(live, snap)) && (prior == null || same(prior, snap) || newer(snap, prior)))
-            return OrderUi(snap, snapshot.state, snapshot.final_percent ?: computePercent(snap), true)
-        if (snap != null && snapshot.state == "active" && snapshot.telemetry?.stale == false &&
+            return OrderUi(snap, snapshot.state, snapshot.final_percent ?: computePercent(snap), true, snapshotTime)
+        if (snapshotAccepted && snap != null && snapshot.state == "active" && snapshot.telemetry?.stale == false &&
             (prior == null || same(prior, snap) || newer(snap, prior)) &&
             (live == null || same(live, snap) || !older(snap, live)) &&
+            (!same(live, snap) || !absenceConfirmed || snapshotTime >= liveTime) &&
             !(same(prior, snap) && previous?.state in setOf("completed", "failed"))) {
             val expired = runCatching { Instant.parse(snap.expiration).toEpochMilli() <= System.currentTimeMillis() }.getOrDefault(false)
-            return OrderUi(snap, if (expired) "pending" else "active", computePercent(snap), true)
+            return OrderUi(snap, if (expired) "pending" else "active", computePercent(snap), true, snapshotTime)
         }
-        if (live != null && !absenceConfirmed && previous != null) return previous
-        if (live != null && (prior == null || same(live, prior) || (absenceConfirmed && !older(live, prior)))) {
+        if (live != null && (!absenceConfirmed || !liveAccepted) && previous != null) return previous
+        if (live != null && (prior == null || same(live, prior) || (absenceConfirmed && newer(live, prior)))) {
             if (same(live, prior) && previous?.state in setOf("completed", "failed")) return previous!!
             val expired = runCatching { Instant.parse(live.expiration).toEpochMilli() <= System.currentTimeMillis() }.getOrDefault(false)
-            return OrderUi(live, if (expired || !absenceConfirmed) "pending" else "active", computePercent(live), false)
+            return OrderUi(live, if (expired || !absenceConfirmed) "pending" else "active", computePercent(live), false, liveTime)
         }
         if (previous != null && previous.state in setOf("completed", "failed")) return previous
-        if (snap != null && snapshot.state in setOf("pending", "unknown") &&
+        if (snapshotAccepted && snap != null && snapshot.state in setOf("pending", "unknown") &&
             (prior == null || same(prior, snap) || newer(snap, prior)))
-            return OrderUi(snap, "pending", snapshot.final_percent ?: computePercent(snap), true)
-        if (absenceConfirmed && live == null && prior?.id != null)
-            return previous!!.copy(state = "pending")
-        if (absenceConfirmed && live == null) return OrderUi(null, "pending", 0.0, false)
+            return if (same(prior, snap) && previous != null)
+                previous.copy(state = "pending", fromSnapshot = true, observedAtMillis = snapshotTime)
+            else OrderUi(snap, "pending", snapshot.final_percent ?: computePercent(snap), true, snapshotTime)
+        if (absenceConfirmed && liveAccepted && live == null && prior?.id != null)
+            return previous!!.copy(state = "pending", observedAtMillis = liveTime)
+        if (absenceConfirmed && liveAccepted && live == null) return OrderUi(null, "pending", 0.0, false)
         if (previous != null) return previous
-        if (snap != null) return OrderUi(snap, "pending", snapshot.final_percent ?: computePercent(snap), true)
+        if (snap != null) return OrderUi(snap, "pending", snapshot.final_percent ?: computePercent(snap), true, snapshotTime)
         return OrderUi(null, "pending", 0.0, false)
     }
 

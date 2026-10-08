@@ -23,9 +23,12 @@ data class DssReading(
     val error: String? = null,
     /** community | direct | cache */
     val source: String = "community",
-    val lastPlanetIndex: Long? = 136L,
-    val lastLocationReadAtMillis: Long = 1791081370763L,
+    val lastPlanetIndex: Long? = null,
+    val lastLocationReadAtMillis: Long = 0L,
 ) {
+    val locationReference: Long? get() =
+        if (lastPlanetIndex != null && lastLocationReadAtMillis > fetchedAtMillis) lastPlanetIndex
+        else station?.planet?.index?.takeIf { it > 0L } ?: lastPlanetIndex
     val hasStation: Boolean get() = station != null
     val isLive: Boolean get() = station != null && !stale && availability == DssAvailability.LIVE
 }
@@ -41,24 +44,30 @@ object DssRepository {
     private const val TTL_MILLIS = 2 * 60 * 1000L
 
     @Volatile private var lastReading: DssReading? = null
+    private var lastAttempt = 0L
 
     suspend fun load(force: Boolean = false): DssReading = gate.withLock {
         val now = System.currentTimeMillis()
         val disk = if (lastReading == null) TelemetryCache.loadDss() else null
-        val resident = lastReading ?: disk?.also { lastReading = it }
-        if (!force && resident != null && !resident.stale && now - resident.fetchedAtMillis < TTL_MILLIS) {
+        val resident = lastReading ?: disk?.withoutSeededLocation()?.copy(stale = true, source = "cache")?.also { lastReading = it }
+        if (!force && resident != null && !resident.stale && now - resident.fetchedAtMillis in 0 until TTL_MILLIS) {
             return@withLock resident
         }
 
-        val central = attempt { CentralApi.read("/api/v2/space-stations") }
-        central.getOrNull()?.let { r ->
-            val station = CentralApi.stations(r).firstOrNull()
+        if (now - lastAttempt in 0..29_999 && resident != null)
+            return@withLock resident.copy(stale = true, source = "cache")
+        lastAttempt = now
+        val central = attempt { CentralApi.read("/api/v2/space-stations").let { it to CentralApi.stations(it) } }
+        central.getOrNull()?.let { (r, stations) ->
+            if (resident != null && r.time < resident.fetchedAtMillis)
+                return@withLock resident.copy(stale = true, source = "cache").also { lastReading = it }
+            val station = stations.firstOrNull()
             val host = station?.planet?.index?.takeIf { it > 0 }
             val reading = DssReading(station,
                 if (station == null) DssAvailability.ABSENT else if (host == null) DssAvailability.LOCATION_UNKNOWN else DssAvailability.LIVE,
                 r.time, r.stale, source = r.source,
-                lastPlanetIndex = host ?: resident?.lastPlanetIndex ?: 136L,
-                lastLocationReadAtMillis = if (host != null) r.time else resident?.lastLocationReadAtMillis ?: 1791081370763L)
+                lastPlanetIndex = host ?: resident?.lastPlanetIndex,
+                lastLocationReadAtMillis = if (host != null) r.time else resident?.lastLocationReadAtMillis ?: 0L)
             lastReading = reading
             TelemetryCache.saveDss(reading)
             return@withLock reading
@@ -78,8 +87,8 @@ object DssRepository {
                 fetchedAtMillis = now,
                 stale = false,
                 source = "community",
-                lastPlanetIndex = station?.planet?.index?.takeIf { it > 0 } ?: 136L,
-                lastLocationReadAtMillis = if(station?.planet?.index?.let { it > 0 } == true) now else 1791081370763L,
+                lastPlanetIndex = station?.planet?.index?.takeIf { it > 0 },
+                lastLocationReadAtMillis = if(station?.planet?.index?.let { it > 0 } == true) now else 0L,
             ).also {
                 lastReading = it
                 TelemetryCache.saveDss(it)
@@ -118,10 +127,30 @@ object DssRepository {
 }
 
 /** Only a fresh, unique DSS effect confirms a location; historical reference is never an operational state. */
-fun DssReading.withPlanetReference(planets: List<Planet>, reading: CentralApi.Reading): DssReading {
-    val liveHost = station?.planet?.index?.takeIf { it > 0 && isLive }
-    val effectHosts = if (!reading.stale) planets.filter { p -> p.activeEffects.any { PlanetPresences.effectId(it) == 1217L } } else emptyList()
-    val host = liveHost ?: effectHosts.singleOrNull()?.index
-    return copy(lastPlanetIndex = host ?: lastPlanetIndex,
-        lastLocationReadAtMillis = if (liveHost != null) fetchedAtMillis else if (host != null) reading.time else lastLocationReadAtMillis)
+fun DssReading.withPlanetReference(
+    planets: List<Planet>, reading: CentralApi.Reading, now: Long = System.currentTimeMillis(),
+): DssReading {
+    val candidates = mutableListOf<Pair<Long, Long>>()
+    if (DssSupport.isCurrent(this, now)) station?.planet?.index?.takeIf { it > 0 }?.let {
+        candidates += it to fetchedAtMillis
+    }
+    val freshPlanets = !reading.stale && reading.source != "cache" && reading.time > 0 &&
+        reading.time <= now + 60_000L && now - reading.time <= 300_000L
+    if (freshPlanets) planets.filter { p ->
+        PlanetEffects.values(p).any { PlanetPresences.effectId(it) == 1217L }
+    }.distinctBy { it.index }.singleOrNull()?.index?.takeIf { it > 0 }?.let {
+        candidates += it to reading.time
+    }
+    val latestTime = candidates.maxOfOrNull { it.second } ?: return this
+    val latest = candidates.filter { it.second == latestTime }.map { it.first }.distinct().singleOrNull()
+        ?: return this // Contradictory simultaneous observations do not confirm a move.
+    if (latestTime < lastLocationReadAtMillis ||
+        (latestTime == lastLocationReadAtMillis && lastPlanetIndex != null && latest != lastPlanetIndex)) return this
+    return copy(lastPlanetIndex = latest, lastLocationReadAtMillis = latestTime)
 }
+
+/** Removes the V41 default, which was not an observation on this device. */
+fun DssReading.withoutSeededLocation(): DssReading =
+    if (lastPlanetIndex == 136L && lastLocationReadAtMillis == 1791081370763L &&
+        !(station?.planet?.index == 136L && fetchedAtMillis == lastLocationReadAtMillis))
+        copy(lastPlanetIndex = null, lastLocationReadAtMillis = 0L) else this

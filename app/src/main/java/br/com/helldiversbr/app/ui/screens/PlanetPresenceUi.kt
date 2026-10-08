@@ -1,6 +1,7 @@
 package br.com.helldiversbr.app.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -19,9 +20,11 @@ import kotlinx.coroutines.delay
 @Composable
 fun PresenceIcons(planet: Planet, labels: Boolean = false, stale: Boolean = false, modifier: Modifier = Modifier) {
     val values = PlanetPresences.list(planet)
+    var selectedKey by remember(planet.index) { mutableStateOf<String?>(null) }
+    values.firstOrNull { it.key == selectedKey }?.let { PresenceGalleryDialog(it, planet, stale) { selectedKey = null } }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         values.forEach { presence ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.clickable(onClickLabel = "Ver ficha da presença") { selectedKey = presence.key }.padding(2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 AsyncImage(presence.artwork, presence.name + if(stale) " · última leitura" else "", modifier=Modifier.size(26.dp),
                     colorFilter=if(presence.file.endsWith(".svg")) androidx.compose.ui.graphics.ColorFilter.tint(mapColor(presence.faction)) else null)
                 if(labels) Text(presence.name + if(stale) " · última leitura" else "",color=mapColor(presence.faction),fontSize=11.sp)
@@ -32,7 +35,7 @@ fun PresenceIcons(planet: Planet, labels: Boolean = false, stale: Boolean = fals
 
 @Composable
 fun RotatingPlanetStatus(status: String, planet: Planet, stale: Boolean, color: Color) {
-    val notices = remember(status,planet.activeEffects) { listOf(status) + PlanetPresences.list(planet).map { "Presença: ${it.name}" } }
+    val notices = remember(status,planet,stale) { listOf(status) + PlanetPresences.list(planet).map { "${if (stale) "Última leitura" else "Presença"}: ${it.name}" } }
     var index by remember(notices) { mutableStateOf(0) }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(notices,stale,lifecycle) {
@@ -41,6 +44,6 @@ fun RotatingPlanetStatus(status: String, planet: Planet, stale: Boolean, color: 
             while(true) { delay(10_000);index=(index+1)%notices.size }
         }
     }
-    Text(notices[index],color=color,fontSize=9.sp,fontWeight=FontWeight.Black,maxLines=1,
+    Text(notices.getOrElse(index) { status },color=color,fontSize=9.sp,fontWeight=FontWeight.Black,maxLines=1,
         overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis,modifier=Modifier.widthIn(max=145.dp))
 }

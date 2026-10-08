@@ -122,12 +122,21 @@ object WarAlertManager {
     fun processHomeData(context: Context, data: HomeData) {
         if (!NotificationPreferences.isMasterEnabled(context)) return
 
-        val freshCampaigns = "campanhas" !in data.staleSources
-        val freshPlanets = "planetas" !in data.staleSources && data.planets.isNotEmpty()
-        val freshDispatches = "despachos" !in data.staleSources
-        val freshOrder = "Ordem Maior" !in data.staleSources ||
-            (data.order.fromSnapshot && data.order.state in setOf("completed", "failed"))
-        val freshDss = br.com.helldiversbr.app.data.DssSupport.isCurrent(data.dss, System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        fun accept(key: String, time: Long, fresh: Boolean): Boolean {
+            val clockKey = "accepted_reading_$key"
+            if (!fresh || !notificationReadingIsNew(time, prefs.getLong(clockKey, 0L), now)) return false
+            prefs.edit().putLong(clockKey, time).apply()
+            return true
+        }
+        val freshCampaigns = accept("campaigns", data.campaignListReadAtMillis, "campanhas" !in data.staleSources)
+        val freshPlanets = accept("planets", data.planetReadAtMillis,
+            "planetas" !in data.staleSources && data.planets.isNotEmpty())
+        val freshDispatches = accept("dispatches", data.dispatchReadAtMillis, "despachos" !in data.staleSources)
+        val freshOrder = accept("order", data.order.observedAtMillis, "Ordem Maior" !in data.staleSources)
+        val freshDss = accept("dss", data.dss.fetchedAtMillis,
+            br.com.helldiversbr.app.data.DssSupport.isCurrent(data.dss, now))
 
         if (freshCampaigns) processCampaignAndPlanetEvents(context, data.campaigns, if (freshPlanets) data.planets else emptyList())
         if (freshPlanets) processPlanetAndRegionOwnership(context, data.planets, data.campaigns, freshCampaigns)
@@ -230,7 +239,11 @@ object WarAlertManager {
         planets.forEach { planet ->
             planet.regions.forEachIndexed { index, region ->
                 if (region.telemetryStale || br.com.helldiversbr.app.data.RegionTelemetry.ownerId(region.owner) == null) return@forEachIndexed
+                if (region.id == null && region.hash == null) return@forEachIndexed
                 val key = regionKey(planet, index)
+                val clockKey = "accepted_region_$key"
+                if (!notificationReadingIsNew(region.telemetryReadAtMillis, prefs.getLong(clockKey, 0L), System.currentTimeMillis())) return@forEachIndexed
+                prefs.edit().putLong(clockKey, region.telemetryReadAtMillis).apply()
                 val owner = normalizedOwner(localizedText(region.owner))
                 regionOwners[key] = owner
                 val max = region.maxHealth

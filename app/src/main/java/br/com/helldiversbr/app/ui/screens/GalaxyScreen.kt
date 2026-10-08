@@ -53,6 +53,11 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     }
     val data = when (home) { is HomeState.Ready -> home.data; is HomeState.Error -> home.last; else -> null }
     val campaigns = data?.campaigns.orEmpty().associateBy { it.planet.index }
+    val mapClock = dssDisplayClock()
+    val dssCurrent = DssSupport.isCurrent(state.dss, mapClock) &&
+        state.dssHost == state.dss.station?.planet?.index
+    val dssReadingFresh = DssSupport.readingIsFresh(state.dss, mapClock)
+    val mapStale = state.telemetrySource == "cache" || state.updatedAtMillis == null || mapClock - (state.updatedAtMillis ?: 0L) > 300_000
     val dssStation = state.dss.station
     val dssPlanetName = dssStation?.let { station ->
         localizedText(station.planet.name)
@@ -62,7 +67,7 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     }.orEmpty()
     val preferCampaigns = data != null && data.campaignTelemetrySource != "cache" &&
         "campanhas" !in data.staleSources &&
-        (state.telemetrySource == "cache" || data.campaignReadAtMillis >= (state.updatedAtMillis ?: 0L))
+        data.campaignReadAtMillis >= (state.updatedAtMillis ?: 0L)
     val planets = remember(state.planets, campaigns, preferCampaigns) {
         mergeMapPlanets(state.planets, campaigns.values.toList(), preferCampaigns)
     }
@@ -87,11 +92,11 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
         core + nearby + planets.filter { p -> p.waypoints.any { it in core } || p.attacking.any { it in core } ||
             mapEarth(p) || mapSpecial(p) != null || p.index == state.dssHost || p.index == selectedId }.map { it.index }
     }
-    val filtered = remember(planets, query, activeOnly, allPlanets, faction, campaigns, contextIds) {
+    val filtered = remember(planets, query, activeOnly, allPlanets, faction, campaigns, contextIds, options.tcsPlanets) {
         planets.filter {
-            (!activeOnly || it.index in campaigns || it.event != null) &&
-                (allPlanets || activeOnly || query.isNotBlank() || faction != "Todas" || it.index in contextIds) &&
-                (faction == "Todas" || galaxyFaction(it) == faction) &&
+            (!activeOnly || it.index in campaigns || it.event != null || (options.tcsPlanets && TcsInfrastructure.has(it))) &&
+                (allPlanets || activeOnly || query.isNotBlank() || faction != "Todas" || it.index in contextIds || (options.tcsPlanets && TcsInfrastructure.has(it))) &&
+                (faction == "Todas" || galaxyFaction(it) == faction || (options.tcsPlanets && TcsInfrastructure.has(it))) &&
                 searchKey("${it.nameText} ${it.sector}").contains(searchKey(query.trim()))
         }
     }
@@ -102,7 +107,8 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
         if (selectedId != null && selected == null) selectedId = null
     }
     val dossierPlanet = planets.firstOrNull { it.index == dossierId }
-    if (dossierPlanet != null && data != null) PlanetDossierDialog(data, campaigns[dossierPlanet.index]?.copy(planet = dossierPlanet) ?: Campaign(planet = dossierPlanet)) { dossierId = null }
+    if (dossierPlanet != null && data != null) PlanetDossierDialog(data.copy(planets=planets, planetReadAtMillis=state.updatedAtMillis ?: 0L,
+        staleSources=if(mapStale) (data.staleSources + "planetas").distinct() else data.staleSources - "planetas"), campaigns[dossierPlanet.index]?.copy(planet = dossierPlanet) ?: Campaign(planet = dossierPlanet)) { dossierId = null }
     val dssSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     if (dssOpen) ModalBottomSheet(
         onDismissRequest = { dssOpen = false },
@@ -207,6 +213,8 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
             MapOptionRow("Nomes",options.names) { update(options.copy(names=it)) }
             MapOptionRow("Helldivers",options.players) { update(options.copy(players=it)) }
             MapOptionRow("Porcentagens",options.progress) { update(options.copy(progress=it)) }
+            MapOptionRow("Infraestrutura TCS+",options.infrastructure) { update(options.copy(infrastructure=it)) }
+            MapOptionRow("Mostrar rede TCS+ nos filtros",options.tcsPlanets) { update(options.copy(tcsPlanets=it)) }
             MapOptionRow("Presenças",options.presences) { update(options.copy(presences=it)) }
             MapOptionRow("Modelos de naves",options.ships) { update(options.copy(ships=it)) }
             MapOptionRow("Faixas dos territórios",options.stripes) { update(options.copy(stripes=it)) }
@@ -221,7 +229,7 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
         val landscapeLayout = maxWidth > maxHeight
         val panelMaxHeight = if (landscapeLayout) (maxHeight - 128.dp).coerceAtLeast(80.dp) else (maxHeight * .56f).coerceAtMost(340.dp)
         GalaxyCanvas(mapVisible, planets, routes, sectors, territories, invasions, selectedId,
-            campaigns.keys, state.dssHost, onSelect = { selectedId = it; frontsOpen = false }, modifier = Modifier.fillMaxSize(), options = options.copy(motion = options.motion && android.provider.Settings.Global.getFloat(context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,1f)>0), stale = state.telemetrySource == "cache", readAtMillis = state.updatedAtMillis ?: 0, dssLive = state.dss.isLive, routeFocus = matchedIds)
+            campaigns.keys, state.dssHost, onSelect = { selectedId = it; frontsOpen = false }, modifier = Modifier.fillMaxSize(), options = options.copy(motion = options.motion && android.provider.Settings.Global.getFloat(context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,1f)>0), stale = state.telemetrySource == "cache", readAtMillis = state.updatedAtMillis ?: 0, dssLive = dssCurrent, routeFocus = matchedIds)
         Column(Modifier.align(Alignment.TopStart).fillMaxWidth(if (landscapeLayout) .48f else 1f).padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Surface(color = Color(0xE6090D12), shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)) {
@@ -267,7 +275,7 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
                     border = androidx.compose.foundation.BorderStroke(1.dp, factionColor(selected.currentOwner)),
                     modifier = Modifier.fillMaxWidth().heightIn(max = panelMaxHeight)) {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
-                        FloatingPlanetCard(selected, campaigns[selected.index]?.copy(planet = selected), data, stale = home is HomeState.Error,
+                        FloatingPlanetCard(selected, campaigns[selected.index]?.copy(planet = selected), data, stale = mapStale,
                             onClose = { selectedId = null }, onDossier = { dossierId = selected.index })
                     }
                 }
@@ -275,14 +283,15 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
         }
         DssMapDock(
             expanded = dssExpanded,
-            model = MapAssets.file(if(state.dss.isLive) "dss-operacional" else "dss-inoperante"),
+            model = MapAssets.file(if(dssCurrent) "dss-operacional" else "dss-inoperante"),
             status = when {
-                state.dss.isLive && dssPlanetName.isNotBlank() -> "Orbitando ${planetTitle(dssPlanetName)}"
+                !dssReadingFresh -> "Última leitura salva · aguardando atualização"
+                dssCurrent && dssPlanetName.isNotBlank() -> "Orbitando ${planetTitle(dssPlanetName)}"
                 state.dss.availability == DssAvailability.LOCATION_UNKNOWN -> "Localização não informada"
                 state.dss.availability == DssAvailability.ABSENT -> "Temporariamente indisponível"
                 else -> "Telemetria indisponível"
             },
-            stale = state.dss.stale,
+            stale = !dssReadingFresh,
             motion = options.motion && android.provider.Settings.Global.getFloat(context.contentResolver,
                 android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,1f)>0,
             onToggle = { dssExpanded = !dssExpanded },
@@ -389,7 +398,8 @@ private fun FloatingPlanetCard(planet: Planet, campaign: Campaign?, data: HomeDa
             }
             if(rate!=null && data!=null && campaign!=null && OrderRepository.campaignRate(data,campaign)==null) Text("Média desde o início da defesa",color=HD.TextMuted,fontSize=10.sp)
             DssSupportIcons(data?.dss, planet.index)
-            PresenceIcons(planet,labels=true,stale=!fresh)
+            PresenceIcons(planet,labels=true,stale=stale)
+            TcsCard(planet, stale=stale)
             if (campaign != null && eta == null) Text(if (!fresh) "Previsão suspensa: aguardando dados atualizados." else if (rate == null) "Aguardando amostras para calcular o ritmo." else "Sem previsão de vitória no ritmo atual.", color = HD.TextMuted, fontSize = 10.sp)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (planet.regions.isNotEmpty()) regionalSummary(planet) else galaxyFaction(planet), color = HD.TextDim, fontSize = 11.sp, modifier = Modifier.weight(1f))

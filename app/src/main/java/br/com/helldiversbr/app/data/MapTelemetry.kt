@@ -7,5 +7,5 @@ internal fun mergeMapPlanets(map: List<Planet>, campaigns: List<Campaign>, prefe
         if (preferCampaigns) byId[planet.index]?.planet?.copy(position = planet.mapPosition,
             waypoints = planet.waypoints, attacking = planet.attacking, disabled = planet.disabled) ?: planet
         else planet
-    } + campaigns.map { it.planet }).distinctBy { it.index }
+    } + (if (preferCampaigns || map.isEmpty()) campaigns.map { it.planet } else emptyList())).distinctBy { it.index }
 }

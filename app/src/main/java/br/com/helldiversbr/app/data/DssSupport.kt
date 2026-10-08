@@ -13,16 +13,14 @@ enum class DssSupport(val actionId: Long, val label: String, val asset: String, 
     companion object {
         fun kind(action: DssTacticalAction): DssSupport? = entries.firstOrNull { it.actionId == action.id32 }
 
-        fun isCurrent(reading: DssReading?, now: Long): Boolean = reading != null && reading.source != "cache" && reading.isLive &&
+        fun isCurrent(reading: DssReading?, now: Long): Boolean = reading?.isLive == true && readingIsFresh(reading, now)
+
+        fun readingIsFresh(reading: DssReading?, now: Long): Boolean = reading != null && reading.source != "cache" && !reading.stale &&
             reading.fetchedAtMillis > 0 && now >= reading.fetchedAtMillis - 60_000L &&
             now - reading.fetchedAtMillis <= 300_000L
 
         fun actionIsActive(action: DssTacticalAction, now: Long): Boolean {
-            if (action.statusExpire.isNotBlank() && dateMillis(action.statusExpire)?.let { it > now } != true) return false
-            if (action.status == 2) return true
-            val text = listOf(localizedText(action.statusName), localizedText(action.state),
-                localizedText(action.statusText)).joinToString(" ")
-            return Regex("(^|\\b)(active|ativa|activated|ativada)(\\b|$)", RegexOption.IGNORE_CASE).containsMatchIn(text)
+            return DssActionRules.phase(action, now) == DssActionPhase.ACTIVE
         }
 
         /** A fresh raw list is authoritative: absence does not inherit an old active action. */

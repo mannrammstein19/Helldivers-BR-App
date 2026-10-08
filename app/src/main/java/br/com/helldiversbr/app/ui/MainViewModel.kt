@@ -89,7 +89,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     is HomeState.Error -> current.last
                     HomeState.Loading -> previous
                 }
-                HomeState.Error("Sem conexão com a telemetria da Super Terra.", latest)
+                HomeState.Error("Sem conexão com a telemetria da Super Terra.", OrderRepository.loadCached() ?: latest?.copy(
+                    staleSources = listOf("campanhas", "planetas", "despachos", "Ordem Maior", "DSS"),
+                    telemetrySource = "cache", campaignTelemetrySource = "cache"))
             }
         }
     }

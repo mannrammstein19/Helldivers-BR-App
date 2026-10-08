@@ -74,7 +74,7 @@ object PlanetVisuals {
         val file = planetSpecific[index]
             ?: planetSpecificByName[name.lowercase().trim()]
             ?: biomeImages[catalog?.biome?.lowercase()?.trim()]
-            ?: "Sandy_base_Landscape.png"
+            ?: return ""
         return br.com.helldiversbr.app.data.MapAssets.file("imagens/planetas/$file") ?: ""
     }
 

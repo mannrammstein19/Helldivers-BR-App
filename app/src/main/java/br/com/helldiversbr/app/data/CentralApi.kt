@@ -20,33 +20,38 @@ object CentralApi {
     private val client = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(18, TimeUnit.SECONDS).callTimeout(22, TimeUnit.SECONDS).build()
 
-    fun decode(body: String, now: Long = System.currentTimeMillis()): Reading {
+    fun decode(body: String, now: Long = System.currentTimeMillis(), maxFreshAgeMillis: Long = 300_000, allowSteam: Boolean = false): Reading {
         val o = json.parseToJsonElement(body) as? JsonObject ?: error("Resposta central inválida")
         val data = o["data"] as? JsonArray ?: error("Dados centrais ausentes")
         val time = (o["time"] as? JsonPrimitive)?.longOrNull ?: error("Horário ausente")
         require(time > 0 && time <= now + 60_000 && now - time <= 86_400_000) { "Horário central inválido ou expirado" }
         val source = (o["source"] as? JsonPrimitive)?.contentOrNull.orEmpty()
-        require(source in setOf("direct", "community")) { "Origem central inválida" }
-        val stale = (o["stale"] as? JsonPrimitive)?.booleanOrNull ?: true
+        require(source in setOf("direct", "community") || (allowSteam && source == "steam")) { "Origem central inválida" }
+        val stale = ((o["stale"] as? JsonPrimitive)?.booleanOrNull ?: true) || now - time > maxFreshAgeMillis
         val next = ((o["next"] as? JsonPrimitive)?.longOrNull ?: now + 30_000).coerceIn(now + 1_000, now + 120_000)
         return Reading(data, time, source, stale, next)
     }
 
     suspend fun read(path: String): Reading {
-        require(path in setOf("/api/v1/planets", "/api/v1/campaigns", "/api/v1/assignments", "/api/v1/dispatches", "/api/v2/space-stations"))
+        require(path in setOf("/api/v1/planets", "/api/v1/campaigns", "/api/v1/assignments", "/api/v1/dispatches", "/api/v1/steam", "/api/v2/space-stations"))
         val gate = synchronized(gates) { gates.getOrPut(path) { Mutex() } }
         return gate.withLock {
             val now = System.currentTimeMillis()
+            val maxAge = if (path == "/api/v1/steam") 900_000L else 300_000L
             val old = readings[path]?.takeIf { now - it.time <= 86_400_000 }
-            if (old != null && now < old.next && now >= (retries[path] ?: 0)) return@withLock old
+            if (old != null && now < old.next && now >= (retries[path] ?: 0)) return@withLock old.copy(stale = old.stale || now - old.time > maxAge)
             if (now < (retries[path] ?: 0)) return@withLock old?.copy(stale = true) ?: error("Central em nova tentativa")
             try {
                 withContext(Dispatchers.IO) {
                     client.newCall(Request.Builder().url(BASE + path).build()).execute().use {
                         check(it.isSuccessful) { "Central HTTP ${it.code}" }
-                        decode(it.body?.string() ?: error("Central sem dados"))
+                        decode(it.body?.string() ?: error("Central sem dados"),
+                            maxFreshAgeMillis = maxAge, allowSteam = path == "/api/v1/steam")
                     }
-                }.also { readings[path] = it; retries.remove(path) }
+                }.also {
+                    require(old == null || it.time >= old.time) { "Leitura central regressiva" }
+                    readings[path] = it; retries.remove(path)
+                }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
                 retries[path] = now + 30_000
@@ -64,7 +69,8 @@ object CentralApi {
         require(assignmentsTime == null || assignmentsTime in 1..time) { "Horário da ordem inválido" }
         // Confirmed historical outcomes do not expire with live telemetry.
         if (snapshot.state == "active") require(now - time <= 86_400_000) { "Ordem ativa expirada no cache" }
-        return snapshot
+        return if (snapshot.state == "active" && now - (assignmentsTime ?: time) > 300_000)
+            snapshot.copy(telemetry = snapshot.telemetry?.copy(stale = true)) else snapshot
     }
 
     suspend fun orderSnapshot(): OrderSnapshot = withContext(Dispatchers.IO) {
@@ -76,7 +82,7 @@ object CentralApi {
 
     /** Diagnostic snapshot only: never starts a network request or changes observation time. */
     fun latest(path: String): Reading? = readings[path]?.let {
-        it.copy(stale = it.stale || retries.containsKey(path))
+        it.copy(stale = it.stale || retries.containsKey(path) || System.currentTimeMillis() - it.time > (if (path == "/api/v1/steam") 900_000L else 300_000L))
     }
 
     fun planets(r: Reading) = json.decodeFromJsonElement(ListSerializer(Planet.serializer()), r.data)
@@ -91,5 +97,7 @@ catch (e: CancellationException) { throw e } catch (e: Exception) { Result.failu
 
 fun Planet.withCentralReading(reading: CentralApi.Reading): Planet = copy(regions = regions.map {
     it.copy(telemetryReadAtMillis = it.telemetryReadAtMillis.takeIf { t -> t > 0 } ?: reading.time,
-        telemetrySource = reading.source, telemetryStale = it.telemetryStale || reading.stale)
+        telemetrySource = if (it.telemetryReadAtMillis > 0) it.telemetrySource else reading.source,
+        telemetryStale = it.telemetryStale || reading.stale ||
+            (it.telemetryReadAtMillis > 0 && reading.time - it.telemetryReadAtMillis > 300_000))
 })

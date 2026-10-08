@@ -166,71 +166,18 @@ private fun dssTimeLabel(date: Instant?, now: Long = System.currentTimeMillis())
     }
 }
 
-/**
- * Replica a regra atual do guerra.js do HELLDIVERS-BR web.
- * No portal, status numérico 2 é tratado como ação ATIVA; os demais estados são
- * inferidos pelo financiamento e pelo prazo futuro.
- */
-private fun dssActionState(action: DssTacticalAction, pct: Double?, now: Long): DssVisualState {
-    val rawStatus = sequenceOf(
-        localizedText(action.statusName),
-        localizedText(action.state),
-        localizedText(action.statusText),
-        action.status.toString(),
-    ).firstOrNull { it.isNotBlank() }.orEmpty().lowercase()
-    val expiry = parseDssDate(action.statusExpire)
-    val future = expiry?.takeIf { it.toEpochMilli() > now }
-    val activeByText = Regex("(^|\\b)(active|ativa|activated|ativada)(\\b|$)", RegexOption.IGNORE_CASE)
-        .containsMatchIn(rawStatus)
-    if (action.status == 2 || activeByText) {
-        if (action.statusExpire.isNotBlank() && future == null) return DssVisualState(
-            "AGUARDANDO ATUALIZAÇÃO", "Prazo encerrado ou não confirmado", HD.Gold, false)
-        return DssVisualState(
-            label = "ATIVA",
-            detail = future?.let { "Termina em ${dssTimeLabel(it, now)}" }.orEmpty(),
-            color = HD.Green,
-            showProgress = false,
-        )
+/** State follows explicit telemetry, never contribution alone. */
+private fun dssActionState(action: DssTacticalAction, now: Long): DssVisualState {
+    val end = parseDssDate(br.com.helldiversbr.app.data.DssActionRules.deadline(action))
+    val duration = end?.let { dssTimeLabel(it, now) }.orEmpty()
+    return when (br.com.helldiversbr.app.data.DssActionRules.phase(action, now)) {
+        br.com.helldiversbr.app.data.DssActionPhase.ACTIVE -> DssVisualState("ATIVA",
+            if (duration.isBlank()) "Prazo não informado" else "Termina em $duration", HD.Green, false)
+        br.com.helldiversbr.app.data.DssActionPhase.COOLDOWN -> DssVisualState("RECARREGANDO", "Disponível em $duration", HD.Red, false)
+        br.com.helldiversbr.app.data.DssActionPhase.FUNDING -> DssVisualState("PREPARANDO", "Contribuição informada pela API", HD.Yellow, true)
+        br.com.helldiversbr.app.data.DssActionPhase.OFFLINE -> DssVisualState("INDISPONÍVEL", "", HD.TextMuted, false)
+        br.com.helldiversbr.app.data.DssActionPhase.PENDING -> DssVisualState("AGUARDANDO ATUALIZAÇÃO", "Estado ou prazo não confirmado", HD.Gold, false)
     }
-    if (Regex("cooldown|recharg|recarreg|unavailable|indispon", RegexOption.IGNORE_CASE).containsMatchIn(rawStatus)) {
-        return DssVisualState(
-            label = "RECARREGANDO",
-            detail = future?.let { "Disponível novamente em ${dssTimeLabel(it, now)}" }.orEmpty(),
-            color = HD.Red,
-            showProgress = false,
-        )
-    }
-    if (pct != null && pct < 100.0) {
-        val financed = "%.2f".format(dssLocale, pct).trimEnd('0').trimEnd(',')
-        return DssVisualState(
-            label = "PREPARANDO",
-            detail = "$financed% FINANCIADO",
-            color = HD.Yellow,
-            showProgress = true,
-        )
-    }
-    if (pct != null && pct >= 100.0) {
-        return DssVisualState(
-            label = "ATIVANDO",
-            detail = "FINANCIAMENTO CONCLUÍDO",
-            color = HD.Yellow,
-            showProgress = false,
-        )
-    }
-    if (future != null) {
-        return DssVisualState(
-            label = "RECARREGANDO",
-            detail = "Disponível novamente em ${dssTimeLabel(future, now)}",
-            color = HD.Red,
-            showProgress = false,
-        )
-    }
-    return DssVisualState(
-        label = "DESATIVADA",
-        detail = "",
-        color = HD.Red,
-        showProgress = false,
-    )
 }
 
 private fun dssUnavailableCopy(reading: DssReading): Pair<String, String> = when (reading.availability) {
@@ -352,7 +299,8 @@ private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean
                     if (stale) Text("ÚLTIMA LEITURA PRESERVADA", color = HD.Gold, fontSize = 8.sp, fontWeight = FontWeight.Black)
                 }
             }
-            val electionEnded = parseDssDate(station.electionEnd)?.isBefore(Instant.now()) ?: station.electionEnd.isBlank()
+            val electionTime = parseDssDate(station.electionEnd)
+            val clock = dssDisplayClock()
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -361,7 +309,8 @@ private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean
                 Column(Modifier.weight(1f)) {
                     Text("PRÓXIMA ELEIÇÃO", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
                     Text(
-                        if (electionEnded) "ENCERRADA" else OrderRepository.remaining(station.electionEnd).uppercase(),
+                        if (stale) "AGUARDANDO ATUALIZAÇÃO" else if (electionTime == null) "PRAZO NÃO INFORMADO"
+                        else if (electionTime.toEpochMilli() <= clock) "PRAZO ENCERRADO" else dssTimeLabel(electionTime, clock).uppercase(),
                         color = HD.Text,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Black,
@@ -379,13 +328,10 @@ private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean
 @Composable
 private fun DssActionCard(action: DssTacticalAction, rich: Boolean, reading: DssReading) {
     val info = dssActionInfo(action)
-    val cost = action.costs.firstOrNull()
-    val pct = cost?.takeIf { it.targetValue > 0.0 }
-        ?.let { (it.currentValue / it.targetValue * 100.0).coerceIn(0.0, 100.0) }
     val clock = dssDisplayClock()
     val saved = !br.com.helldiversbr.app.data.DssSupport.isCurrent(reading, clock)
     val asOf = if (saved) reading.fetchedAtMillis else clock
-    val observed = dssActionState(action, pct, asOf)
+    val observed = dssActionState(action, asOf)
     val state = if (saved) observed.copy(label = "ÚLTIMA LEITURA",
         detail = "${observed.label} · estado atual não confirmado", color = HD.Gold, showProgress = false) else observed
 
@@ -424,30 +370,17 @@ private fun DssActionCard(action: DssTacticalAction, rich: Boolean, reading: Dss
 
             Text(info.description, color = HD.TextDim, fontSize = 11.sp, lineHeight = 16.sp)
 
-            if (state.showProgress && pct != null) {
-                ProgressBar(pct, HD.Yellow)
-            }
-
-            if (rich && cost != null && cost.targetValue > 0.0) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("CONTRIBUIÇÃO", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                    Text(
-                        "${dssNumber.format(cost.currentValue)} / ${dssNumber.format(cost.targetValue)}",
-                        color = HD.Text,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-                if (!state.showProgress && pct != null) ProgressBar(pct, state.color)
-                val perHour = cost.deltaPerSecond * 3600.0
-                if (perHour != 0.0) {
-                    Text(
-                        "%+.1f/h".format(dssLocale, perHour),
-                        color = HD.TextMuted,
-                        fontSize = 9.sp,
-                        modifier = Modifier.align(Alignment.End),
-                    )
-                }
+            if (rich) action.costs.forEach { cost ->
+                val pct = br.com.helldiversbr.app.data.DssActionRules.percent(cost)
+                Text(br.com.helldiversbr.app.data.DssActionRules.resource(cost).uppercase(), color = HD.TextMuted, fontSize = 9.sp)
+                Text(if (pct == null) "Contribuição não informada" else
+                    "${dssNumber.format(cost.currentValue)} / ${dssNumber.format(cost.targetValue)} · ${"%.3f".format(dssLocale, pct)}%",
+                    color = HD.Text, fontSize = 10.sp)
+                pct?.let { ProgressBar(it, state.color) }
+                val estimate = if (!saved && state.showProgress) br.com.helldiversbr.app.data.DssActionRules.estimateSeconds(cost) else null
+                if (state.showProgress || saved) Text(if (saved) "Contribuição da última leitura salva" else
+                    estimate?.let { "Estimativa: ${kotlin.math.ceil(it / 60.0).toLong()} min · não confirma ativação" } ?: "Estimativa indisponível",
+                    color = HD.TextMuted, fontSize = 9.sp)
             }
 
             if (rich) {
@@ -471,6 +404,7 @@ fun DssPanel(
     planetCatalog: Map<Long, PlanetCatalogEntry> = emptyMap(),
     campaigns: List<Campaign> = emptyList(),
 ) {
+    val currentReading = br.com.helldiversbr.app.data.DssSupport.readingIsFresh(reading, dssDisplayClock())
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -481,15 +415,15 @@ fun DssPanel(
                 Text("DSS", color = HD.Text, fontSize = 27.sp, fontWeight = FontWeight.Black)
             }
             val statusColor = when {
-                reading.stale -> HD.Gold
+                !currentReading -> HD.Gold
                 reading.isLive -> HD.Green
                 else -> HD.TextMuted
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                DssStatusDot(statusColor, reading.isLive)
+                DssStatusDot(statusColor, currentReading && reading.isLive)
                 Text(
                     when {
-                        reading.stale -> "LEITURA SALVA"
+                        !currentReading -> "LEITURA SALVA"
                         reading.isLive -> "CONECTADA"
                         else -> "INDISPONÍVEL"
                     },
@@ -511,7 +445,7 @@ fun DssPanel(
             return@Column
         }
 
-        DssHero(location, station, reading.stale, portrait = true)
+        DssHero(location, station, !currentReading, portrait = true)
 
         if (station.tacticalActions.isEmpty()) {
             HdCard { Text("NENHUMA AÇÃO TÁTICA INFORMADA NESTA LEITURA.", color = HD.TextDim, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
@@ -529,6 +463,7 @@ fun DssWarCard(
     planetCatalog: Map<Long, PlanetCatalogEntry>,
     campaigns: List<Campaign>,
 ) {
+    val currentReading = br.com.helldiversbr.app.data.DssSupport.readingIsFresh(reading, dssDisplayClock())
     HdCard(accent = if (reading.hasStation) HD.Yellow else HD.Border) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
@@ -536,13 +471,13 @@ fun DssWarCard(
                 Text("ESTAÇÃO DEMOCRACIA", color = HD.TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
             }
             val color = when {
-                reading.stale -> HD.Gold
+                !currentReading -> HD.Gold
                 reading.isLive -> HD.Green
                 else -> HD.TextMuted
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                DssStatusDot(color, reading.isLive)
-                Text(if (reading.stale) "SALVA" else if (reading.isLive) "ONLINE" else "INDISPONÍVEL", color = color, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                DssStatusDot(color, currentReading && reading.isLive)
+                Text(if (!currentReading) "SALVA" else if (reading.isLive) "ONLINE" else "INDISPONÍVEL", color = color, fontSize = 8.sp, fontWeight = FontWeight.Black)
             }
         }
 
@@ -557,7 +492,7 @@ fun DssWarCard(
             return@HdCard
         }
 
-        DssHero(location, station, reading.stale, tall = true)
+        DssHero(location, station, !currentReading, tall = true)
         if (station.tacticalActions.isEmpty()) {
             Text("Nenhuma ação tática informada nesta leitura.", color = HD.TextMuted, fontSize = 10.sp)
         } else {

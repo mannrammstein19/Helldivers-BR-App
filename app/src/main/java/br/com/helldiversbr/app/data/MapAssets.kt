@@ -21,7 +21,7 @@ object MapAssets {
     fun all(): Map<String, String> = files
 }
 
-data class PlanetPresence(val key: String, val name: String, val faction: String, val ids: Set<Long>, val file: String) {
+data class PlanetPresence(val key: String, val name: String, val faction: String, val ids: Set<Long>, val file: String, val aliases: Set<String> = emptySet()) {
     val model: String? get() = when(key) {
         "jet", "fire", "cyborg" -> "nave-automata"
         "masses" -> "nave-iluminada"
@@ -35,11 +35,14 @@ data class PlanetPresence(val key: String, val name: String, val faction: String
 }
 object PlanetPresences {
     private var catalog: List<PlanetPresence> = emptyList()
+    private fun normalized(value: String) = java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{M}+"), "").trim().replace(Regex("\\s+"), " ").uppercase(java.util.Locale.ROOT)
     fun init(body: String) {
         catalog = CentralApi.json.parseToJsonElement(body).jsonArray.map {
             val o=it.jsonObject
             PlanetPresence(o.getValue("key").jsonPrimitive.content, o.getValue("name").jsonPrimitive.content,
-                o.getValue("faction").jsonPrimitive.content, o.getValue("ids").jsonArray.mapNotNull { i -> i.jsonPrimitive.longOrNull }.toSet(), o.getValue("file").jsonPrimitive.content)
+                o.getValue("faction").jsonPrimitive.content, o.getValue("ids").jsonArray.mapNotNull { i -> i.jsonPrimitive.longOrNull }.toSet(), o.getValue("file").jsonPrimitive.content,
+                (o["aliases"] as? JsonArray).orEmpty().map { a -> normalized(a.jsonPrimitive.content) }.toSet())
         }
     }
     fun effectId(value: JsonElement): Long? = when(value) {
@@ -48,8 +51,12 @@ object PlanetPresences {
         else -> null
     }
     fun list(planet: Planet): List<PlanetPresence> {
-        val ids=planet.activeEffects.mapNotNull(::effectId).toSet()
-        return catalog.filter { it.ids.any(ids::contains) }
+        val effects = PlanetEffects.values(planet)
+        return catalog.filter { entry -> effects.any { effect ->
+            val id = effectId(effect)
+            if (id != null) id in entry.ids
+            else !PlanetEffects.hasId(effect) && normalized(PlanetEffects.name(effect)) in entry.aliases
+        } }
     }
 }
 

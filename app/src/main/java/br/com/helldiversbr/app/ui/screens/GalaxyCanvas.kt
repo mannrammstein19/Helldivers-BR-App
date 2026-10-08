@@ -75,13 +75,13 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
     var pan by remember { mutableStateOf(Offset.Zero) }
     var viewport by remember { mutableStateOf(IntSize.Zero) }
     val art by produceState(MapArt(), context) {
-        val files = MapAssets.all().filterKeys { it in listOf("human", "automaton", "terminid", "illuminate", "earth", "defense", "liberation", "galaxy", "penta", "meridia", "wreckage", "hive-lord", "draco-barata", "dss-operacional", "dss-inoperante") || it.startsWith("nave-") || it.startsWith("imagens/guerra/presencas/") } +
+        val files = MapAssets.all().filterKeys { it in listOf("human", "automaton", "terminid", "illuminate", "earth", "defense", "liberation", "galaxy", "penta", "meridia", "wreckage", "hive-lord", "draco-barata", "tcs-plus", "tcs-pulse", "dss-operacional", "dss-inoperante") || it.startsWith("nave-") || it.startsWith("imagens/guerra/presencas/") } +
             MapAssets.planetEntries().mapKeys { "planet:${it.key}" }
         val semaphore = Semaphore(8)
         val loaded = coroutineScope {
             files.map { (key, file) -> async { semaphore.withPermit {
                 val result = context.imageLoader.execute(ImageRequest.Builder(context).data("file:///android_asset/$file")
-                    .size(if (key == "galaxy") 1200 else if(key.startsWith("planet:")) 96 else 192).allowHardware(false).build())
+                    .size(if (key == "tcs-pulse") 3840 else if (key == "galaxy") 1200 else if(key.startsWith("planet:")) 96 else 192).allowHardware(false).build())
                 key to if(result is SuccessResult) result.drawable.toBitmap() else null
             } } }.awaitAll()
         }
@@ -106,6 +106,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
     val specialMarkers = remember(positioned) {
         positioned.mapNotNull { (planet, point) -> mapSpecial(planet)?.let { MapSpecialMarker(point, it, mapName(planet)) } }
     }
+    val infrastructure = remember(positioned) { positioned.filter { br.com.helldiversbr.app.data.TcsInfrastructure.has(it.first) && mapSpecial(it.first) == null } }
     val attacked = remember(positioned) { positioned.filter { isPlanetUnderAttack(it.first) } }
     val attacks = remember(all, active) { mapAttackLinks(all, active) }
     val ships = remember(positioned, options.presences, options.ships) {
@@ -324,6 +325,8 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     icon(if(defense) "defense" else "liberation",humanBadge,r*1.8f)
                     if(defense) icon(mapFaction(p.event!!.faction),at+Offset(-r*3.8f,-r*1.8f),r*1.8f)
                 }
+                if (options.infrastructure && br.com.helldiversbr.app.data.TcsInfrastructure.has(p) && special == null)
+                    icon("tcs-plus", at + Offset(0f, -r * 3.2f), r * 1.9f)
                 if(options.presences) {
 
                     PlanetPresences.list(p).take(3).forEachIndexed { i, presence ->
@@ -432,6 +435,31 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                             else -> Color(0xFFDDC2FF)
                         }
                         drawLine(energy.copy(alpha = .85f), tail, head, 3.dp.toPx(), androidx.compose.ui.graphics.StrokeCap.Round)
+                    }
+                }
+            }
+            if (animated && options.infrastructure && !options.clean) art.bitmaps["tcs-pulse"]?.let { bitmap ->
+                val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    isFilterBitmap = true
+                    colorFilter = android.graphics.ColorMatrixColorFilter(floatArrayOf(
+                        .064f,.215f,.021f,0f,0f, .162f,.544f,.055f,0f,0f,
+                        .213f,.715f,.072f,0f,0f, 0f,0f,0f,1f,0f))
+                }
+                infrastructure.forEach { (planet, point) ->
+                    val status = br.com.helldiversbr.app.data.TcsInfrastructure.state(planet)
+                    if (status == br.com.helldiversbr.app.data.TcsState.ALLIED || status == br.com.helldiversbr.app.data.TcsState.ATTACKED) {
+                        val frame = br.com.helldiversbr.app.data.TcsInfrastructure.frame(planet.index, (seconds * 1000).toLong())
+                        val width = bitmap.width / 40
+                        val at = origin + point * unit
+                        val radius = max(1000f / 260f * unit, 1.8.dp.toPx()) * 4f
+                        if (at.x in -radius..(size.width+radius) && at.y in -radius..(size.height+radius)) {
+                            val canvas = drawContext.canvas.nativeCanvas
+                            canvas.save()
+                            canvas.clipPath(Path().apply { addCircle(at.x, at.y, radius, Path.Direction.CW) })
+                            canvas.drawBitmap(bitmap, android.graphics.Rect(frame*width,0,(frame+1)*width,bitmap.height),
+                                RectF(at.x-radius,at.y-radius,at.x+radius,at.y+radius), paint)
+                            canvas.restore()
+                        }
                     }
                 }
             }

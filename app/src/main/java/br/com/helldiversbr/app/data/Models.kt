@@ -180,6 +180,11 @@ data class Planet(
     val event: PlanetEvent? = null,
     val regions: List<PlanetRegion> = emptyList(),
     val activeEffects: List<JsonElement> = emptyList(),
+    val effects: List<JsonElement> = emptyList(),
+    val planetEffects: List<JsonElement> = emptyList(),
+    val galacticEffects: List<JsonElement> = emptyList(),
+    val modifiers: List<JsonElement> = emptyList(),
+    val planetActiveEffects: List<JsonElement> = emptyList(),
 ) {
     val nameText: String get() = localizedText(name).ifBlank { "PLANETA #$index" }
     val mapPosition: PlanetPosition? get() = position
@@ -214,10 +219,11 @@ data class Campaign(
 /** Recurso de contribuição de uma ação tática da DSS. */
 @Serializable
 data class DssCost(
+    val itemMixId: Long? = null,
     val id: String = "",
-    val targetValue: Double = 0.0,
-    val currentValue: Double = 0.0,
-    val deltaPerSecond: Double = 0.0,
+    val targetValue: Double? = null,
+    val currentValue: Double? = null,
+    val deltaPerSecond: Double? = null,
 )
 
 /** Ação tática anunciada pela Estação Espacial da Democracia (DSS). */
@@ -227,13 +233,15 @@ data class DssTacticalAction(
     val name: String = "",
     val description: String = "",
     val strategicDescription: String = "",
-    val status: Int = 0,
+    val status: Int = -1,
     // Campos textuais opcionais que algumas respostas/versões da API podem expor.
     // JsonElement evita quebrar a desserialização caso o backend envie número em vez de texto.
     val statusName: JsonElement? = null,
     val state: JsonElement? = null,
     val statusText: JsonElement? = null,
     val statusExpire: String = "",
+    val statusExpiresAt: String = "",
+    val statusExpiration: String = "",
     val costs: List<DssCost> = emptyList(),
     val effectIds: List<Long> = emptyList(),
 )

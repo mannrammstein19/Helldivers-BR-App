@@ -64,6 +64,18 @@ object SteamNewsRepository {
         if (now - lastAttempt < INTERVAL) return@withLock previous ?: SteamReading(message = "Notícias temporariamente indisponíveis.")
         lastAttempt = now
         try {
+            val central = attempt {
+                CentralApi.read("/api/v1/steam").let { reading ->
+                    require(reading.time >= (previous?.readAtMillis ?: 0L))
+                    val items = parse(reading.data.toString()).also { require(it.isNotEmpty()) }
+                    SteamReading(items, reading.time, reading.source, reading.stale)
+                }
+            }.getOrNull()
+            if (central != null) {
+                latest = central
+                TelemetryCache.saveSteam(central)
+                return@withLock central
+            }
             val (items, source) = try {
                 parse(HelldiversApi.steamNews()).also { require(it.isNotEmpty()) } to "community"
             } catch (e: CancellationException) { throw e }

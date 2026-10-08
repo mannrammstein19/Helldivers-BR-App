@@ -88,7 +88,7 @@ class CentralMapIntegrationTest {
         val r=CentralApi.decode(body(),now)
         val old=DssReading(station=SpaceStation(planet=Planet(index=100)),stale=true)
         val fresh=Planet(index=200,activeEffects=listOf(JsonPrimitive(1217)))
-        val resolved=old.withPlanetReference(listOf(fresh),r)
+        val resolved=old.withPlanetReference(listOf(fresh),r,now)
         assertEquals(200L,resolved.lastPlanetIndex);assertFalse(resolved.isLive)
     }
 

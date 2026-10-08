@@ -60,44 +60,65 @@ object RegionTelemetry {
         latest
     }
 
-    fun enrich(planet: Planet, readings: Map<Key, Reading>, previous: Planet?, now: Long, liveBase: Boolean): Planet =
-        planet.copy(regions = planet.regions.map { region ->
+    private fun sameIdentity(a: PlanetRegion, b: PlanetRegion): Boolean =
+        if (a.id != null || b.id != null) a.id != null && a.id == b.id && a.hash == b.hash
+        else a.hash != null && a.hash == b.hash
+
+    private fun evidenceTime(region: PlanetRegion): Long =
+        maxOf(region.telemetryReadAtMillis, region.lastKnown?.telemetryReadAtMillis ?: 0L)
+
+    /** Historical recovery remains visible; combat measurements are never current by inheritance. */
+    private fun historical(region: PlanetRegion, prior: PlanetRegion?): PlanetRegion {
+        fun knownTime(r: PlanetRegion) = if (ownerId(r.owner) != null) r.telemetryReadAtMillis
+            else r.lastKnown?.telemetryReadAtMillis ?: 0L
+        val evidence = if (prior != null && knownTime(prior) >= knownTime(region)) prior else region
+        val history = if (ownerId(evidence.owner) != null) RegionHistory(
+            evidence.owner, evidence.isAvailable, evidence.telemetryReadAtMillis, evidence.telemetrySource,
+            evidence.health, evidence.players, evidence.regenPerSecond, evidence.availabilityFactor)
+            else evidence.lastKnown
+        val recovered = history?.let { ownerId(it.owner) == 1 && it.isAvailable == false } == true
+        return region.copy(owner = if (recovered) history?.owner else null,
+            health = null, isAvailable = if (recovered) false else null,
+            players = null, regenPerSecond = null, availabilityFactor = null,
+            telemetryReadAtMillis = history?.telemetryReadAtMillis ?: evidence.telemetryReadAtMillis,
+            telemetrySource = history?.telemetrySource ?: evidence.telemetrySource,
+            lastKnown = history, telemetryStale = true)
+    }
+
+    fun enrich(planet: Planet, readings: Map<Key, Reading>, previous: Planet?, now: Long, liveBase: Boolean): Planet {
+        val priorRegions = previous?.takeIf { it.index == planet.index }?.regions.orEmpty()
+        val current = planet.regions.map { region ->
+            val prior = priorRegions.firstOrNull { sameIdentity(region, it) }
             val reading = region.id?.let { readings[Key(planet.index, it)] }
-            val fresh = reading?.takeIf { now - it.readAtMillis in 0..90_000L }
-            val prior = previous?.regions?.firstOrNull {
-                if (region.id != null && it.id != null) region.id == it.id &&
-                    (region.hash == null || it.hash == null || region.hash == it.hash)
-                else region.hash != null && region.hash == it.hash
-            }
+                ?.takeIf { now - it.readAtMillis in 0..90_000L &&
+                    it.readAtMillis >= evidenceTime(region) &&
+                    it.readAtMillis >= (prior?.let { old -> evidenceTime(old) } ?: 0L) }
+            val candidate = if (reading != null) region.copy(owner = JsonPrimitive(reading.owner),
+                health = reading.health, isAvailable = reading.available,
+                availabilityFactor = reading.availabilityFactor, players = reading.players,
+                regenPerSecond = reading.regen, telemetryReadAtMillis = reading.readAtMillis,
+                telemetrySource = reading.source, telemetryStale = false)
+                else region.copy(telemetryReadAtMillis = region.telemetryReadAtMillis.takeIf { it > 0 } ?: now)
+            val usable = (reading != null || liveBase) && !candidate.telemetryStale &&
+                ownerId(candidate.owner) != null && candidate.telemetryReadAtMillis <= now + 60_000 &&
+                now - candidate.telemetryReadAtMillis <= 300_000 &&
+                candidate.telemetryReadAtMillis >= (prior?.let { evidenceTime(it) } ?: 0L)
             when {
-                fresh != null && fresh.available == null && prior?.isAvailable != null && ownerId(prior.owner) == fresh.owner ->
-                    region.copy(owner = prior.owner, health = prior.health, maxHealth = prior.maxHealth,
-                        isAvailable = prior.isAvailable, availabilityFactor = prior.availabilityFactor,
-                        players = prior.players, regenPerSecond = prior.regenPerSecond,
-                        telemetryReadAtMillis = prior.telemetryReadAtMillis,
-                        telemetrySource = prior.telemetrySource, telemetryStale = true)
-                fresh != null -> region.copy(owner = JsonPrimitive(fresh.owner), health = fresh.health,
-                    isAvailable = fresh.available, availabilityFactor = fresh.availabilityFactor,
-                    players = fresh.players, regenPerSecond = fresh.regen,
-                    telemetryReadAtMillis = fresh.readAtMillis, telemetrySource = fresh.source, telemetryStale = false)
-                liveBase && ownerId(region.owner) != null && !region.telemetryStale ->
-                    region.copy(telemetryReadAtMillis = region.telemetryReadAtMillis.takeIf { it > 0 } ?: now)
-                ownerId(region.owner) == 1 && region.isAvailable == false -> region
-                prior != null && ownerId(prior.owner) == 1 && prior.isAvailable == false -> region.copy(
-                    owner = prior.owner, health = prior.health, maxHealth = prior.maxHealth,
-                    isAvailable = prior.isAvailable, availabilityFactor = prior.availabilityFactor,
-                    players = prior.players, regenPerSecond = prior.regenPerSecond,
-                    telemetryReadAtMillis = prior.telemetryReadAtMillis,
-                    telemetrySource = prior.telemetrySource, telemetryStale = true)
-                else -> region.copy(owner = null, health = null, isAvailable = null,
-                    players = null, regenPerSecond = null, availabilityFactor = null,
-                    telemetryReadAtMillis = prior?.telemetryReadAtMillis ?: region.telemetryReadAtMillis,
-                    lastKnown = prior?.lastKnown ?: prior?.let {
-                        RegionHistory(it.owner, it.isAvailable, it.telemetryReadAtMillis, it.telemetrySource,
-                            it.health, it.players, it.regenPerSecond, it.availabilityFactor)
-                    } ?: region.lastKnown, telemetryStale = true)
+                candidate.telemetryReadAtMillis > now + 60_000 -> historical(
+                    region.copy(owner = null, isAvailable = null, lastKnown = null, telemetryReadAtMillis = 0L), prior)
+                !usable -> historical(region, prior)
+                candidate.isAvailable == null && prior?.isAvailable != null &&
+                    ownerId(candidate.owner) == ownerId(prior.owner) -> historical(region, prior)
+                else -> candidate
             }
-        })
+        }
+        // Missing rows survive only as dated history. A reused ID never inherits another hash.
+        val missing = priorRegions.filter { old -> planet.regions.none {
+            sameIdentity(it, old) || (old.id != null && it.id == old.id)
+        } }.map { historical(it, it) }
+        return planet.copy(regions = current + missing)
+    }
+
 }
 
 /** Reusing a saved snapshot never refreshes a field's actual observation time. */

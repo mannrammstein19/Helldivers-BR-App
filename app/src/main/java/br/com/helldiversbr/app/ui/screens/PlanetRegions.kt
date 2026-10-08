@@ -142,6 +142,12 @@ fun PlanetRegions(planet: Planet) {
                         }
                         Text(info.status, color = accent, fontWeight = FontWeight.Bold,
                             fontSize = 12.sp, lineHeight = 16.sp)
+                        if (region.telemetryReadAtMillis > 0) {
+                            val stamp = java.text.SimpleDateFormat("dd/MM HH:mm", Locale("pt", "BR"))
+                                .format(java.util.Date(region.telemetryReadAtMillis))
+                            Text("${if (region.telemetryStale) "Última leitura" else "Leitura"}: $stamp · ${region.telemetrySource}",
+                                color = HD.TextMuted, fontSize = 10.sp)
+                        }
                         if (info.state == RegionState.AVAILABLE) {
                             info.percent?.let {
                                 Text("Libertação: ${"%.2f".format(Locale("pt", "BR"), it)}%",

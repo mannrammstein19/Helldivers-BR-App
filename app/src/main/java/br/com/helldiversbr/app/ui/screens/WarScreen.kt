@@ -627,6 +627,7 @@ fun PlanetDossierDialog(data: HomeData, campaign: Campaign, onDismiss: () -> Uni
                     if(br.com.helldiversbr.app.data.PlanetPresences.list(p).isNotEmpty()) SectionLabel(if("planetas" in data.staleSources) "PRESENÇAS · ÚLTIMA LEITURA" else "PRESENÇAS CONFIRMADAS")
                     PresenceIcons(p, labels=true, stale="planetas" in data.staleSources)
                     if(mapName(p)=="omicron") Text("Hive Lord e Draco Barata: referências editoriais do mapa, sem confirmação de unidade ao vivo.",color=HD.TextMuted,fontSize=10.sp)
+                    TcsCard(p, stale="planetas" in data.staleSources, planets=data.planets, readAtMillis=data.planetReadAtMillis)
                     PlanetCounters(p)
                     PlanetRegions(p)
                     Text("TELEMETRIA NATIVA // DADOS SINCRONIZADOS COM A CENTRAL DE GUERRA", color = HD.TextMuted, fontSize = 8.sp, lineHeight = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)

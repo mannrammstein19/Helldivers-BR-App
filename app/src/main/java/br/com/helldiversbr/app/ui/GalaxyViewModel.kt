@@ -34,7 +34,7 @@ data class GalaxyState(
     /** community | direct | cache */
     val telemetrySource: String = "community",
 ) {
-    val dssHost: Long? get() = dss.station?.planet?.index?.takeIf { it > 0L } ?: dss.lastPlanetIndex
+    val dssHost: Long? get() = dss.locationReference
 }
 
 class GalaxyViewModel : ViewModel() {
@@ -63,6 +63,7 @@ class GalaxyViewModel : ViewModel() {
                 val central = try { CentralApi.read("/api/v1/planets") }
                     catch (e: CancellationException) { throw e } catch (_: Exception) { null }
                 if (central != null) {
+                    require(central.time >= maxOf(disk?.updatedAtMillis ?: 0L, previous.updatedAtMillis ?: 0L)) { "Mapa regressivo" }
                     val raw = CentralApi.planets(central)
                     require(raw.size >= 10 && raw.map { it.index }.distinct().size == raw.size)
                     val prior = disk?.planets.orEmpty()
@@ -168,6 +169,9 @@ class GalaxyViewModel : ViewModel() {
             } catch (_: Exception) {
                 mutableState.value = mutableState.value.copy(
                     loading = false,
+                    planets = mutableState.value.planets.map { it.asSavedTelemetry() },
+                    telemetrySource = "cache",
+                    dss = mutableState.value.dss.copy(stale = true, source = "cache"),
                     error = if (mutableState.value.planets.isNotEmpty()) "Não foi possível atualizar o mapa. Exibindo a última leitura disponível."
                         else "Não foi possível atualizar o mapa e ainda não existe leitura salva no aparelho.",
                 )

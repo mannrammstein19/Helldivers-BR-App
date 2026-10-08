@@ -31,13 +31,13 @@ object TelemetryCache {
 
     private fun file(name: String): File? = root?.let { File(it, name) }
 
-    suspend fun loadHome(): HomeData? = read("home.json") { json.decodeFromString(HomeData.serializer(), it) }
+    suspend fun loadHome(): HomeData? = read("home.json") { json.decodeFromString(HomeData.serializer(), it).let { h -> h.copy(dss = h.dss.withoutSeededLocation()) } }
     suspend fun saveHome(data: HomeData) = write("home.json", json.encodeToString(HomeData.serializer(), data))
 
-    suspend fun loadDss(): DssReading? = read("dss.json") { json.decodeFromString(DssReading.serializer(), it) }
+    suspend fun loadDss(): DssReading? = read("dss.json") { json.decodeFromString(DssReading.serializer(), it).withoutSeededLocation() }
     suspend fun saveDss(data: DssReading) = write("dss.json", json.encodeToString(DssReading.serializer(), data))
 
-    suspend fun loadGalaxy(): GalaxyCache? = read("galaxy.json") { json.decodeFromString(GalaxyCache.serializer(), it) }
+    suspend fun loadGalaxy(): GalaxyCache? = read("galaxy.json") { json.decodeFromString(GalaxyCache.serializer(), it).let { g -> g.copy(dss = g.dss.withoutSeededLocation()) } }
     suspend fun saveGalaxy(data: GalaxyCache) = write("galaxy.json", json.encodeToString(GalaxyCache.serializer(), data))
 
     suspend fun loadSteam(): SteamReading? = read("steam.json") { json.decodeFromString(SteamReading.serializer(), it) }
