@@ -58,9 +58,9 @@ fun DssMapDock(expanded: Boolean, model: String?, status: String, stale: Boolean
                     Text(status,color=if(stale) HD.Gold else HD.Text,fontSize=11.sp,maxLines=2,overflow=TextOverflow.Ellipsis)
                 }
             }
-            Box(Modifier.size(56.dp).clickable(onClick=onToggle)
+            Box(Modifier.size(64.dp).clickable(onClick=onToggle)
                 .semantics { contentDescription=if(expanded) "Recolher aviso da DSS" else "Mostrar aviso da DSS" },contentAlignment=Alignment.Center) {
-                AsyncImage(model,contentDescription=null,modifier=Modifier.size(42.dp).graphicsLayer { alpha=opacity.value })
+                AsyncImage(model,contentDescription=null,modifier=Modifier.size(52.dp).graphicsLayer { alpha=opacity.value })
             }
         }
     }

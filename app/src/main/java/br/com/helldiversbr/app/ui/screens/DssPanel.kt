@@ -5,6 +5,10 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -109,10 +113,10 @@ private fun resolveDssLocation(
 
 private fun dssActionInfo(action: DssTacticalAction): DssActionInfo {
     br.com.helldiversbr.app.data.DssSupport.kind(action)?.let { known ->
-        return DssActionInfo(known.label, when (known) {
-            br.com.helldiversbr.app.data.DssSupport.EAGLE -> "A DSS emprega ataques periódicos de Águia para apoiar as operações no planeta."
-            br.com.helldiversbr.app.data.DssSupport.BLOCKADE -> "Impede o início de novas campanhas de Defesa a partir do planeta e fornece suporte adicional às operações."
-            br.com.helldiversbr.app.data.DssSupport.HEAVY -> "Fornece suporte de artilharia e acelera os esforços de libertação."
+        return DssActionInfo(if (known == br.com.helldiversbr.app.data.DssSupport.EAGLE) "Tempestade da Águia" else known.label, when (known) {
+            br.com.helldiversbr.app.data.DssSupport.EAGLE -> "Ataques de gás Águia durante as missões. Retarda o avanço inimigo em campanhas de defesa."
+            br.com.helldiversbr.app.data.DssSupport.BLOCKADE -> "Campanhas de defesa não podem ser originadas deste planeta. O impulsor de Otimização Espacial Hellpod fica ativo para todas as missões."
+            br.com.helldiversbr.app.data.DssSupport.HEAVY -> "Concede acesso à Barragem Orbital de Alto Explosivo de 380 mm durante as missões. Acelera o progresso nas campanhas de libertação."
         }, known.icon)
     }
     val raw = action.name.trim()
@@ -120,7 +124,7 @@ private fun dssActionInfo(action: DssTacticalAction): DssActionInfo {
     return when {
         "eagle storm" in key -> DssActionInfo(
             "Águia Tempestiva",
-            "A DSS emprega ataques periódicos de Águia para apoiar as operações no planeta.",
+            "Ataques de gás Águia durante as missões. Retarda o avanço inimigo em campanhas de defesa.",
             br.com.helldiversbr.app.data.MapAssets.file("imagens/guerra/dss/EAGLE STORM.png"),
         )
         "orbital blockade" in key -> DssActionInfo(
@@ -244,81 +248,105 @@ private fun DssUnavailableCard(reading: DssReading, tall: Boolean = false, portr
 
 @Composable
 private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean, tall: Boolean = false, portrait: Boolean = false) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = HD.BgDeep),
-        border = BorderStroke(1.dp, HD.Yellow.copy(alpha = .62f)),
-    ) {
+    val clock = dssDisplayClock()
+    val election = parseDssDate(station.electionEnd)
+    val ownerColor = factionColor(station.planet.currentOwner)
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF090F14)),
+        border = BorderStroke(1.dp, Color(0xFF34444E))) {
         Column {
-            if (portrait) Row(
-                Modifier.fillMaxWidth().padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                AsyncImage(model = DSS_MODEL, contentDescription = "DSS", modifier = Modifier.size(60.dp), contentScale = ContentScale.Fit)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("ESTAÇÃO DEMOCRACIA", color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Black)
-                    Text(location.name.uppercase(), color = HD.Text, fontSize = 20.sp, fontWeight = FontWeight.Black)
-                    Text(location.sector.uppercase(), color = HD.TextMuted, fontSize = 9.sp)
-                    if (stale) Text("ÚLTIMA LEITURA PRESERVADA", color = HD.Gold, fontSize = 8.sp)
-                }
-            } else Box(Modifier.fillMaxWidth().aspectRatio(if (tall) 4f / 3f else 16f / 7.0f)) {
-                AsyncImage(
-                    model = location.image,
-                    contentDescription = location.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-                Box(
-                    Modifier.fillMaxSize().background(
-                        Brush.horizontalGradient(
-                            listOf(Color.Black.copy(alpha = .76f), Color.Black.copy(alpha = .28f), Color.Black.copy(alpha = .55f))
-                        )
-                    )
-                )
-                AsyncImage(
-                    model = DSS_MODEL,
-                    contentDescription = "DSS",
-                    modifier = Modifier
-                        .align(if (portrait) Alignment.TopCenter else Alignment.CenterEnd)
-                        .padding(top = if (portrait) 16.dp else 0.dp, end = if (portrait) 0.dp else if (tall) 10.dp else 6.dp)
-                        .fillMaxHeight(if (portrait) .76f else if (tall) .88f else .76f)
-                        .fillMaxWidth(if (portrait) .80f else if (tall) .45f else .42f),
-                    contentScale = ContentScale.Fit,
-                )
-                Column(
-                    Modifier.align(if (portrait) Alignment.BottomStart else Alignment.CenterStart)
-                        .fillMaxWidth(if (portrait) 1f else if (tall) .58f else .67f)
-                        .padding(start = 14.dp, end = if (portrait) 14.dp else 0.dp, bottom = if (portrait) 18.dp else 0.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text("ESTAÇÃO DEMOCRACIA", color = HD.Yellow, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                    Text(location.name.uppercase(), color = Color.White, fontSize = 22.sp, lineHeight = 24.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(location.sector.uppercase(), color = Color.White.copy(alpha = .70f), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
-                    if (stale) Text("ÚLTIMA LEITURA PRESERVADA", color = HD.Gold, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                }
-            }
-            val electionTime = parseDssDate(station.electionEnd)
-            val clock = dssDisplayClock()
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                AsyncImage(PlanetVisuals.factionLogo(station.planet.currentOwner), null, Modifier.size(28.dp), contentScale = ContentScale.Fit)
                 Column(Modifier.weight(1f)) {
-                    Text("PRÓXIMA ELEIÇÃO", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                    Text(
-                        if (stale) "AGUARDANDO ATUALIZAÇÃO" else if (electionTime == null) "PRAZO NÃO INFORMADO"
-                        else if (electionTime.toEpochMilli() <= clock) "PRAZO ENCERRADO" else dssTimeLabel(electionTime, clock).uppercase(),
-                        color = HD.Text,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Black,
-                    )
+                    Text(location.name.uppercase(), color = ownerColor, fontSize = 19.sp, fontWeight = FontWeight.Black)
+                    Text(location.sector.uppercase(), color = Color(0xFFBACBD2), fontSize = 10.sp)
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("AÇÕES TÁTICAS", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                    Text(station.tacticalActions.size.toString(), color = HD.Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                AsyncImage(DSS_MODEL, "DSS", Modifier.size(62.dp), contentScale = ContentScale.Fit)
+            }
+            if (location.image.isNotBlank()) AsyncImage(location.image, location.name,
+                Modifier.fillMaxWidth().height(140.dp), contentScale = ContentScale.Crop)
+            else Box(Modifier.fillMaxWidth().height(110.dp).background(Color(0xFF111D29)), contentAlignment = Alignment.Center) {
+                AsyncImage(DSS_MODEL, "DSS", Modifier.height(96.dp), contentScale = ContentScale.Fit)
+            }
+            Text(if (stale) "Última leitura · votação sem confirmação atual" else if (election == null) "Prazo da votação não informado"
+                else if (election.toEpochMilli() <= clock) "Aguardando atualização da votação"
+                else "Votação: ${dssTimeLabel(election, clock)}", Modifier.align(Alignment.End).padding(10.dp),
+                color = Color(0xFFD8EDF6), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+private fun dssDescription(text: String): androidx.compose.ui.text.AnnotatedString =
+    androidx.compose.ui.text.buildAnnotatedString {
+        append(text)
+        listOf("Ataques de gás Águia", "campanhas de defesa", "Campanhas de defesa",
+            "Otimização Espacial Hellpod", "Barragem Orbital de Alto Explosivo de 380 mm", "campanhas de libertação")
+            .forEach { term ->
+                val start = text.indexOf(term)
+                if (start >= 0) addStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFFFFE600)), start, start + term.length)
+            }
+    }
+
+@Composable
+private fun DssActionCard(action: DssTacticalAction, rich: Boolean, reading: DssReading) {
+    val info = dssActionInfo(action)
+    val clock = dssDisplayClock()
+    val saved = !br.com.helldiversbr.app.data.DssSupport.isCurrent(reading, clock)
+    val observed = dssActionState(action, if (saved) reading.fetchedAtMillis else clock)
+    val active = !saved && observed.label == "ATIVA"
+    val unavailable = !saved && observed.label in listOf("RECARREGANDO", "INDISPONÍVEL")
+    val titleColor = if (unavailable) Color(0xFFDB4800) else Color(0xFFB8DCEA)
+    val borderColor = if (active) Color(0xFFFFE600) else if (unavailable) Color(0xFF53281B) else Color(0xFF477E99)
+    val background = if (active) Color(0xFF1C1C10) else if (unavailable) Color(0xFF190E0A) else Color(0xFF162E39)
+    Card(Modifier.fillMaxWidth(), shape = RectangleShape,
+        colors = CardDefaults.cardColors(containerColor = background), border = BorderStroke(2.dp, borderColor)) {
+        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(info.name.uppercase(), color = titleColor, fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.Black)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(dssDescription(info.description), Modifier.weight(1f).background(Color(0xFF202020)).border(2.dp, Color(0xFF8B8B88)).padding(8.dp),
+                    color = Color(0xFFC8C8C8), fontSize = 11.sp, lineHeight = 16.sp)
+                info.icon?.let { AsyncImage(it, null, Modifier.size(60.dp).background(Color(0xFF202020))
+                    .border(2.dp, if (active) Color(0xFFFFE600) else Color(0xFFA87979)).padding(4.dp), contentScale = ContentScale.Fit) }
+            }
+            if (saved) Text("ÚLTIMA LEITURA · ${observed.label} · situação atual sem confirmação", color = HD.Gold, fontSize = 10.sp)
+            else if (unavailable) DssHazardStrip(observed.detail.ifBlank { observed.label })
+            else if (active) {
+                val detail = when (br.com.helldiversbr.app.data.DssSupport.kind(action)) {
+                    br.com.helldiversbr.app.data.DssSupport.EAGLE -> "A DSS mantém uma frota rotativa de caças Águia, apoiando os Helldivers com suporte aéreo e retardando as ofensivas inimigas."
+                    br.com.helldiversbr.app.data.DssSupport.BLOCKADE -> "A DSS intercepta grandes naves inimigas que tentam deixar a atmosfera e oferece suporte logístico aos Super Destroyers."
+                    br.com.helldiversbr.app.data.DssSupport.HEAVY -> "A frota logística da DSS fornece munição de 380 mm aos Super Destroyers e apoio de artilharia às operações da SEAF."
+                    else -> "Ação informada como ativa nesta leitura."
+                }
+                Text(detail, Modifier.fillMaxWidth().background(Color(0xFF25220B)).border(1.dp, Color(0xFFB8A600)).padding(8.dp),
+                    color = Color(0xFFF0DF76), fontSize = 11.sp, lineHeight = 16.sp)
+                Text(observed.detail, Modifier.fillMaxWidth().background(Color(0xFFFFE600)).padding(8.dp),
+                    color = Color(0xFF10120B), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+            else Text(observed.label, color = Color(0xFFC1D8E1), fontSize = 10.sp)
+
+            if (rich && observed.showProgress) action.costs.forEach { cost ->
+                val pct = br.com.helldiversbr.app.data.DssActionRules.percent(cost)
+                Column(Modifier.fillMaxWidth().background(Color(0xFF091C24)).border(2.dp, Color(0xFF264A5A)).padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val key = when (cost.itemMixId ?: cost.id.toLongOrNull()) {
+                            3992382197L -> "dss-resource-common"
+                            2985106497L -> "dss-resource-rare"
+                            3608481516L -> "dss-resource-requisition"
+                            else -> null
+                        }
+                        key?.let { AsyncImage(br.com.helldiversbr.app.data.MapAssets.file(it), null, Modifier.size(18.dp)) }
+                        Text(br.com.helldiversbr.app.data.DssActionRules.resource(cost), color = HD.TextDim, fontSize = 10.sp)
+                    }
+                    Text(if (pct == null) "Contribuição não informada" else
+                        "${dssNumber.format(cost.currentValue)} / ${dssNumber.format(cost.targetValue)} · ${"%.3f".format(dssLocale, pct)}%",
+                        color = HD.Text, fontSize = 10.sp)
+                    pct?.let { ProgressBar(it, Color(0xFF8BD7F4)) }
+                    val estimate = if (!saved) br.com.helldiversbr.app.data.DssActionRules.estimateSeconds(cost) else null
+                    Text(if (saved) "Contribuição da última leitura salva" else estimate?.let {
+                        "Estimativa: ${kotlin.math.ceil(it / 60.0).toLong()} min · não confirma ativação"
+                    } ?: "Estimativa indisponível", color = Color(0xFFC7D1D5), fontSize = 10.sp)
                 }
             }
         }
@@ -326,74 +354,22 @@ private fun DssHero(location: DssLocation, station: SpaceStation, stale: Boolean
 }
 
 @Composable
-private fun DssActionCard(action: DssTacticalAction, rich: Boolean, reading: DssReading) {
-    val info = dssActionInfo(action)
-    val clock = dssDisplayClock()
-    val saved = !br.com.helldiversbr.app.data.DssSupport.isCurrent(reading, clock)
-    val asOf = if (saved) reading.fetchedAtMillis else clock
-    val observed = dssActionState(action, asOf)
-    val state = if (saved) observed.copy(label = "ÚLTIMA LEITURA",
-        detail = "${observed.label} · estado atual não confirmado", color = HD.Gold, showProgress = false) else observed
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = HD.Surface),
-        border = BorderStroke(1.dp, state.color.copy(alpha = .42f)),
-    ) {
-        Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                if (info.icon != null) {
-                    AsyncImage(
-                        model = info.icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(42.dp),
-                        contentScale = ContentScale.Fit,
-                    )
-                    Spacer(Modifier.width(10.dp))
-                } else {
-                    Box(
-                        Modifier.size(42.dp).clip(RoundedCornerShape(9.dp)).background(HD.BgDeep),
-                        contentAlignment = Alignment.Center,
-                    ) { Text("◆", color = HD.Yellow, fontSize = 17.sp) }
-                    Spacer(Modifier.width(10.dp))
-                }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(info.name.uppercase(), color = HD.Text, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Black)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        DssStatusDot(state.color, state.label == "ATIVA")
-                        Text(state.label, color = state.color, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                    }
-                    if (state.detail.isNotBlank()) Text(state.detail.uppercase(), color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            Text(info.description, color = HD.TextDim, fontSize = 11.sp, lineHeight = 16.sp)
-
-            if (rich) action.costs.forEach { cost ->
-                val pct = br.com.helldiversbr.app.data.DssActionRules.percent(cost)
-                Text(br.com.helldiversbr.app.data.DssActionRules.resource(cost).uppercase(), color = HD.TextMuted, fontSize = 9.sp)
-                Text(if (pct == null) "Contribuição não informada" else
-                    "${dssNumber.format(cost.currentValue)} / ${dssNumber.format(cost.targetValue)} · ${"%.3f".format(dssLocale, pct)}%",
-                    color = HD.Text, fontSize = 10.sp)
-                pct?.let { ProgressBar(it, state.color) }
-                val estimate = if (!saved && state.showProgress) br.com.helldiversbr.app.data.DssActionRules.estimateSeconds(cost) else null
-                if (state.showProgress || saved) Text(if (saved) "Contribuição da última leitura salva" else
-                    estimate?.let { "Estimativa: ${kotlin.math.ceil(it / 60.0).toLong()} min · não confirma ativação" } ?: "Estimativa indisponível",
-                    color = HD.TextMuted, fontSize = 9.sp)
-            }
-
-            if (rich) {
-                val strategic = action.strategicDescription
-                    .replace(Regex("<[^>]*>"), " ")
-                    .replace(Regex("\\s+"), " ")
-                    .trim()
-                if (strategic.isNotBlank()) {
-                    HorizontalDivider(color = HD.BorderSoft)
-                    Text(strategic, color = HD.TextMuted, fontSize = 10.sp, lineHeight = 15.sp, fontStyle = FontStyle.Italic)
+private fun DssHazardStrip(label: String) {
+    Row(Modifier.fillMaxWidth().background(Color(0xFF512417)).padding(5.dp), verticalAlignment = Alignment.CenterVertically) {
+        @Composable fun Stripes() {
+            Canvas(Modifier.width(26.dp).height(26.dp).clip(RectangleShape)) {
+                val step = 8.dp.toPx()
+                var x = -size.height
+                while (x < size.width) {
+                    drawLine(Color(0xFFFF5200), Offset(x, size.height), Offset(x + size.height, 0f), 3.dp.toPx())
+                    x += step
                 }
             }
         }
+        Stripes()
+        Text(label, Modifier.weight(1f).padding(horizontal = 6.dp), color = Color(0xFFFF5200), fontSize = 12.sp,
+            fontWeight = FontWeight.Black, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Stripes()
     }
 }
 
@@ -406,7 +382,7 @@ fun DssPanel(
 ) {
     val currentReading = br.com.helldiversbr.app.data.DssSupport.readingIsFresh(reading, dssDisplayClock())
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().background(Color(0xFF090F14)).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -453,6 +429,11 @@ fun DssPanel(
             SectionLabel("Ações táticas", HD.Text)
             station.tacticalActions.forEach { action -> DssActionCard(action, rich = true, reading = reading) }
         }
+        val stamp = if (reading.fetchedAtMillis > 0L) java.text.DateFormat.getDateTimeInstance(
+            java.text.DateFormat.SHORT, java.text.DateFormat.SHORT, dssLocale).format(java.util.Date(reading.fetchedAtMillis)) else "horário não informado"
+        Text("${if (currentReading) "Leitura" else "Última leitura"}: $stamp · ${reading.source}",
+            color = HD.TextMuted, fontSize = 9.sp, modifier = Modifier.align(Alignment.End))
+
     }
 }
 

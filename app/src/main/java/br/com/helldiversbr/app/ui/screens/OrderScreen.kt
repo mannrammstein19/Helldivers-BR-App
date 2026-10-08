@@ -244,8 +244,8 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
     val factionRaw = OrderRepository.taskFaction(task)
         .takeIf { it.isNotBlank() && !OrderRepository.isHumanFaction(it) }
         ?: campaign?.let { OrderRepository.enemyFaction(it) }.orEmpty()
-    val accent = if (factionRaw.isNotBlank()) factionColor(factionRaw) else HD.Yellow
-    val factionLabel = if (factionRaw.isNotBlank()) OrderRepository.factionLabel(factionRaw).uppercase() else "ALVO CLASSIFICADO"
+    val factionAccent = if (factionRaw.isNotBlank()) factionColor(factionRaw) else HD.Yellow
+    val factionLabel = if (factionRaw.isNotBlank()) OrderRepository.factionLabel(factionRaw).uppercase() else planetName?.uppercase() ?: "ALVO CLASSIFICADO"
     val percent = when {
         goal != null && goal > 0 -> (progress.toDouble() / goal.toDouble() * 100.0).coerceIn(0.0, 100.0)
         campaign != null -> OrderRepository.campaignPercent(campaign)
@@ -253,6 +253,8 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
         else -> 0.0
     }
     val done = percent >= 99.999 || (goal != null && goal > 0 && progress >= goal)
+
+    val accent = if (done) HD.Green else factionAccent
 
     val headline = when {
         task.type == 3 && goal != null && goal > 0 -> "ELIMINAR ${orderFmt(goal)} ${br.com.helldiversbr.app.data.OrderTargets.label(task, factionLabel).uppercase()}"
@@ -266,12 +268,12 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
 
     Card(
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.055f)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF101214)),
         border = BorderStroke(1.5.dp, accent.copy(alpha = 0.95f)),
     ) {
-        Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        Column(Modifier.background(Brush.verticalGradient(listOf(accent.copy(alpha = .16f), Color(0xFF101214)))).padding(11.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("OBJETIVO ${index + 1} // ERRADICAÇÃO", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 0.7.sp)
+                Text("OBJETIVO ${index + 1} // ${objectiveKind(task)}", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 0.7.sp)
                 Text(factionLabel, color = accent, fontSize = 9.sp, fontWeight = FontWeight.Black)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -294,6 +296,7 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
                     modifier = Modifier.padding(start = if (factionRaw.isNotBlank()) 10.dp else 0.dp).weight(1f),
                 )
             }
+            if (done) Text("✓ CUMPRIDO", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             ProgressBar(percent, accent)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
@@ -308,7 +311,7 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
             val stale = "Ordem Maior" in data.staleSources || (campaign != null && "campanhas" in data.staleSources)
             val eta = OrderRepository.etaFromRate(percent, rate)
             val rateValue = when {
-                done -> "CONCLUÍDO"
+                done -> "FINALIZADO"
                 stale || data.order.state != "active" -> "INDISPONÍVEL"
                 rate == null -> "COLETANDO"
                 else -> "%+.2f%%/h".format(orderLocale, rate)
@@ -320,7 +323,7 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
                 rate <= 0 -> "SEM PREVISÃO"
                 else -> eta ?: "CALCULANDO"
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 OrderForecastMetric("RITMO OBSERVADO", rateValue, accent, Modifier.weight(1f))
                 OrderForecastMetric("CONCLUSÃO ESTIMADA", etaValue, accent, Modifier.weight(1f))
             }
@@ -337,9 +340,9 @@ private fun OrderForecastMetric(label: String, value: String, accent: Color, mod
         colors = CardDefaults.cardColors(containerColor = HD.BgDeep.copy(alpha = .72f)),
         border = BorderStroke(1.dp, HD.BorderSoft),
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, color = HD.TextMuted, fontSize = 10.sp, lineHeight = 13.sp, fontWeight = FontWeight.Black, letterSpacing = .35.sp)
-            Text(value, color = if (value == "INDISPONÍVEL" || value == "COLETANDO") HD.TextMuted else accent, fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.Black)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 7.dp, vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, color = HD.TextMuted, fontSize = 8.sp, lineHeight = 10.sp, fontWeight = FontWeight.Black, letterSpacing = .15.sp)
+            Text(value, color = if (value == "INDISPONÍVEL" || value == "COLETANDO") HD.TextMuted else accent, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Black)
         }
     }
 }

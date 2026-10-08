@@ -1,5 +1,7 @@
 package br.com.helldiversbr.app.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -84,7 +86,7 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
             order.tasks.forEachIndexed { index, task ->
                 val campaign = task.planetId?.let { id -> data.campaigns.firstOrNull { it.planet.index == id } }
                 val faction = OrderRepository.taskFaction(task).ifBlank { campaign?.let { OrderRepository.enemyFaction(it) }.orEmpty() }
-                val accent = faction.takeIf { it.isNotBlank() }?.let { factionColor(it) } ?: HD.Yellow
+                val factionAccent = faction.takeIf { it.isNotBlank() }?.let { factionColor(it) } ?: HD.Yellow
                 val goal = task.goal
                 val progress = order.progress.getOrElse(index) { 0L }
                 val percent = when {
@@ -94,6 +96,7 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
                     progress > 0 -> 100.0
                     else -> 0.0
                 }
+                val accent = if (percent >= 100.0) HD.Green else factionAccent
                 val rate = if (task.type in listOf(11, 12, 13) && campaign != null) {
                     OrderRepository.campaignRate(data, campaign)
                 } else data.orderRates[index]
@@ -105,14 +108,14 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
                 Card(
                     Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.045f)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF101214)),
                     border = BorderStroke(1.2.dp, accent.copy(alpha = 0.9f)),
                 ) {
-                    Column(Modifier.padding(horizontal = 11.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(Modifier.background(Brush.verticalGradient(listOf(accent.copy(alpha = .16f), Color(0xFF101214)))).padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("OBJETIVO ${index + 1} // ERRADICAÇÃO", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                            Text("OBJETIVO ${index + 1} // ${objectiveKind(task)}", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
                             Text(
-                                if (faction.isNotBlank()) OrderRepository.factionLabel(faction).uppercase() else "ALVO",
+                                if (faction.isNotBlank()) OrderRepository.factionLabel(faction).uppercase() else task.planetId?.let { data.planetNames[it]?.uppercase() } ?: "ALVO",
                                 color = accent,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Black,
@@ -135,15 +138,16 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
                                 fontWeight = FontWeight.Black,
                             )
                         }
+                        if (percent >= 100.0) Text("✓ CUMPRIDO", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                         ProgressBar(percent, accent)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(if (goal != null) "${number.format(progress)} / ${number.format(goal)}" else "Progresso", color = HD.TextDim, fontSize = 9.sp)
                             Text("%.2f%%".format(locale, percent), color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
                         }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             HomeForecastBox(
                                 label = "RITMO OBSERVADO",
-                                value = if (fresh && rate != null) "%+.2f%%/h".format(locale, rate) else if (fresh) "Coletando" else "Indisponível",
+                                value = if (percent >= 100.0) "Finalizado" else if (fresh && rate != null) "%+.2f%%/h".format(locale, rate) else if (fresh) "Coletando" else "Indisponível",
                                 accent = accent,
                                 modifier = Modifier.weight(1f),
                             )
@@ -185,7 +189,7 @@ private fun HomeForecastBox(label: String, value: String, accent: Color, modifie
         colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = .42f)),
         border = BorderStroke(1.dp, accent.copy(alpha = .28f)),
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(label, color = HD.TextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .25.sp)
             Text(value, color = if (value == "Indisponível") HD.TextMuted else HD.Text, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }

@@ -113,7 +113,7 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     if (dssOpen) ModalBottomSheet(
         onDismissRequest = { dssOpen = false },
         sheetState = dssSheetState,
-        containerColor = HD.Surface,
+        containerColor = Color(0xFF090F14),
     ) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(.94f).verticalScroll(rememberScrollState())) {
             DssPanel(

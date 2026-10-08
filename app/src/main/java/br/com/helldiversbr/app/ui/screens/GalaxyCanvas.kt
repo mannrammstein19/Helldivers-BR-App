@@ -274,6 +274,35 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
             }
             paint.shader = null; paint.style = Paint.Style.FILL; paint.color = android.graphics.Color.WHITE
             canvas.drawBitmap(backdrop, null, RectF(-500f,-500f,500f,500f), paint)
+            canvas.restore()
+            // TCS light is below routes, planets and labels; luminance supplies alpha.
+            if (animated && options.infrastructure && !options.clean) art.bitmaps["tcs-pulse"]?.let { bitmap ->
+                val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    isFilterBitmap = true
+                    alpha = 155
+                    colorFilter = android.graphics.ColorMatrixColorFilter(floatArrayOf(
+                        .064f,.215f,.021f,0f,0f, .162f,.544f,.055f,0f,0f,
+                        .213f,.715f,.072f,0f,0f, .213f,.715f,.072f,0f,0f))
+                }
+                infrastructure.forEach { (planet, point) ->
+                    val status = br.com.helldiversbr.app.data.TcsInfrastructure.state(planet)
+                    if (status == br.com.helldiversbr.app.data.TcsState.ALLIED || status == br.com.helldiversbr.app.data.TcsState.ATTACKED) {
+                        val frame = br.com.helldiversbr.app.data.TcsInfrastructure.frame(planet.index, (animationSeconds.value * 1000).toLong())
+                        val width = bitmap.width / 40
+                        val at = origin + point * unit
+                        val radius = max(1000f / 260f * unit, 1.8.dp.toPx()) * 4f
+                        if (at.x in -radius..(size.width+radius) && at.y in -radius..(size.height+radius)) {
+                            val canvas = drawContext.canvas.nativeCanvas
+                            canvas.save()
+                            canvas.clipPath(Path().apply { addCircle(at.x, at.y, radius, Path.Direction.CW) })
+                            canvas.drawBitmap(bitmap, android.graphics.Rect(frame*width,0,(frame+1)*width,bitmap.height),
+                                RectF(at.x-radius,at.y-radius,at.x+radius,at.y+radius), paint)
+                            canvas.restore()
+                        }
+                    }
+                }
+            }
+            canvas.save(); canvas.translate(origin.x, origin.y); canvas.scale(unit, unit)
             if (routes) edges.forEach { (a, b, source, target) ->
                 val sa = origin + a * unit; val sb = origin + b * unit
                 if (max(sa.x,sb.x) >= 0 && min(sa.x,sb.x) <= size.width &&
@@ -339,7 +368,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 }
                 // Editorial Omicron landmarks are not live unit counts.
                 if(options.ships && mapName(p)=="omicron") {icon("hive-lord",at+Offset(r*4f,-r*2.7f),r*3.5f);icon("draco-barata",at+Offset(r*4f,r*.1f),r*3.5f)}
-                if(dssHost==p.index) icon(if(dssLive)"dss-operacional" else "dss-inoperante",at+Offset(0f,-r*4f),r*3.8f)
+                if(dssHost==p.index) icon(if(dssLive)"dss-operacional" else "dss-inoperante",at+Offset(0f,-r*4f),r*5.0f)
                 if (p.regions.any { it.isAvailable == true } && (zoom >= 2.3f || selected == p.index)) {
                     circle(at + Offset(r * 2.3f, r * 1.8f), 2.dp.toPx() / unit, Color(0xFFB1C6CD))
                 }
@@ -358,13 +387,14 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     } else mapLabelTop(r*unit, defense, offensive, 4.dp.toPx(), false, selected==p.index) + if(defense || offensive) 0f else 1.dp.toPx()
                     val (nameBaseline, countBaseline) = mapLabelBaselines(top, nameMetrics.ascent, nameMetrics.descent,
                         countMetrics.ascent, options.names, 1.dp.toPx())
-                    if(options.names) lines += MapCaption(caption.first,at+Offset(0f,nameBaseline/unit),mapNameColor(p.currentOwner),quiet,true)
+                    val adjustedNameBaseline = if (special == "wreckage") nameBaseline - r * unit * 1.55f else nameBaseline
+                    if(options.names) lines += MapCaption(caption.first,at+Offset(0f,adjustedNameBaseline/unit),mapNameColor(p.currentOwner),quiet,true)
                     if(options.players) lines += MapCaption(caption.second,at+Offset(0f,countBaseline/unit),Color(0xFFADB7C5),true)
                     if(progress!=null) {
                         lines += MapCaption(progress,at+Offset(-r*6.4f,r*.9f),mapColor("human"),true)
                         if(defense) lines += MapCaption(mapPercent(mapInvasionProgress(p,now)),at+Offset(-r*6.4f,-r*1.8f),mapColor(mapFaction(p.event!!.faction)),true)
                     }
-                    if(dssHost==p.index) lines += MapCaption(if(dssLive)"DSS" else "DSS · última posição",at+Offset(0f,-r*6.1f),Color(0xFFFFD23F),true)
+                    if(dssHost==p.index) lines += MapCaption(if(dssLive)"DSS" else "DSS · última posição",at+Offset(0f,-r*7f),Color(0xFFFFD23F),true)
                     val boxes = lines.map { line ->
                         textPaint.typeface = android.graphics.Typeface.create("sans-serif-condensed", android.graphics.Typeface.BOLD)
                         textPaint.textSize = (if(line.bold) { if(line.small) 10.sp else 12.sp } else 9.sp).toPx()
@@ -438,31 +468,6 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     }
                 }
             }
-            if (animated && options.infrastructure && !options.clean) art.bitmaps["tcs-pulse"]?.let { bitmap ->
-                val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    isFilterBitmap = true
-                    colorFilter = android.graphics.ColorMatrixColorFilter(floatArrayOf(
-                        .064f,.215f,.021f,0f,0f, .162f,.544f,.055f,0f,0f,
-                        .213f,.715f,.072f,0f,0f, 0f,0f,0f,1f,0f))
-                }
-                infrastructure.forEach { (planet, point) ->
-                    val status = br.com.helldiversbr.app.data.TcsInfrastructure.state(planet)
-                    if (status == br.com.helldiversbr.app.data.TcsState.ALLIED || status == br.com.helldiversbr.app.data.TcsState.ATTACKED) {
-                        val frame = br.com.helldiversbr.app.data.TcsInfrastructure.frame(planet.index, (seconds * 1000).toLong())
-                        val width = bitmap.width / 40
-                        val at = origin + point * unit
-                        val radius = max(1000f / 260f * unit, 1.8.dp.toPx()) * 4f
-                        if (at.x in -radius..(size.width+radius) && at.y in -radius..(size.height+radius)) {
-                            val canvas = drawContext.canvas.nativeCanvas
-                            canvas.save()
-                            canvas.clipPath(Path().apply { addCircle(at.x, at.y, radius, Path.Direction.CW) })
-                            canvas.drawBitmap(bitmap, android.graphics.Rect(frame*width,0,(frame+1)*width,bitmap.height),
-                                RectF(at.x-radius,at.y-radius,at.x+radius,at.y+radius), paint)
-                            canvas.restore()
-                        }
-                    }
-                }
-            }
             val spritePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
             // Supplied black-hole artwork has an opaque black background. SCREEN
             // blends that black into the map while retaining the luminous rings.
@@ -483,7 +488,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                             "moradesh" -> (seconds % 90f) / 90f * 360f
                             else -> sin(seconds * 2f * PI.toFloat() / 18f) * 22f
                         } else 0f
-                        val diameter = radius * when (marker.key) { "penta" -> 8f; "meridia" -> 7f; else -> 4f }
+                        val diameter = radius * when (marker.key) { "penta" -> 9.6f; "meridia" -> 8.4f; else -> 4f }
                         val ratio = min(diameter / bitmap.width, diameter / bitmap.height)
                         val w = bitmap.width * ratio; val h = bitmap.height * ratio
                         val canvas = drawContext.canvas.nativeCanvas
