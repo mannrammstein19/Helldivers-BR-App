@@ -106,13 +106,18 @@ object HelldiversApi {
 
     suspend fun planets(): List<Planet> = withContext(Dispatchers.IO) {
         parseList(get("$API/planets", true)) {
+            val observedAt = System.currentTimeMillis()
             json.decodeFromJsonElement(ListSerializer(Planet.serializer()), it)
+                .mapIndexed { index, planet -> planet.withEffectPayload(it[index], observedAt) }
         }
     }
 
     suspend fun campaigns(): List<Campaign> = withContext(Dispatchers.IO) {
         parseList(get("$API/campaigns", true)) {
+            val observedAt = System.currentTimeMillis()
             json.decodeFromJsonElement(ListSerializer(Campaign.serializer()), it)
+                .mapIndexed { index, campaign -> campaign.copy(planet = campaign.planet.withEffectPayload(
+                    (it[index] as? JsonObject)?.get("planet") ?: kotlinx.serialization.json.JsonNull, observedAt)) }
         }
     }
 

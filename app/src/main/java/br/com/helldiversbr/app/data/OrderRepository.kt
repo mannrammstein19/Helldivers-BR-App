@@ -214,11 +214,11 @@ object OrderRepository {
         val priorPlanets = fallback?.let { it.campaigns.map { c -> c.planet } + it.planets }.orEmpty().associateBy { it.index }
         val enrichedPlanets = planets.map {
             RegionTelemetry.enrich(CounterTelemetry.enrich(it, counterReadings), regionReadings,
-                priorPlanets[it.index], now, planetSource != "cache").withSavedPresences(priorPlanets[it.index], planetSource in setOf("cache", "direct"))
+                priorPlanets[it.index], now, planetSource != "cache").withSavedPresences(priorPlanets[it.index], planetSource == "cache" || !it.hasCompleteEffectReading())
         }
         val enrichedCampaigns = campaigns.map {
             it.copy(planet = RegionTelemetry.enrich(CounterTelemetry.enrich(it.planet, counterReadings),
-                regionReadings, priorPlanets[it.planet.index], now, campaignSource != "cache").withSavedPresences(priorPlanets[it.planet.index], campaignSource in setOf("cache", "direct")))
+                regionReadings, priorPlanets[it.planet.index], now, campaignSource != "cache").withSavedPresences(priorPlanets[it.planet.index], campaignSource == "cache" || !it.planet.hasCompleteEffectReading()))
         }
         val names = catalog.mapValues { (_, p) -> p.displayName }.filterValues { it.isNotBlank() }
         val campaignsFresh = campaignSource != "cache"
@@ -311,7 +311,7 @@ object OrderRepository {
         val planets = rawPlanets.map {
             RegionTelemetry.enrich(CounterTelemetry.enrich(it, counters).withCentralReading(pr),
                 emptyMap(), priorPlanets[it.index], pr.time, !pr.stale)
-                .let { p -> if (pr.stale) p.asSavedTelemetry() else p }
+                .let { p -> p.withSavedPresences(priorPlanets[p.index], pr.stale || !p.hasCompleteEffectReading()) }
         }
         val byId = planets.associateBy { it.index }
         val campaigns = CentralApi.campaigns(cr).mapNotNull { c -> byId[c.planet.index]?.let { c.copy(planet = it) } }

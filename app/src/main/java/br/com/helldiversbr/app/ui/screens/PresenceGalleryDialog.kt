@@ -1,5 +1,9 @@
 package br.com.helldiversbr.app.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -75,6 +79,7 @@ private fun intelCopy(text: String) = androidx.compose.ui.text.buildAnnotatedStr
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PresenceGalleryDialog(presence: PlanetPresence, planet: Planet, stale: Boolean, onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -143,17 +148,38 @@ fun PresenceGalleryDialog(presence: PlanetPresence, planet: Planet, stale: Boole
         }
     }
     enlarged?.let { original ->
-        val label = PresenceUnitNames.label(original)
-        Dialog(onDismissRequest = { enlarged = null }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            Surface(Modifier.widthIn(max = 720.dp).fillMaxWidth(.94f), shape = RoundedCornerShape(18.dp),
-                color = IntelBackground, border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF477E99))) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(label.uppercase(), color = IntelYellow, fontFamily = IntelHeading, fontSize = 22.sp, lineHeight = 27.sp)
-                    Text("Referência original: $original", color = Color(0xFFBACBD2), fontSize = 11.sp)
-                    IntelFrame(MapAssets.file("presence-unit:$original"), label,
-                        Modifier.fillMaxWidth().height((config.screenHeightDp * .48f).dp.coerceAtMost(420.dp)))
-                    TextButton(onClick = { enlarged = null }, modifier = Modifier.align(Alignment.End)) {
-                        Text("VOLTAR À GALERIA", color = IntelYellow)
+        val available = names.filter { MapAssets.file("presence-unit:$it") != null }
+        if (available.isNotEmpty()) key(presence.key, planet.index, original) {
+            val pager = rememberPagerState(initialPage = available.indexOf(original).coerceAtLeast(0), pageCount = { available.size })
+            val scope = rememberCoroutineScope()
+            val current = available[pager.currentPage]
+            val label = PresenceUnitNames.label(current)
+            Dialog(onDismissRequest = { enlarged = null }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+                Surface(Modifier.widthIn(max = 720.dp).fillMaxWidth(.94f), shape = RoundedCornerShape(18.dp),
+                    color = IntelBackground, border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF477E99))) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(label.uppercase(), color = IntelYellow, fontFamily = IntelHeading, fontSize = 22.sp, lineHeight = 27.sp)
+                        Text("Referência original: $current", color = Color(0xFFBACBD2), fontSize = 11.sp)
+                        HorizontalPager(state = pager, key = { available[it] },
+                            modifier = Modifier.fillMaxWidth().height((config.screenHeightDp * .48f).dp.coerceAtMost(420.dp))) { page ->
+                            val unit = available[page]
+                            IntelFrame(MapAssets.file("presence-unit:$unit"), PresenceUnitNames.label(unit), Modifier.fillMaxSize())
+                        }
+                        if (available.size > 1) {
+                            Text("DESLIZE PARA VER OS INIMIGOS · ${pager.currentPage + 1}/${available.size}",
+                                color = IntelYellow, fontSize = 10.sp)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                TextButton(enabled = pager.currentPage > 0, onClick = {
+                                    scope.launch { pager.animateScrollToPage((pager.currentPage - 1).coerceAtLeast(0)) }
+                                }) { Text("ANTERIOR", color = IntelYellow) }
+                                TextButton(enabled = pager.currentPage < available.lastIndex, onClick = {
+                                    scope.launch { pager.animateScrollToPage((pager.currentPage + 1).coerceAtMost(available.lastIndex)) }
+                                }) { Text("PRÓXIMO", color = IntelYellow) }
+                            }
+                        }
+                        TextButton(onClick = { enlarged = null }, modifier = Modifier.align(Alignment.End)) {
+                            Text("VOLTAR À GALERIA", color = IntelYellow)
+                        }
                     }
                 }
             }

@@ -86,7 +86,10 @@ object CentralApi {
     }
 
     fun planets(r: Reading) = json.decodeFromJsonElement(ListSerializer(Planet.serializer()), r.data)
+        .mapIndexed { index, planet -> planet.withEffectPayload(r.data[index], r.time) }
     fun campaigns(r: Reading) = json.decodeFromJsonElement(ListSerializer(Campaign.serializer()), r.data)
+        .mapIndexed { index, campaign -> campaign.copy(planet = campaign.planet.withEffectPayload(
+            (r.data[index] as? JsonObject)?.get("planet") ?: JsonNull, r.time)) }
     fun assignments(r: Reading) = json.decodeFromJsonElement(ListSerializer(Assignment.serializer()), r.data)
     fun dispatches(r: Reading) = json.decodeFromJsonElement(ListSerializer(Dispatch.serializer()), r.data)
     fun stations(r: Reading) = json.decodeFromJsonElement(ListSerializer(SpaceStation.serializer()), r.data)

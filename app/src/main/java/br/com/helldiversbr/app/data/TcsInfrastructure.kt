@@ -23,7 +23,7 @@ object TcsInfrastructure {
         val name = if (value is JsonPrimitive) value.content else localizedText(row?.get("name") ?: row?.get("title") ?: row?.get("displayName"))
         return name.trim().equals("TERMINID CONTROL SYSTEM+", true)
     }
-    fun has(p: Planet): Boolean =
+    fun has(p: Planet): Boolean = p.savedTcsPresent ||
         (p.activeEffects + p.effects + p.planetEffects + p.galacticEffects + p.modifiers).any { matches(it, p.index, false) } ||
             p.planetActiveEffects.any { matches(it, p.index, true) }
     fun state(p: Planet): TcsState = when (p.currentOwner.trim().lowercase(Locale.ROOT)) {

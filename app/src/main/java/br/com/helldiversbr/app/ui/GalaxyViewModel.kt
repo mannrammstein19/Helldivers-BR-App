@@ -8,6 +8,7 @@ import br.com.helldiversbr.app.data.withPlanetReference
 import br.com.helldiversbr.app.data.RegionTelemetry
 import br.com.helldiversbr.app.data.CounterTelemetry
 import br.com.helldiversbr.app.data.withSavedPresences
+import br.com.helldiversbr.app.data.hasCompleteEffectReading
 import br.com.helldiversbr.app.data.asSavedTelemetry
 import br.com.helldiversbr.app.data.DirectGameApi
 import br.com.helldiversbr.app.data.DssReading
@@ -64,7 +65,7 @@ class GalaxyViewModel : ViewModel() {
                         telemetrySource = "cache",
                     )
                 }
-                val central = try { CentralApi.read("/api/v1/planets").takeIf { !it.stale } }
+                val central = try { CentralApi.read("/api/v1/planets") }
                     catch (e: CancellationException) { throw e } catch (_: Exception) { null }
                 if (central != null) {
                     require(central.time >= maxOf(disk?.updatedAtMillis ?: 0L, previous.updatedAtMillis ?: 0L)) { "Mapa regressivo" }
@@ -72,12 +73,12 @@ class GalaxyViewModel : ViewModel() {
                     require(raw.size >= 10 && raw.map { it.index }.distinct().size == raw.size)
                     val prior = disk?.planets.orEmpty()
                     val counters = CounterTelemetry.collect(prior, disk?.updatedAtMillis ?: 0,
-                        listOf(raw to central.source), central.time, listOf(central.time))
+                        listOf(raw to if (central.stale) "cache" else central.source), System.currentTimeMillis(), listOf(central.time))
                     val priorById = prior.associateBy { it.index }
                     val fresh = raw.map {
                         RegionTelemetry.enrich(CounterTelemetry.enrich(it, counters).withCentralReading(central),
                             emptyMap(), priorById[it.index], central.time, !central.stale)
-                            .let { p -> if (central.stale) p.asSavedTelemetry() else p }
+                            .let { p -> p.withSavedPresences(priorById[p.index], central.stale || !p.hasCompleteEffectReading()) }
                     }
                     val dss = DssRepository.load().withPlanetReference(fresh, central)
                     TelemetryCache.saveDss(dss)
@@ -146,7 +147,7 @@ class GalaxyViewModel : ViewModel() {
                     listOf(planets to source), now, listOf(updated))
                 val enriched = planets.map { planet ->
                     RegionTelemetry.enrich(CounterTelemetry.enrich(planet, counters), regional,
-                        oldById[planet.index], now, source != "cache").withSavedPresences(oldById[planet.index], source in setOf("cache", "direct"))
+                        oldById[planet.index], now, source != "cache").withSavedPresences(oldById[planet.index], source == "cache" || !planet.hasCompleteEffectReading())
                 }
                 val next = GalaxyState(
                     planets = enriched,

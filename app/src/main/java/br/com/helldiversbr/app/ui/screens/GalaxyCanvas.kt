@@ -75,13 +75,13 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
     var pan by remember { mutableStateOf(Offset.Zero) }
     var viewport by remember { mutableStateOf(IntSize.Zero) }
     val art by produceState(MapArt(), context) {
-        val files = MapAssets.all().filterKeys { it in listOf("human", "automaton", "terminid", "illuminate", "earth", "defense", "liberation", "galaxy", "penta", "meridia", "wreckage", "hive-lord", "draco-barata", "tcs-plus", "tcs-pulse", "dss-operacional", "dss-inoperante") || it.startsWith("nave-") || it.startsWith("imagens/guerra/presencas/") } +
+        val files = MapAssets.all().filterKeys { it in listOf("human", "automaton", "terminid", "illuminate", "earth", "defense", "liberation", "galaxy", "penta", "meridia", "wreckage", "hive-lord", "draco-barata", "tcs-plus", "tcs-pulse", "cyberstan-pulse", "dss-operacional", "dss-inoperante") || it.startsWith("nave-") || it.startsWith("imagens/guerra/presencas/") } +
             MapAssets.planetEntries().mapKeys { "planet:${it.key}" }
         val semaphore = Semaphore(8)
         val loaded = coroutineScope {
             files.map { (key, file) -> async { semaphore.withPermit {
                 val result = context.imageLoader.execute(ImageRequest.Builder(context).data("file:///android_asset/$file")
-                    .size(if (key == "tcs-pulse") 3840 else if (key == "galaxy") 1200 else if(key.startsWith("planet:")) 96 else 192).allowHardware(false).build())
+                    .size(if (key == "tcs-pulse") 3840 else if (key == "cyberstan-pulse") 1536 else if (key == "galaxy") 1200 else if(key.startsWith("planet:")) 96 else 192).allowHardware(false).build())
                 key to if(result is SuccessResult) result.drawable.toBitmap() else null
             } } }.awaitAll()
         }
@@ -302,6 +302,24 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     }
                 }
             }
+            // Cyberstan's local sprite stays underneath routes and planet artwork.
+            if (!options.clean) art.bitmaps["cyberstan-pulse"]?.let { bitmap ->
+                val pulse = br.com.helldiversbr.app.data.CyberstanPulse
+                val frame = pulse.frame((animationSeconds.value * 1000).toLong(), animated)
+                val cell = bitmap.width / pulse.COLUMNS
+                val left = frame % pulse.COLUMNS * cell
+                val top = frame / pulse.COLUMNS * cell
+                positioned.firstOrNull { mapName(it.first) == "cyberstan" }?.let { (_, point) ->
+                    val at = origin + point * unit
+                    val radius = max(1000f / 260f * unit, 1.8.dp.toPx()) * 5f
+                    if (at.x in -radius..(size.width + radius) && at.y in -radius..(size.height + radius)) {
+                        paint.shader = null; paint.colorFilter = null; paint.alpha = 180
+                        canvas.drawBitmap(bitmap, android.graphics.Rect(left, top, left + cell, top + cell),
+                            RectF(at.x - radius, at.y - radius, at.x + radius, at.y + radius), paint)
+                        paint.alpha = 255
+                    }
+                }
+            }
             canvas.save(); canvas.translate(origin.x, origin.y); canvas.scale(unit, unit)
             if (routes) edges.forEach { (a, b, source, target) ->
                 val sa = origin + a * unit; val sb = origin + b * unit
@@ -318,17 +336,13 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 val screen = origin + at * unit
                 if(screen.x < -100 || screen.y < -100 || screen.x > size.width+100 || screen.y > size.height+100) return@forEach
                 val special=mapSpecial(p);val capital=mapEarth(p);val key=mapFaction(p.currentOwner)
-                val defense=special==null&&p.event!=null;val offensive=special==null && mapOffensive(p,active) && (mapProgress(p) ?: 0.0) >= .5
+                val defense=special==null&&p.event!=null;val offensive=mapShowsOffensiveProgress(p,active)
                 val r = max(1000f / 260f, (if (defense || offensive) 3.4.dp else 1.8.dp).toPx() / unit) * (if (capital) EARTH_MAP_SCALE else 1f)
                 val quiet = key == "human" && !defense && !offensive && selected != p.index
                 val color = mapOwnerColor(p.currentOwner)
                 val detail = selected == p.index || zoom >= (if (quiet) 5f else if (defense || offensive) 1.6f else 2.3f)
-                if(mapName(p)=="cyberstan") {
-                    paint.style=Paint.Style.FILL;paint.shader=android.graphics.RadialGradient(at.x,at.y,r*6f,intArrayOf(0x339BD589,0x009BD589),null,android.graphics.Shader.TileMode.CLAMP)
-                    canvas.drawOval(at.x-r*6,at.y-r*3,at.x+r*6,at.y+r*3,paint);paint.shader=null
-                }
                 if(capital) listOf(4f,3f,2.2f).forEachIndexed { i,v->circle(at,r*v,Color(0xFFFFE68A).copy(alpha=.025f+i*.015f)) }
-                if(special==null) circle(at,r*(if(defense||offensive)2.7f else 2.1f),color.copy(alpha=.12f))
+                if(special==null && mapName(p) != "cyberstan" && (key != "human" || defense || offensive)) circle(at,r*(if(defense||offensive)2.7f else 2.1f),color.copy(alpha=.12f))
                 if(defense||offensive) arc(at,r*2.08f,mapProgress(p),mapColor("human"),r*.48f)
                 if(offensive) arc(at,r*2.72f,100.0-(mapProgress(p) ?: 0.0),color,r*.32f)
                 if(defense) arc(at,r*2.72f,mapInvasionProgress(p,now),mapColor(mapFaction(p.event!!.faction)),r*.32f)
@@ -346,7 +360,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 }
                 if(special==null) {
                     circle(at,dotR,Color(0xFF080C12),.6.dp.toPx()/unit)
-                    circle(at,dotR+1.dp.toPx()/unit,color,1.5.dp.toPx()/unit)
+                    if (key != "human" || defense || offensive) circle(at,dotR+1.dp.toPx()/unit,color,1.5.dp.toPx()/unit)
                 }
                 if(special==null && !defense && key !in listOf("human","unknown") && !options.clean) icon(key,at+Offset(0f,-r*2.3f),r*1.6f)
                 if(options.progress && (defense||offensive)) {
@@ -354,8 +368,16 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     icon(if(defense) "defense" else "liberation",humanBadge,r*1.8f)
                     if(defense) icon(mapFaction(p.event!!.faction),at+Offset(-r*3.8f,-r*1.8f),r*1.8f)
                 }
-                if (options.infrastructure && br.com.helldiversbr.app.data.TcsInfrastructure.has(p) && special == null)
-                    icon("tcs-plus", at + Offset(0f, -r * 3.2f), r * 1.9f)
+                if (options.infrastructure && br.com.helldiversbr.app.data.TcsInfrastructure.has(p) && special == null) {
+                    val badge = at + Offset(0f, -r * 3.2f)
+                    paint.shader = null; paint.style = Paint.Style.STROKE
+                    paint.color = mapColor("human").copy(alpha = .85f).toArgb()
+                    paint.strokeWidth = 1.2.dp.toPx() / unit
+                    canvas.drawLine(at.x, at.y - dotR, badge.x, badge.y + r * .95f, paint)
+                    canvas.drawLine(at.x, at.y - dotR, at.x - r * .3f, at.y - dotR - r * .45f, paint)
+                    canvas.drawLine(at.x, at.y - dotR, at.x + r * .3f, at.y - dotR - r * .45f, paint)
+                    icon("tcs-plus", badge, r * 1.9f)
+                }
                 if(options.presences) {
 
                     PlanetPresences.list(p).take(3).forEachIndexed { i, presence ->
@@ -502,7 +524,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
             }
             ships.forEach { ship ->
                 val p = ship.planet
-                val offensive = mapOffensive(p, active) && (mapProgress(p) ?: 0.0) >= .5
+                val offensive = mapShowsOffensiveProgress(p, active)
                 val radius = max(1000f / 260f * unit, (if(p.event != null || offensive) 3.4.dp else 1.8.dp).toPx()) * (if(mapEarth(p)) EARTH_MAP_SCALE else 1f)
                 val float = if(animated) sin(seconds * 2f * PI.toFloat() / 6f + (p.index % 11).toFloat()) * 1.5.dp.toPx() else 0f
                 val at = origin + ship.point * unit + ship.offset * radius + Offset(0f, float)

@@ -240,6 +240,8 @@ object DirectGameApi {
                     )
                 },
                 regions = regions,
+                effectsComplete = element(war.status, "planetActiveEffects") is JsonArray,
+                effectsReadAtMillis = war.observedAtMillis,
                 activeEffects = array(war.status, "planetActiveEffects").filter { (it as? JsonObject)?.let { e -> long(e, "index", "planetIndex") == index } == true },
             )
         }

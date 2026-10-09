@@ -44,6 +44,10 @@ fun mapPosition(p: Planet, all: List<Planet>): PlanetPosition? {
     return pos
 }
 fun mapOffensive(p: Planet, active: Set<Long>) = mapSpecial(p) == null && p.event == null && p.index in active && mapFaction(p.currentOwner) !in listOf("human", "unknown")
+/** Quiet allied worlds have no owner ring; liberation rings begin strictly above 0.5%. */
+fun mapShowsOffensiveProgress(p: Planet, active: Set<Long>): Boolean =
+    mapOffensive(p, active) && (mapProgress(p) ?: 0.0) > .5 + 1e-9
+
 fun mapProgress(p: Planet): Double? {
     val health = p.event?.health ?: p.health
     val max = p.event?.maxHealth ?: p.maxHealth

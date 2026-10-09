@@ -51,14 +51,16 @@ class PresenceStage3cTest {
         assertEquals(1,PlanetPresences.list(Planet(activeEffects=listOf(JsonPrimitive(1202),JsonPrimitive(1203)))).size)
         assertTrue(PlanetPresences.list(Planet(currentOwner="Automatons")).isEmpty())
     }
-    @Test fun galleryUsesRealLocalImagesAndListsMissingUnits() {
+    @Test fun galleryUsesRealLocalImagesIncludingComplement() {
         val assets=File("src/main/assets")
         val mapping=CentralApi.json.parseToJsonElement(File(assets,"map-assets.json").readText()).jsonObject
         val gallery=CentralApi.json.parseToJsonElement(File(assets,"presence-gallery.json").readText()).jsonObject
         gallery.values.forEach { entry -> entry.jsonObject.getValue("names").jsonArray.forEach { name ->
             assertTrue(File(assets,mapping.getValue("presence-unit:"+name.jsonPrimitive.content).jsonPrimitive.content).isFile)
         } }
-        assertEquals(listOf("Obtruder","Gatekeeper","Veracitor"),gallery.getValue("appropriators").jsonObject.getValue("missing").jsonArray.map { it.jsonPrimitive.content })
-        assertEquals("Crusher",gallery.getValue("snatchers").jsonObject.getValue("missing").jsonArray.single().jsonPrimitive.content)
+        assertTrue(gallery.getValue("appropriators").jsonObject.getValue("missing").jsonArray.isEmpty())
+        assertTrue(gallery.getValue("appropriators").jsonObject.getValue("names").jsonArray.map { it.jsonPrimitive.content }.containsAll(listOf("Obtruder","Gatekeeper","Veracitor")))
+        assertTrue(gallery.getValue("snatchers").jsonObject.getValue("missing").jsonArray.isEmpty())
+        assertTrue(gallery.getValue("snatchers").jsonObject.getValue("names").jsonArray.any { it.jsonPrimitive.content == "Crusher" })
     }
 }

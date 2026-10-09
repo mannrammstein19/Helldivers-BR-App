@@ -186,6 +186,10 @@ data class Planet(
     val modifiers: List<JsonElement> = emptyList(),
     val planetActiveEffects: List<JsonElement> = emptyList(),
     /** Histórico visual ligado somente a este planeta; não é efeito tático atual. */
+    // null is a legacy cache. Network decoders distinguish omitted fields from [].
+    val effectsComplete: Boolean? = null,
+    val effectsReadAtMillis: Long = 0L,
+    val savedTcsPresent: Boolean = false,
     val savedPresenceKeys: List<String> = emptyList(),
     val presenceHistoryStale: Boolean = false,
 ) {

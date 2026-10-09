@@ -57,19 +57,22 @@ object PlanetPresences {
             if (id != null) id in entry.ids
             else !PlanetEffects.hasId(effect) && normalized(PlanetEffects.name(effect)) in entry.aliases
         } }
-        return if (observed.isNotEmpty() || !planet.presenceHistoryStale) observed
-        else catalog.filter { it.key in planet.savedPresenceKeys }
+        return if (!planet.presenceHistoryStale) observed
+        else (observed + catalog.filter { it.key in planet.savedPresenceKeys }).distinctBy { it.key }
     }
 }
 
-/** Falha/resposta direta limitada preserva só ícones conhecidos do mesmo planeta. */
+/** Failure/omitted effects preserve dated visual references, never tactical modifiers. */
 fun Planet.withSavedPresences(previous: Planet?, missingUnconfirmed: Boolean): Planet {
+    if (!missingUnconfirmed) return copy(savedPresenceKeys = emptyList(), presenceHistoryStale = false, savedTcsPresent = false)
     val native = PlanetPresences.list(copy(savedPresenceKeys = emptyList(), presenceHistoryStale = false))
-    if (!missingUnconfirmed) return copy(savedPresenceKeys = emptyList(), presenceHistoryStale = false)
-    if (native.isNotEmpty()) return copy(savedPresenceKeys = native.map { it.key }, presenceHistoryStale = true)
-    if (previous == null || previous.index != index) return this
-    val keys = PlanetPresences.list(previous).map { it.key }
-    return if (keys.isEmpty()) this else copy(savedPresenceKeys = keys, presenceHistoryStale = true)
+    val same = previous?.takeIf { it.index == index }
+    val keys = (native.map { it.key } + same?.let { PlanetPresences.list(it).map { p -> p.key } }.orEmpty()
+        + savedPresenceKeys).distinct()
+    val savedTcs = savedTcsPresent || same?.let(TcsInfrastructure::has) == true
+    return copy(savedPresenceKeys = keys, presenceHistoryStale = true, savedTcsPresent = savedTcs,
+        effectsReadAtMillis = if (same != null && same.effectsReadAtMillis > 0L)
+            same.effectsReadAtMillis else effectsReadAtMillis)
 }
 
 fun planetTitle(raw: String): String = raw.split(Regex("\\s+")).joinToString(" ") {
