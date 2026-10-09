@@ -35,6 +35,23 @@ class OrderTargetsTest {
         }
     }
 
+    @Test fun resolvesObservedBileObjectivesByIdRegardlessOfGoalAndFieldOrder() {
+        val types = listOf(1, 2, 3, 4, 6, 5, 8, 9, 11, 12)
+        val cases = listOf(Triple(717622970L, 30000000L, "Bile Spewers"),
+            Triple(444529084L, 40000000L, "Bile Spitters"))
+        for ((id, goal, name) in cases) {
+            val observed = OrderTask(type = 3, valueTypes = types,
+                values = listOf(2L, 0L, goal, id, 0L, 0L, 0L, 0L, 0L, 0L))
+            assertEquals(name, OrderTargets.label(observed, "Terminídeos"))
+            assertEquals(goal, observed.goal)
+            val future = OrderTask(type = 3, valueTypes = listOf(4, 3, 1),
+                values = listOf(id, 12345L, 2L))
+            assertEquals(name, OrderTargets.label(future, "Terminídeos"))
+            assertEquals("alvo específico não identificado",
+                OrderTargets.label(future.copy(values = listOf(id, 12345L, 3L)), "Autômatos"))
+        }
+    }
+
     @Test fun distinguishesEnemyIdFromItemAndPlanetIds() {
         val task = OrderTask(type = 3, valueTypes = listOf(5, 12, 4, 1, 3),
             values = listOf(2651633799L, 4211847317L, 471929602L, 3L, 10000000L))

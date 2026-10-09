@@ -1,6 +1,6 @@
 # Catálogo de alvos da Ordem Maior — V16
 
-Pesquisa conferida em 30/09/2026. **12 IDs no aplicativo: 10 novos e 2 preservados.**
+Pesquisa conferida em 30/09/2026. Atualizado em 08/10/2026: **14 IDs no aplicativo.**
 Este é um catálogo comunitário parcial, não uma lista oficial completa de inimigos.
 
 ## Origem verificável
@@ -51,3 +51,14 @@ O catálogo não cobre todos os inimigos e variantes do jogo. Nomes de inimigos,
 Para ampliar: registrar a fonte ou uma tarefa real com ID + briefing inequívoco, atualizar `OrderTargets.kt`, esta lista/CSV e os testes. Não deduzir IDs pela posição fixa no JSON.
 
 A referência consultada tem licença MIT; atribuição e licença seguem no APK em `assets/licenses/hd2api.txt`. A lógica Kotlin foi implementada no projeto.
+
+## Atualização da Ordem 4152388944 (08/10/2026)
+
+| ID da unidade | Nome exibido | Facção | Meta observada (somente evidência) |
+| --- | --- | --- | --- |
+| 717622970 | Bile Spewers | Terminídeos | 30.000.000 |
+| 444529084 | Bile Spitters | Terminídeos | 40.000.000 |
+
+Fonte dos IDs: `dados/major-order.json` do site, commit 4b33d78, Ordem 4152388944, campos valueTypes 4 e 1. Fonte dos nomes: print do Helldivers Companion enviado pelo desenvolvedor em 08/10/2026, com os mesmos dois objetivos e o controle de Senge 23. O vínculo nome/ID é uma correlação entre essa leitura e o print; não foi obtido de um catálogo oficial do jogo. Os nomes originais foram mantidos para evitar traduzir duas espécies como se fossem a mesma.
+
+O catálogo anterior contém 1379865898 como Bile Spewer. Esse ID continua preservado: não há evidência para substituir um pelo outro ou afirmar que todas as variantes são equivalentes. O app só resolve os IDs conhecidos e usa o progresso fornecido. Metas e posição das tarefas não são usadas na identificação em tempo de execução.

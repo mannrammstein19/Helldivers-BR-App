@@ -9,6 +9,27 @@ import org.junit.Test
 
 class PresenceStage3cTest {
     @Before fun catalog() { PlanetPresences.init(File("src/main/assets/map-presences.json").readText()) }
+    @Test fun limitedFallbackRetainsKnownShipsOnSamePlanet() {
+        val old = Planet(index = 21, effects = listOf(JsonPrimitive(1248)))
+        val limited = Planet(index = 21).withSavedPresences(old, true)
+        assertTrue(limited.presenceHistoryStale)
+        assertEquals("fire", PlanetPresences.list(limited).single().key)
+        assertEquals("nave-automata", PlanetPresences.list(limited).single().model)
+        assertTrue(PlanetEffects.values(limited).isEmpty()) // histórico não vira efeito tático
+    }
+    @Test fun historyNeverTransfersToAnotherPlanet() {
+        val old = Planet(index = 21, effects = listOf(JsonPrimitive(1248)))
+        assertTrue(PlanetPresences.list(Planet(index = 22).withSavedPresences(old, true)).isEmpty())
+    }
+    @Test fun authoritativeRemovalClearsHistoryAndNewPresenceReplacesIt() {
+        val old = Planet(index = 21, effects = listOf(JsonPrimitive(1248)))
+        val saved = Planet(index = 21).withSavedPresences(old, true)
+        val removed = saved.withSavedPresences(saved, false)
+        assertTrue(PlanetPresences.list(removed).isEmpty())
+        assertFalse(removed.presenceHistoryStale)
+        val fresh = Planet(index = 21, effects = listOf(JsonPrimitive(1360))).withSavedPresences(saved, false)
+        assertEquals("cyborg", PlanetPresences.list(fresh).single().key)
+    }
     @Test fun explicitBindingCannotLeak() {
         val row=buildJsonObject { put("planetIndex",21);put("galacticEffectId",1202) }
         assertTrue(PlanetPresences.list(Planet(index=20,activeEffects=listOf(row))).isEmpty())

@@ -103,7 +103,7 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
                 val fresh = ui.state == "active" && "Ordem Maior" !in data.staleSources && !(campaign != null && "campanhas" in data.staleSources)
                 val eta = if (percent >= 100) "Concluído" else if (fresh) {
                     OrderRepository.etaFromRate(percent, rate) ?: if (rate == null) "Coletando leituras" else "Aguardando avanço"
-                } else "Indisponível"
+                } else OrderRepository.etaFromRate(percent, rate) ?: "Aguardando"
 
                 Card(
                     Modifier.fillMaxWidth(),
@@ -113,11 +113,11 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
                 ) {
                     Column(Modifier.background(Brush.verticalGradient(listOf(accent.copy(alpha = .16f), Color(0xFF101214)))).padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("OBJETIVO ${index + 1} // ${objectiveKind(task)}", color = HD.TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                            Text("OBJETIVO ${index + 1} // ${objectiveKind(task)}", color = HD.TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
                             Text(
                                 if (faction.isNotBlank()) OrderRepository.factionLabel(faction).uppercase() else task.planetId?.let { data.planetNames[it]?.uppercase() } ?: "ALVO",
                                 color = accent,
-                                fontSize = 9.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Black,
                             )
                         }
@@ -133,21 +133,20 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
                                 },
                                 modifier = Modifier.weight(1f),
                                 color = HD.Text,
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp,
+                                fontSize = 18.sp,
+                                lineHeight = 23.sp,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily(androidx.compose.ui.text.font.Font(br.com.helldiversbr.app.R.font.oswald_bold, FontWeight.Bold)),
                                 fontWeight = FontWeight.Black,
                             )
                         }
                         if (percent >= 100.0) Text("✓ CUMPRIDO", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                        ProgressBar(percent, accent)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(if (goal != null) "${number.format(progress)} / ${number.format(goal)}" else "Progresso", color = HD.TextDim, fontSize = 9.sp)
-                            Text("%.2f%%".format(locale, percent), color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                        }
+                        OrderProgressBand(percent,
+                            if (goal != null) "${number.format(progress)} / ${number.format(goal)}" else "Progresso",
+                            "%.2f%%".format(locale, percent), accent)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             HomeForecastBox(
                                 label = "RITMO OBSERVADO",
-                                value = if (percent >= 100.0) "Finalizado" else if (fresh && rate != null) "%+.2f%%/h".format(locale, rate) else if (fresh) "Coletando" else "Indisponível",
+                                value = if (percent >= 100.0) "Finalizado" else if (rate != null) "%+.2f%%/h".format(locale, rate) else if (fresh) "Coletando" else "Aguardando",
                                 accent = accent,
                                 modifier = Modifier.weight(1f),
                             )
@@ -158,6 +157,8 @@ fun HomeOrderCard(data: HomeData, onOpen: () -> Unit) {
                                 modifier = Modifier.weight(1f),
                             )
                         }
+                        if (!fresh && percent < 100.0) Text("Última leitura salva · ritmo/previsão sem confirmação atual.",
+                            color = HD.Gold, fontSize = 10.sp, lineHeight = 14.sp)
                     }
                 }
             }
@@ -189,9 +190,9 @@ private fun HomeForecastBox(label: String, value: String, accent: Color, modifie
         colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = .42f)),
         border = BorderStroke(1.dp, accent.copy(alpha = .28f)),
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, color = HD.TextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .25.sp)
-            Text(value, color = if (value == "Indisponível") HD.TextMuted else HD.Text, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, color = HD.TextMuted, fontSize = 10.sp, lineHeight = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = .25.sp)
+            Text(value, color = HD.Text, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.ExtraBold)
         }
     }
 }

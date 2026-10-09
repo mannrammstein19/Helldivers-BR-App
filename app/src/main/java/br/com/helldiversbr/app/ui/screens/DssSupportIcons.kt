@@ -20,12 +20,12 @@ import kotlinx.coroutines.delay
 
 /** Expiry checks run only while the screen is visible. No polling of the API. */
 @Composable
-internal fun dssDisplayClock(): Long {
+internal fun dssDisplayClock(refreshMillis: Long = 30_000L): Long {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(lifecycle) {
+    LaunchedEffect(lifecycle, refreshMillis) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) { now = System.currentTimeMillis(); delay(30_000L) }
+            while (true) { now = System.currentTimeMillis(); delay(refreshMillis.coerceAtLeast(1_000L)) }
         }
     }
     return now

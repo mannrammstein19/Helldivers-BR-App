@@ -7,6 +7,7 @@ import br.com.helldiversbr.app.data.withCentralReading
 import br.com.helldiversbr.app.data.withPlanetReference
 import br.com.helldiversbr.app.data.RegionTelemetry
 import br.com.helldiversbr.app.data.CounterTelemetry
+import br.com.helldiversbr.app.data.withSavedPresences
 import br.com.helldiversbr.app.data.asSavedTelemetry
 import br.com.helldiversbr.app.data.DirectGameApi
 import br.com.helldiversbr.app.data.DssReading
@@ -41,9 +42,12 @@ class GalaxyViewModel : ViewModel() {
     private val mutableState = MutableStateFlow(GalaxyState())
     val state = mutableState.asStateFlow()
     private var request: Job? = null
+    private var lastRefreshAttempt = 0L
 
     fun refresh() {
-        if (request?.isActive == true) return
+        val now = System.currentTimeMillis()
+        if (request?.isActive == true || now - lastRefreshAttempt in 0 until br.com.helldiversbr.app.data.TelemetryRefreshPolicy.INTERVAL_MILLIS) return
+        lastRefreshAttempt = now
         request = viewModelScope.launch {
             mutableState.value = mutableState.value.copy(loading = true, error = null)
             try {
@@ -60,7 +64,7 @@ class GalaxyViewModel : ViewModel() {
                         telemetrySource = "cache",
                     )
                 }
-                val central = try { CentralApi.read("/api/v1/planets") }
+                val central = try { CentralApi.read("/api/v1/planets").takeIf { !it.stale } }
                     catch (e: CancellationException) { throw e } catch (_: Exception) { null }
                 if (central != null) {
                     require(central.time >= maxOf(disk?.updatedAtMillis ?: 0L, previous.updatedAtMillis ?: 0L)) { "Mapa regressivo" }
@@ -84,12 +88,6 @@ class GalaxyViewModel : ViewModel() {
                     mutableState.value = GalaxyState(fresh, false, if (central.stale) "Última leitura salva" else null,
                         central.time, dss, catalog, source)
                     TelemetryCache.saveGalaxy(GalaxyCache(fresh, dss, catalog, central.time, source))
-                    return@launch
-                }
-                if (disk != null && disk.planets.isNotEmpty()) {
-                    mutableState.value = GalaxyState(disk.planets.map { it.asSavedTelemetry() }, false,
-                        "Central sem atualização • última leitura salva", disk.updatedAtMillis,
-                        disk.dss.copy(stale = true, source = "cache"), disk.planetCatalog, "cache")
                     return@launch
                 }
                 val (catalog, dss, regional) = supervisorScope {
@@ -148,7 +146,7 @@ class GalaxyViewModel : ViewModel() {
                     listOf(planets to source), now, listOf(updated))
                 val enriched = planets.map { planet ->
                     RegionTelemetry.enrich(CounterTelemetry.enrich(planet, counters), regional,
-                        oldById[planet.index], now, source != "cache")
+                        oldById[planet.index], now, source != "cache").withSavedPresences(oldById[planet.index], source in setOf("cache", "direct"))
                 }
                 val next = GalaxyState(
                     planets = enriched,

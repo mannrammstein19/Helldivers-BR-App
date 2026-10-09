@@ -123,6 +123,7 @@ object RegionTelemetry {
 
 /** Reusing a saved snapshot never refreshes a field's actual observation time. */
 fun Planet.asSavedTelemetry(): Planet = copy(
+    presenceHistoryStale = true,
     regions = regions.map { it.copy(telemetryStale = true) },
     statistics = statistics.copy(counterReadings = statistics.counterReadings.mapValues { it.value.copy(stale = true) }),
 )

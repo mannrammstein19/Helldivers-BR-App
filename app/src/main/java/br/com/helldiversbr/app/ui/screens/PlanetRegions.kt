@@ -121,13 +121,11 @@ fun PlanetRegions(planet: Planet) {
                         Image(painterResource(it), contentDescription = null,
                             contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
                     }
-                    Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
-                        listOf(Color.Black.copy(alpha = .82f), Color.Black.copy(alpha = .55f)))))
                     Column(Modifier.fillMaxWidth().heightIn(min = 94.dp).padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (type != null) SiteImage(type, identity, Modifier.size(28.dp), tint=accent)
+                            if (type != null) SiteImage(type, identity, Modifier.size(28.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(localizedText(region.name).ifBlank { "Região ${index + 1}" },
                                     color = HD.Text, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 18.sp)

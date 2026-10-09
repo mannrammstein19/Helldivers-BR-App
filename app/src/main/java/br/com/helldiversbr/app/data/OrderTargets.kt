@@ -18,6 +18,9 @@ object OrderTargets {
         2651633799L to ("Atropeladores" to 2), // Charger
         2514244534L to ("Titãs de Bile" to 2), // Bile Titan
         1379865898L to ("Cuspidores de Bile" to 2), // Bile Spewer
+        // Ordem 4152388944: IDs correlacionados com os nomes no Companion (08/10/2026).
+        717622970L to ("Bile Spewers" to 2),
+        444529084L to ("Bile Spitters" to 2),
         4211847317L to ("Sem-voto" to 4), // Voteless
     )
 

@@ -21,13 +21,13 @@ import kotlinx.coroutines.delay
 fun PresenceIcons(planet: Planet, labels: Boolean = false, stale: Boolean = false, modifier: Modifier = Modifier) {
     val values = PlanetPresences.list(planet)
     var selectedKey by remember(planet.index) { mutableStateOf<String?>(null) }
-    values.firstOrNull { it.key == selectedKey }?.let { PresenceGalleryDialog(it, planet, stale) { selectedKey = null } }
+    values.firstOrNull { it.key == selectedKey }?.let { PresenceGalleryDialog(it, planet, stale || planet.presenceHistoryStale) { selectedKey = null } }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         values.forEach { presence ->
             Row(Modifier.clickable(onClickLabel = "Ver ficha da presença") { selectedKey = presence.key }.padding(2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                AsyncImage(presence.artwork, presence.name + if(stale) " · última leitura" else "", modifier=Modifier.size(26.dp),
+                AsyncImage(presence.artwork, presence.name + if(stale || planet.presenceHistoryStale) " · última leitura" else "", modifier=Modifier.size(26.dp),
                     colorFilter=if(presence.file.endsWith(".svg")) androidx.compose.ui.graphics.ColorFilter.tint(mapColor(presence.faction)) else null)
-                if(labels) Text(presence.name + if(stale) " · última leitura" else "",color=mapColor(presence.faction),fontSize=11.sp)
+                if(labels) Text(presence.name + if(stale || planet.presenceHistoryStale) " · última leitura" else "",color=mapColor(presence.faction),fontSize=11.sp)
             }
         }
     }
@@ -35,7 +35,8 @@ fun PresenceIcons(planet: Planet, labels: Boolean = false, stale: Boolean = fals
 
 @Composable
 fun RotatingPlanetStatus(status: String, planet: Planet, stale: Boolean, color: Color) {
-    val notices = remember(status,planet,stale) { listOf(status) + PlanetPresences.list(planet).map { "${if (stale) "Última leitura" else "Presença"}: ${it.name}" } }
+    val historical = stale || planet.presenceHistoryStale
+    val notices = remember(status,planet,historical) { listOf(status) + PlanetPresences.list(planet).map { "${if (historical) "Última leitura" else "Presença"}: ${it.name}" } }
     var index by remember(notices) { mutableStateOf(0) }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(notices,stale,lifecycle) {

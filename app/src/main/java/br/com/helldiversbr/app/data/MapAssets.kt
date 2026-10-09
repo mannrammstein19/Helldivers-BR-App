@@ -52,12 +52,24 @@ object PlanetPresences {
     }
     fun list(planet: Planet): List<PlanetPresence> {
         val effects = PlanetEffects.values(planet)
-        return catalog.filter { entry -> effects.any { effect ->
+        val observed = catalog.filter { entry -> effects.any { effect ->
             val id = effectId(effect)
             if (id != null) id in entry.ids
             else !PlanetEffects.hasId(effect) && normalized(PlanetEffects.name(effect)) in entry.aliases
         } }
+        return if (observed.isNotEmpty() || !planet.presenceHistoryStale) observed
+        else catalog.filter { it.key in planet.savedPresenceKeys }
     }
+}
+
+/** Falha/resposta direta limitada preserva só ícones conhecidos do mesmo planeta. */
+fun Planet.withSavedPresences(previous: Planet?, missingUnconfirmed: Boolean): Planet {
+    val native = PlanetPresences.list(copy(savedPresenceKeys = emptyList(), presenceHistoryStale = false))
+    if (!missingUnconfirmed) return copy(savedPresenceKeys = emptyList(), presenceHistoryStale = false)
+    if (native.isNotEmpty()) return copy(savedPresenceKeys = native.map { it.key }, presenceHistoryStale = true)
+    if (previous == null || previous.index != index) return this
+    val keys = PlanetPresences.list(previous).map { it.key }
+    return if (keys.isEmpty()) this else copy(savedPresenceKeys = keys, presenceHistoryStale = true)
 }
 
 fun planetTitle(raw: String): String = raw.split(Regex("\\s+")).joinToString(" ") {

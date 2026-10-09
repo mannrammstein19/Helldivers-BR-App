@@ -41,10 +41,19 @@ data class DssReading(
  */
 object DssRepository {
     private val gate = kotlinx.coroutines.sync.Mutex()
-    private const val TTL_MILLIS = 2 * 60 * 1000L
+    private const val TTL_MILLIS = TelemetryRefreshPolicy.INTERVAL_MILLIS
 
     @Volatile private var lastReading: DssReading? = null
     private var lastAttempt = 0L
+
+    private fun preserveReading(incoming: DssReading, previous: DssReading?): DssReading {
+        val hasLocation = incoming.station?.planet?.index?.let { it > 0L } == true
+        val uncertain = incoming.stale || incoming.availability == DssAvailability.LOCATION_UNKNOWN
+        return if (TelemetryRefreshPolicy.preservePreviousStation(previous?.fetchedAtMillis ?: 0L,
+            incoming.fetchedAtMillis, previous?.hasStation == true, hasLocation, uncertain))
+            previous!!.copy(stale = true, source = "cache", error = incoming.error)
+        else incoming
+    }
 
     suspend fun load(force: Boolean = false): DssReading = gate.withLock {
         val now = System.currentTimeMillis()
@@ -54,27 +63,27 @@ object DssRepository {
             return@withLock resident
         }
 
-        if (now - lastAttempt in 0..29_999 && resident != null)
-            return@withLock resident.copy(stale = true, source = "cache")
+        if (now - lastAttempt in 0 until TelemetryRefreshPolicy.INTERVAL_MILLIS && resident != null)
+            return@withLock resident
         lastAttempt = now
         val central = attempt { CentralApi.read("/api/v2/space-stations").let { it to CentralApi.stations(it) } }
         central.getOrNull()?.let { (r, stations) ->
-            if (resident != null && r.time < resident.fetchedAtMillis)
-                return@withLock resident.copy(stale = true, source = "cache").also { lastReading = it }
+            if (r.stale || r.time < (resident?.fetchedAtMillis ?: 0L)) return@let // Tenta uma fonte alternativa antes de aceitar cache.
             val station = stations.firstOrNull()
             val host = station?.planet?.index?.takeIf { it > 0 }
             val reading = DssReading(station,
                 if (station == null) DssAvailability.ABSENT else if (host == null) DssAvailability.LOCATION_UNKNOWN else DssAvailability.LIVE,
-                r.time, r.stale, source = r.source,
+                r.time, r.stale || (station != null && host == null), source = r.source,
                 lastPlanetIndex = host ?: resident?.lastPlanetIndex,
                 lastLocationReadAtMillis = if (host != null) r.time else resident?.lastLocationReadAtMillis ?: 0L)
-            lastReading = reading
-            TelemetryCache.saveDss(reading)
-            return@withLock reading
+            val selected = preserveReading(reading, resident)
+            lastReading = selected
+            TelemetryCache.saveDss(selected)
+            return@withLock selected
         }
-        if (resident != null && resident.fetchedAtMillis > 0) return@withLock resident.copy(stale = true, source = "cache").also { lastReading = it }
         try {
             val stations = HelldiversApi.dssStations()
+            val communityReadAt = System.currentTimeMillis()
             val station = stations.firstOrNull()
             val availability = when {
                 station == null -> DssAvailability.ABSENT
@@ -84,12 +93,12 @@ object DssRepository {
             return@withLock DssReading(
                 station = station,
                 availability = availability,
-                fetchedAtMillis = now,
+                fetchedAtMillis = communityReadAt,
                 stale = false,
                 source = "community",
                 lastPlanetIndex = station?.planet?.index?.takeIf { it > 0 },
-                lastLocationReadAtMillis = if(station?.planet?.index?.let { it > 0 } == true) now else 0L,
-            ).also {
+                lastLocationReadAtMillis = if(station?.planet?.index?.let { it > 0 } == true) communityReadAt else 0L,
+            ).let { preserveReading(it, resident) }.also {
                 lastReading = it
                 TelemetryCache.saveDss(it)
             }
@@ -98,7 +107,7 @@ object DssRepository {
         } catch (communityError: Exception) {
             try {
                 val catalog = runCatching { HelldiversApi.planetCatalog() }.getOrDefault(emptyMap())
-                return@withLock DirectGameApi.dss(catalog, resident).also {
+                return@withLock DirectGameApi.dss(catalog, resident).let { preserveReading(it, resident) }.also {
                     lastReading = it
                     TelemetryCache.saveDss(it)
                 }

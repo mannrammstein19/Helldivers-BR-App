@@ -288,8 +288,9 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
                 Text(
                     headline,
                     color = HD.Text,
-                    fontSize = 13.sp,
-                    lineHeight = 17.sp,
+                    fontSize = 18.sp,
+                    lineHeight = 23.sp,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily(androidx.compose.ui.text.font.Font(br.com.helldiversbr.app.R.font.oswald_bold, FontWeight.Bold)),
                     fontWeight = FontWeight.Black,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
@@ -297,28 +298,22 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
                 )
             }
             if (done) Text("✓ CUMPRIDO", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-            ProgressBar(percent, accent)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    if (goal != null && goal > 0) "${orderFmt(progress)} / ${orderFmt(goal)}" else "${"%.1f".format(orderLocale, percent)}%",
-                    color = HD.TextMuted,
-                    fontSize = 9.sp,
-                )
-                Text("${"%.1f".format(orderLocale, percent)}%", color = accent, fontSize = 12.sp, fontWeight = FontWeight.Black)
-            }
+            OrderProgressBand(percent,
+                if (goal != null && goal > 0) "${orderFmt(progress)} / ${orderFmt(goal)}" else "Progresso",
+                "${"%.2f".format(orderLocale, percent)}%", accent)
             val rate = if (task.type in listOf(11, 12, 13) && campaign != null)
                 OrderRepository.campaignRate(data, campaign) else data.orderRates[index]
             val stale = "Ordem Maior" in data.staleSources || (campaign != null && "campanhas" in data.staleSources)
             val eta = OrderRepository.etaFromRate(percent, rate)
             val rateValue = when {
                 done -> "FINALIZADO"
-                stale || data.order.state != "active" -> "INDISPONÍVEL"
+                data.order.state != "active" -> "AGUARDANDO"
                 rate == null -> "COLETANDO"
                 else -> "%+.2f%%/h".format(orderLocale, rate)
             }
             val etaValue = when {
                 done -> "CONCLUÍDO"
-                stale || data.order.state != "active" -> "INDISPONÍVEL"
+                data.order.state != "active" -> "AGUARDANDO"
                 rate == null -> "COLETANDO"
                 rate <= 0 -> "SEM PREVISÃO"
                 else -> eta ?: "CALCULANDO"
@@ -327,7 +322,7 @@ private fun OrderObjectiveCard(data: HomeData, task: OrderTask, index: Int, prog
                 OrderForecastMetric("RITMO OBSERVADO", rateValue, accent, Modifier.weight(1f))
                 OrderForecastMetric("CONCLUSÃO ESTIMADA", etaValue, accent, Modifier.weight(1f))
             }
-            Text("Estimativa baseada na variação recente; pode mudar com o esforço dos jogadores.", color = HD.TextMuted, fontSize = 10.sp, lineHeight = 14.sp)
+            Text(if (stale) "Última leitura salva · ritmo/previsão sem confirmação atual." else "Estimativa baseada na variação recente; pode mudar com o esforço dos jogadores.", color = if (stale) HD.Gold else HD.TextMuted, fontSize = 10.sp, lineHeight = 14.sp)
         }
     }
 }
@@ -340,9 +335,9 @@ private fun OrderForecastMetric(label: String, value: String, accent: Color, mod
         colors = CardDefaults.cardColors(containerColor = HD.BgDeep.copy(alpha = .72f)),
         border = BorderStroke(1.dp, HD.BorderSoft),
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 7.dp, vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, color = HD.TextMuted, fontSize = 8.sp, lineHeight = 10.sp, fontWeight = FontWeight.Black, letterSpacing = .15.sp)
-            Text(value, color = if (value == "INDISPONÍVEL" || value == "COLETANDO") HD.TextMuted else accent, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Black)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 7.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, color = HD.TextMuted, fontSize = 10.sp, lineHeight = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = .15.sp)
+            Text(value, color = HD.Text, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.Black)
         }
     }
 }

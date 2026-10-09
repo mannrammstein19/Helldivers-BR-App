@@ -82,12 +82,11 @@ object OrderRepository {
         val disk = TelemetryCache.loadHome()
         val fallback = lastGood ?: disk
         val loadTime = System.currentTimeMillis()
-        if (loadTime - lastLoadAttempt < 15_000 && fallback != null)
-            return@coroutineScope loadCached()!!
+        if (loadTime - lastLoadAttempt < TelemetryRefreshPolicy.INTERVAL_MILLIS && fallback != null)
+            return@coroutineScope fallback
         lastLoadAttempt = loadTime
         val central = attempt { loadCentral(fallback) }
         central.getOrNull()?.let { lastGood = it; TelemetryCache.saveHome(it); return@coroutineScope it }
-        if (fallback?.viaCentral == true) return@coroutineScope loadCached()!!.also { lastGood = it }
 
         var communityCampaignTime = 0L
         var communityPlanetTime = 0L
@@ -215,11 +214,11 @@ object OrderRepository {
         val priorPlanets = fallback?.let { it.campaigns.map { c -> c.planet } + it.planets }.orEmpty().associateBy { it.index }
         val enrichedPlanets = planets.map {
             RegionTelemetry.enrich(CounterTelemetry.enrich(it, counterReadings), regionReadings,
-                priorPlanets[it.index], now, planetSource != "cache")
+                priorPlanets[it.index], now, planetSource != "cache").withSavedPresences(priorPlanets[it.index], planetSource in setOf("cache", "direct"))
         }
         val enrichedCampaigns = campaigns.map {
             it.copy(planet = RegionTelemetry.enrich(CounterTelemetry.enrich(it.planet, counterReadings),
-                regionReadings, priorPlanets[it.planet.index], now, campaignSource != "cache"))
+                regionReadings, priorPlanets[it.planet.index], now, campaignSource != "cache").withSavedPresences(priorPlanets[it.planet.index], campaignSource in setOf("cache", "direct")))
         }
         val names = catalog.mapValues { (_, p) -> p.displayName }.filterValues { it.isNotBlank() }
         val campaignsFresh = campaignSource != "cache"
@@ -295,8 +294,13 @@ object OrderRepository {
         val oTask = async { attempt { CentralApi.read("/api/v1/assignments") } }
         val dTask = async { attempt { CentralApi.read("/api/v1/dispatches") } }
         val sTask = async { attempt { HelldiversApi.orderSnapshot() } }
-        val stationTask = async { DssRepository.load() }
         val pr = pTask.await(); val cr = cTask.await()
+        // Uma resposta salva não bloqueia as alternativas Community/direta.
+        require(!pr.stale && !cr.stale) { "Central sem leitura atual de planetas/campanhas" }
+        require(oTask.await().getOrNull()?.stale == false && dTask.await().getOrNull()?.stale == false) {
+            "Central sem leitura atual de Ordem/despachos"
+        }
+        val stationTask = async { DssRepository.load() }
         require(previous == null || !previous.viaCentral ||
             (pr.time >= previous.updatedAtMillis && cr.time >= previous.campaignListReadAtMillis)) { "Central anterior ao cache persistente" }
         val rawPlanets = CentralApi.planets(pr)

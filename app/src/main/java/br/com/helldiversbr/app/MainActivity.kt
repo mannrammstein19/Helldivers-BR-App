@@ -165,7 +165,7 @@ private fun App(
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(vm, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) { vm.refresh(); delay(60_000) }
+            while (true) { vm.refresh(); delay(br.com.helldiversbr.app.data.TelemetryRefreshPolicy.INTERVAL_MILLIS) }
         }
     }
     DisposableEffect(anthem, lifecycleOwner) {

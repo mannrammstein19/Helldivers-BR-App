@@ -48,7 +48,7 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(vm, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) { vm.refresh(); delay(60_000) }
+            while (true) { vm.refresh(); delay(br.com.helldiversbr.app.data.TelemetryRefreshPolicy.INTERVAL_MILLIS) }
         }
     }
     val data = when (home) { is HomeState.Ready -> home.data; is HomeState.Error -> home.last; else -> null }
@@ -68,8 +68,8 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     val preferCampaigns = data != null && data.campaignTelemetrySource != "cache" &&
         "campanhas" !in data.staleSources &&
         data.campaignReadAtMillis >= (state.updatedAtMillis ?: 0L)
-    val planets = remember(state.planets, campaigns, preferCampaigns) {
-        mergeMapPlanets(state.planets, campaigns.values.toList(), preferCampaigns)
+    val planets = remember(state.planets, campaigns, preferCampaigns, data?.campaignTelemetrySource) {
+        mergeMapPlanets(state.planets, campaigns.values.toList(), preferCampaigns, data?.campaignTelemetrySource in setOf("cache", "direct"))
     }
     var query by rememberSaveable { mutableStateOf("") }
     var activeOnly by rememberSaveable { mutableStateOf(false) }
@@ -113,7 +113,7 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
     if (dssOpen) ModalBottomSheet(
         onDismissRequest = { dssOpen = false },
         sheetState = dssSheetState,
-        containerColor = Color(0xFF090F14),
+        containerColor = Color(0xFF090909),
     ) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(.94f).verticalScroll(rememberScrollState())) {
             DssPanel(
@@ -283,9 +283,10 @@ fun GalaxyScreen(home: HomeState, contentPadding: PaddingValues, onOpenFullMap: 
         }
         DssMapDock(
             expanded = dssExpanded,
-            model = MapAssets.file(if(dssCurrent) "dss-operacional" else "dss-inoperante"),
+            model = MapAssets.file(if(state.dss.hasStation) "imagens/guerra/dss/DSS_Summary_Model.png" else "dss-inoperante"),
             status = when {
-                !dssReadingFresh -> "Última leitura salva · aguardando atualização"
+                !dssReadingFresh && state.dss.hasStation && dssPlanetName.isNotBlank() -> "Última localização: ${planetTitle(dssPlanetName)} · leitura salva"
+                !dssReadingFresh -> "Aguardando leitura da DSS"
                 dssCurrent && dssPlanetName.isNotBlank() -> "Orbitando ${planetTitle(dssPlanetName)}"
                 state.dss.availability == DssAvailability.LOCATION_UNKNOWN -> "Localização não informada"
                 state.dss.availability == DssAvailability.ABSENT -> "Temporariamente indisponível"

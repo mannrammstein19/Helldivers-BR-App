@@ -185,6 +185,9 @@ data class Planet(
     val galacticEffects: List<JsonElement> = emptyList(),
     val modifiers: List<JsonElement> = emptyList(),
     val planetActiveEffects: List<JsonElement> = emptyList(),
+    /** Histórico visual ligado somente a este planeta; não é efeito tático atual. */
+    val savedPresenceKeys: List<String> = emptyList(),
+    val presenceHistoryStale: Boolean = false,
 ) {
     val nameText: String get() = localizedText(name).ifBlank { "PLANETA #$index" }
     val mapPosition: PlanetPosition? get() = position

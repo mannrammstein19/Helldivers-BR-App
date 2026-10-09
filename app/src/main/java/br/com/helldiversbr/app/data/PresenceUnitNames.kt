@@ -1,0 +1,46 @@
+package br.com.helldiversbr.app.data
+
+/** Traduções editoriais PT-BR. Chaves originais continuam identificando os assets locais. */
+object PresenceUnitNames {
+    private val names = mapOf(
+        "Jet Brigade Trooper" to "Soldado da Brigada a Jato",
+        "Jet Brigade MG Raider" to "Saqueador de Metralhadora da Brigada a Jato",
+        "Jet Brigade Commissar" to "Comissário da Brigada a Jato",
+        "Assault Raider" to "Saqueador de Assalto",
+        "Jet Brigade Devastator" to "Devastador da Brigada a Jato",
+        "Jet Brigade Hulk Bruiser" to "Hulk Esmagador da Brigada a Jato",
+        "Jet Brigade Hulk Scorcher" to "Hulk Incinerador da Brigada a Jato",
+        "Pyro Trooper" to "Soldado Incendiário",
+        "Incendiary Rocket Raider" to "Saqueador de Foguetes Incendiários",
+        "Incendiary MG Devastator" to "Devastador de Metralhadora Incendiária",
+        "Conflagration Devastator" to "Devastador Conflagrador",
+        "Hulk Firebomber" to "Hulk Bombardeiro Incendiário",
+        "Agitator" to "Agitador",
+        "Radical" to "Radical",
+        "Vox Engine" to "Motor Vox",
+        "Predator Hunter" to "Caçador Predador",
+        "Predator Stalker" to "Espreitador Predador",
+        "Rupture Warrior" to "Guerreiro Rompedor",
+        "Rupture Spewer" to "Cuspidor Rompedor",
+        "Rupture Charger" to "Atropelador Rompedor",
+        "Spore Burst Scavenger" to "Catador de Esporos",
+        "Spore Burst Hunter" to "Caçador de Esporos",
+        "Spore Burst Warrior" to "Guerreiro de Esporos",
+        "Spore Burst Bile Titan" to "Titã de Bile de Esporos",
+        "Voteless" to "Sem-voto",
+        "Fleshmob" to "Massa de Carne",
+        "Overseer" to "Supervisor",
+        "Elevated Overseer" to "Supervisor Elevado",
+        "Crescent Overseer" to "Supervisor Crescente",
+        "Harvester" to "Ceifador",
+        "Watcher" to "Vigia",
+        "Wretch" to "Miserável",
+        "Stingray" to "Arraia",
+        "Warp Ship" to "Nave de Dobra",
+        "Obtruder" to "Intrusor",
+        "Gatekeeper" to "Guardião",
+        "Veracitor" to "Veracitor",
+        "Crusher" to "Esmagador",
+    )
+    fun label(original: String): String = names[original] ?: original
+}
