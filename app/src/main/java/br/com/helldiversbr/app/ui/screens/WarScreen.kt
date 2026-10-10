@@ -192,14 +192,6 @@ private fun WarList(
 
         item(key = "war-section-6") { OrderCard(data, collapsible = true, initiallyExpanded = false) }
 
-        item(key = "war-dss") {
-            DssWarCard(
-                reading = data.dss,
-                planetCatalog = data.planetCatalog,
-                campaigns = data.campaigns,
-            )
-        }
-
         item(key = "war-section-7") {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {

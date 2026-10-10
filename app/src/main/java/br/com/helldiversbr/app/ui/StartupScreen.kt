@@ -46,7 +46,7 @@ fun StartupScreen(home: HomeState) {
             .align(Alignment.BottomCenter).background(Brush.verticalGradient(
                 listOf(Color.Transparent, Color.Black.copy(alpha = .82f), Color.Black))))
         Image(painterResource(R.drawable.ic_launcher_foreground), "HELLDIVERS-BR",
-            modifier = Modifier.align(Alignment.Center).size(if (landscape) 132.dp else 220.dp).clip(CircleShape),
+            modifier = Modifier.align(Alignment.Center).size(if (landscape) 112.dp else 184.dp).clip(CircleShape),
             contentScale = ContentScale.Fit)
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding()
             .padding(horizontal = 32.dp, vertical = if (landscape) 16.dp else 36.dp),

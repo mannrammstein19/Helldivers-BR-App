@@ -97,7 +97,7 @@ import br.com.helldiversbr.app.data.HelldiversApi
 import br.com.helldiversbr.app.notifications.WarAlertManager
 import br.com.helldiversbr.app.ui.MainViewModel
 import br.com.helldiversbr.app.ui.screens.ArsenalScreen
-import br.com.helldiversbr.app.ui.screens.GalaxyScreen
+import br.com.helldiversbr.app.ui.screens.MapAccessScreen
 import br.com.helldiversbr.app.ui.screens.FactionsScreen
 import br.com.helldiversbr.app.ui.screens.HomeScreen
 import br.com.helldiversbr.app.ui.screens.NotificationSettingsScreen
@@ -155,6 +155,7 @@ private fun App(
     vm: MainViewModel = viewModel(),
 ) {
     var current by rememberSaveable { mutableStateOf("inicio") }
+    var mapVisit by rememberSaveable { mutableIntStateOf(0) }
     var homeVisit by rememberSaveable { mutableIntStateOf(0) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -204,6 +205,7 @@ private fun App(
         current = route
         // Cada acionamento da Início reconstrói sua tela no topo, usando os dados existentes.
         if (route == "inicio") homeVisit++
+        if (route == "mapa") mapVisit++
         scope.launch { drawerState.close() }
     }
 
@@ -280,7 +282,7 @@ private fun App(
                             }
                             current == "guerra" -> WarScreen(home, vm::refresh, { navigate("mapa") }, screenPadding)
                             current == "ordem" -> OrderScreen(home, vm::refresh, screenPadding)
-                            current == "mapa" -> GalaxyScreen(home, screenPadding, { openSite("mapa-classico.html") })
+                            current == "mapa" -> key(mapVisit) { MapAccessScreen(home, screenPadding, { openSite("mapa-classico.html") }) }
                             current == "faccoes" -> FactionsScreen(screenPadding, ::openSite)
                             current.startsWith("estratagema/") -> StratagemDetailScreen(
                                 Uri.decode(current.substringAfter("estratagema/")), screenPadding,

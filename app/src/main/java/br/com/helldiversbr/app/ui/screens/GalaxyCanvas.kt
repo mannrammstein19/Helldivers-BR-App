@@ -54,18 +54,18 @@ import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.*
 
-// Reuse filters between frames; luminance keeps the sprite's black background transparent.
-private fun tcsPulseFilter(color: Color): android.graphics.ColorMatrixColorFilter {
-    val light = floatArrayOf(.213f, .715f, .072f)
-    val matrix = FloatArray(20)
-    listOf(color.red, color.green, color.blue, 1f).forEachIndexed { row, value ->
-        light.forEachIndexed { column, weight -> matrix[row * 5 + column] = value * weight }
+// The original blue sprite keeps its luminance-derived transparency.
+private val TCS_BLUE_SMOKE = android.graphics.ColorMatrixColorFilter(floatArrayOf(
+    .064f,.215f,.021f,0f,0f, .162f,.544f,.055f,0f,0f,
+    .213f,.715f,.072f,0f,0f, .213f,.715f,.072f,0f,0f))
+
+// Blend a warning filter with the original artwork, preserving texture and alpha.
+private fun tcsWarningFilters(color: Color): List<android.graphics.ColorMatrixColorFilter> =
+    (0..15).map { step ->
+        android.graphics.ColorMatrixColorFilter(tcsWarningMatrix(color.red, color.green, color.blue, step / 15f * .72f))
     }
-    return android.graphics.ColorMatrixColorFilter(matrix)
-}
-private val TCS_PULSE_FILTERS = br.com.helldiversbr.app.data.TcsState.entries
-    .filter { it != br.com.helldiversbr.app.data.TcsState.UNKNOWN }
-    .associateWith { tcsPulseFilter(tcsStateColor(it)) }
+private val TCS_ATTACK_FILTERS = tcsWarningFilters(Color(0xFFFFC34D))
+private val TCS_LOSS_FILTER = tcsWarningFilters(Color(0xFFFF524D)).last()
 
 private const val EARTH_MAP_SCALE = 1.9f * 1.05f
 
@@ -268,11 +268,11 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 paint.shader = null; paint.color = color.toArgb(); paint.style = if (stroke > 0) Paint.Style.STROKE else Paint.Style.FILL; paint.strokeWidth = stroke
                 canvas.drawCircle(at.x, at.y, radius, paint)
             }
-            fun icon(key: String, at: Offset, width: Float, height: Float = width, alpha: Int = 255, tint: Color? = null): Boolean {
+            fun icon(key: String, at: Offset, width: Float, height: Float = width, alpha: Int = 255, tint: Color? = null, filter: android.graphics.ColorFilter? = null): Boolean {
                 val image = art.bitmaps[key] ?: return false
                 paint.shader = null; paint.style = Paint.Style.FILL; paint.color = android.graphics.Color.WHITE
                 paint.alpha = alpha
-                paint.colorFilter = tint?.let { android.graphics.PorterDuffColorFilter(it.toArgb(), android.graphics.PorterDuff.Mode.SRC_IN) }
+                paint.colorFilter = filter ?: tint?.let { android.graphics.PorterDuffColorFilter(it.toArgb(), android.graphics.PorterDuff.Mode.SRC_IN) }
                 // Fit rather than stretching source artwork.
                 val ratio = min(width / image.width, height / image.height)
                 val w = image.width * ratio; val h = image.height * ratio
@@ -302,8 +302,8 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 }
                 infrastructure.forEach { (planet, point) ->
                     val status = br.com.helldiversbr.app.data.TcsInfrastructure.state(planet)
-                    if (status != br.com.helldiversbr.app.data.TcsState.UNKNOWN) {
-                        paint.colorFilter = TCS_PULSE_FILTERS[status]
+                    if (status == br.com.helldiversbr.app.data.TcsState.ALLIED || status == br.com.helldiversbr.app.data.TcsState.ATTACKED) {
+                        paint.colorFilter = TCS_BLUE_SMOKE
                         // Historical references stay visible without implying a newly confirmed loss.
                         paint.alpha = if (stale || planet.presenceHistoryStale || planet.savedTcsPresent) 95 else 155
                         val frame = br.com.helldiversbr.app.data.TcsInfrastructure.frame(planet.index, (animationSeconds.value * 1000).toLong())
@@ -395,7 +395,15 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                     canvas.drawLine(at.x, at.y - dotR, badge.x, badge.y + r * .95f, paint)
                     canvas.drawLine(at.x, at.y - dotR, at.x - r * .3f, at.y - dotR - r * .45f, paint)
                     canvas.drawLine(at.x, at.y - dotR, at.x + r * .3f, at.y - dotR - r * .45f, paint)
-                    icon("tcs-plus", badge, r * 1.9f, tint = tcsStateColor(br.com.helldiversbr.app.data.TcsInfrastructure.state(p)))
+                    val warning = when (br.com.helldiversbr.app.data.TcsInfrastructure.state(p)) {
+                        br.com.helldiversbr.app.data.TcsState.ATTACKED -> {
+                            val step = if (animated) (((sin(animationSeconds.value * 4.0) + 1) * 7.5).toInt()).coerceIn(0,15) else 8
+                            TCS_ATTACK_FILTERS[step]
+                        }
+                        br.com.helldiversbr.app.data.TcsState.COMPROMISED -> TCS_LOSS_FILTER
+                        else -> null
+                    }
+                    icon("tcs-plus", badge, r * 1.9f, filter = warning)
                 }
                 if(options.presences) {
 
