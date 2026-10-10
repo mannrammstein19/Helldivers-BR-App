@@ -72,7 +72,7 @@ object NotificationPreferences {
             .apply()
     }
 
-    fun types(group: AlertGroup): List<AlertType> = AlertType.entries.filter { it.group == group }
+    fun types(group: AlertGroup): List<AlertType> = AlertType.entries.filter { it.group == group && it !in setOf(AlertType.DSS_TACTICAL_ACTIVE, AlertType.DSS_RELOCATION_VOTE) }
 
     fun enabledCount(context: Context, group: AlertGroup): Int = types(group).count { isEnabled(context, it) }
 

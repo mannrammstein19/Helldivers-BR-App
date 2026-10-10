@@ -54,6 +54,19 @@ import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.*
 
+// Reuse filters between frames; luminance keeps the sprite's black background transparent.
+private fun tcsPulseFilter(color: Color): android.graphics.ColorMatrixColorFilter {
+    val light = floatArrayOf(.213f, .715f, .072f)
+    val matrix = FloatArray(20)
+    listOf(color.red, color.green, color.blue, 1f).forEachIndexed { row, value ->
+        light.forEachIndexed { column, weight -> matrix[row * 5 + column] = value * weight }
+    }
+    return android.graphics.ColorMatrixColorFilter(matrix)
+}
+private val TCS_PULSE_FILTERS = br.com.helldiversbr.app.data.TcsState.entries
+    .filter { it != br.com.helldiversbr.app.data.TcsState.UNKNOWN }
+    .associateWith { tcsPulseFilter(tcsStateColor(it)) }
+
 private const val EARTH_MAP_SCALE = 1.9f * 1.05f
 
 private data class MapSpecialMarker(val point: Offset, val key: String, val name: String)
@@ -182,6 +195,12 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
             }
         }
     }
+    // Use the complete reading so faction/search filters cannot hide a real border.
+    val frontier = remember(all) {
+        br.com.helldiversbr.app.data.enemyBorderPlanets(all.filter { mapFaction(it.currentOwner) != "unknown" }.map {
+            br.com.helldiversbr.app.data.MapBorderNode(it.index, mapFaction(it.currentOwner) == "human", it.waypoints)
+        })
+    }
     val indexed = remember(positioned) { positioned.associate { it.first.index to it.first } }
     val edges = remember(positioned, routeFocus) {
         val seen = mutableSetOf<Pair<Long, Long>>()
@@ -280,13 +299,13 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     isFilterBitmap = true
                     alpha = 155
-                    colorFilter = android.graphics.ColorMatrixColorFilter(floatArrayOf(
-                        .064f,.215f,.021f,0f,0f, .162f,.544f,.055f,0f,0f,
-                        .213f,.715f,.072f,0f,0f, .213f,.715f,.072f,0f,0f))
                 }
                 infrastructure.forEach { (planet, point) ->
                     val status = br.com.helldiversbr.app.data.TcsInfrastructure.state(planet)
-                    if (status == br.com.helldiversbr.app.data.TcsState.ALLIED || status == br.com.helldiversbr.app.data.TcsState.ATTACKED) {
+                    if (status != br.com.helldiversbr.app.data.TcsState.UNKNOWN) {
+                        paint.colorFilter = TCS_PULSE_FILTERS[status]
+                        // Historical references stay visible without implying a newly confirmed loss.
+                        paint.alpha = if (stale || planet.presenceHistoryStale || planet.savedTcsPresent) 95 else 155
                         val frame = br.com.helldiversbr.app.data.TcsInfrastructure.frame(planet.index, (animationSeconds.value * 1000).toLong())
                         val width = bitmap.width / 40
                         val at = origin + point * unit
@@ -342,7 +361,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 val color = mapOwnerColor(p.currentOwner)
                 val detail = selected == p.index || zoom >= (if (quiet) 5f else if (defense || offensive) 1.6f else 2.3f)
                 if(capital) listOf(4f,3f,2.2f).forEachIndexed { i,v->circle(at,r*v,Color(0xFFFFE68A).copy(alpha=.025f+i*.015f)) }
-                if(special==null && mapName(p) != "cyberstan" && (key != "human" || defense || offensive)) circle(at,r*(if(defense||offensive)2.7f else 2.1f),color.copy(alpha=.12f))
+                if(special==null && mapName(p) != "cyberstan" && (p.index in frontier || defense || offensive)) circle(at,r*(if(defense||offensive)2.7f else 2.1f),color.copy(alpha=.12f))
                 if(defense||offensive) arc(at,r*2.08f,mapProgress(p),mapColor("human"),r*.48f)
                 if(offensive) arc(at,r*2.72f,100.0-(mapProgress(p) ?: 0.0),color,r*.32f)
                 if(defense) arc(at,r*2.72f,mapInvasionProgress(p,now),mapColor(mapFaction(p.event!!.faction)),r*.32f)
@@ -360,7 +379,7 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 }
                 if(special==null) {
                     circle(at,dotR,Color(0xFF080C12),.6.dp.toPx()/unit)
-                    if (key != "human" || defense || offensive) circle(at,dotR+1.dp.toPx()/unit,color,1.5.dp.toPx()/unit)
+                    circle(at,dotR+1.dp.toPx()/unit,if(key == "human") mapColor("human") else color,1.5.dp.toPx()/unit)
                 }
                 if(special==null && !defense && key !in listOf("human","unknown") && !options.clean) icon(key,at+Offset(0f,-r*2.3f),r*1.6f)
                 if(options.progress && (defense||offensive)) {
@@ -371,12 +390,12 @@ fun GalaxyCanvas(planets: List<Planet>, all: List<Planet>, routes: Boolean, sect
                 if (options.infrastructure && br.com.helldiversbr.app.data.TcsInfrastructure.has(p) && special == null) {
                     val badge = at + Offset(0f, -r * 3.2f)
                     paint.shader = null; paint.style = Paint.Style.STROKE
-                    paint.color = mapColor("human").copy(alpha = .85f).toArgb()
+                    paint.color = tcsStateColor(br.com.helldiversbr.app.data.TcsInfrastructure.state(p)).copy(alpha = .85f).toArgb()
                     paint.strokeWidth = 1.2.dp.toPx() / unit
                     canvas.drawLine(at.x, at.y - dotR, badge.x, badge.y + r * .95f, paint)
                     canvas.drawLine(at.x, at.y - dotR, at.x - r * .3f, at.y - dotR - r * .45f, paint)
                     canvas.drawLine(at.x, at.y - dotR, at.x + r * .3f, at.y - dotR - r * .45f, paint)
-                    icon("tcs-plus", badge, r * 1.9f)
+                    icon("tcs-plus", badge, r * 1.9f, tint = tcsStateColor(br.com.helldiversbr.app.data.TcsInfrastructure.state(p)))
                 }
                 if(options.presences) {
 

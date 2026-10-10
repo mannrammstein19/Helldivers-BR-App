@@ -437,6 +437,7 @@ object WarAlertManager {
     private fun processDss(context: Context, data: HomeData) {
         val station = data.dss.station ?: return
         val planetId = station.planet.index
+        if (planetId <= 0L) return // An incomplete location must not erase the baseline.
         val activeActions = station.tacticalActions.filter { br.com.helldiversbr.app.data.DssSupport.actionIsActive(it, System.currentTimeMillis()) }.map { it.id32.toString() }.toSet()
         val election = station.electionEnd
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -452,10 +453,8 @@ object WarAlertManager {
         }
 
         val previousPlanet = prefs.getLong(BASE_DSS_PLANET, 0L)
-        val previousActions = prefs.getStringSet(BASE_DSS_ACTIONS, emptySet()).orEmpty().toSet()
-        val previousElection = prefs.getString(BASE_DSS_ELECTION, "").orEmpty()
 
-        if (planetId > 0L && previousPlanet > 0L && planetId != previousPlanet &&
+        if (dssRelocationIsNew(previousPlanet, planetId) &&
             NotificationPreferences.isEnabled(context, AlertType.DSS_RELOCATED)) {
             sendAlert(
                 context,
@@ -466,31 +465,8 @@ object WarAlertManager {
             )
         }
 
-        if (NotificationPreferences.isEnabled(context, AlertType.DSS_TACTICAL_ACTIVE)) {
-            val newActions = activeActions - previousActions
-            newActions.take(3).forEach { id ->
-                val action = station.tacticalActions.firstOrNull { it.id32.toString() == id }
-                sendAlert(
-                    context,
-                    AlertType.DSS_TACTICAL_ACTIVE,
-                    "AÇÃO TÁTICA DA DSS ATIVA",
-                    action?.let { br.com.helldiversbr.app.data.DssSupport.kind(it)?.label ?: it.name }?.ifBlank { "Uma nova ação tática entrou em operação." }
-                        ?: "Uma nova ação tática entrou em operação.",
-                    "dss-action-$id",
-                )
-            }
-        }
-
-        if (election.isNotBlank() && previousElection.isNotBlank() && election != previousElection &&
-            NotificationPreferences.isEnabled(context, AlertType.DSS_RELOCATION_VOTE)) {
-            sendAlert(
-                context,
-                AlertType.DSS_RELOCATION_VOTE,
-                "VOTAÇÃO DE REALOCAÇÃO DA DSS",
-                "Uma nova janela de votação da Estação Espacial da Democracia foi detectada.",
-                "dss-election-${election.hashCode()}",
-            )
-        }
+        // Only a confirmed relocation is a DSS notification event. Election deadlines and
+        // tactical-action polling are telemetry updates, not relocation events.
 
         prefs.edit()
             .putLong(BASE_DSS_PLANET, planetId)

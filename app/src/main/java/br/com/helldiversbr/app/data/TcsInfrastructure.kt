@@ -4,10 +4,10 @@ import kotlinx.serialization.json.*
 import java.util.Locale
 
 enum class TcsState(val label: String, val note: String) {
-    ALLIED("CONTROLE ALIADO", "Controle aliado não confirma reparo ou operação das torres."),
-    ATTACKED("SOB ATAQUE", "A defesa do planeta não confirma perda nem desligamento das torres."),
-    COMPROMISED("COMPROMETIDO", "Controle inimigo; a API ainda registra a infraestrutura."),
-    UNKNOWN("SEM CONFIRMAÇÃO", "Infraestrutura registrada, mas o controle não foi identificado.")
+    ALLIED("Controle da Super Terra", "Planeta sob controle da Super Terra."),
+    ATTACKED("Sob ataque", "A defesa do planeta não confirma perda nem desligamento das torres."),
+    COMPROMISED("Comprometido", "Controle inimigo; a API ainda registra a infraestrutura."),
+    UNKNOWN("Sem confirmação", "Infraestrutura registrada, mas o controle não foi identificado.")
 }
 object TcsInfrastructure {
     private fun matches(value: JsonElement, planet: Long, requireBinding: Boolean): Boolean {

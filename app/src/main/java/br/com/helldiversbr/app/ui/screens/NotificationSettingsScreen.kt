@@ -70,7 +70,7 @@ private val alertGroups = listOf(
     AlertGroupVisual(AlertGroup.REGIONS, "REGIÕES", "⌗", "Alertas regionais quando a telemetria estiver disponível"),
     AlertGroupVisual(AlertGroup.NEWS, "NOTÍCIAS", "▤", "Novos despachos do Ministério da Verdade"),
     AlertGroupVisual(AlertGroup.MAJOR_ORDER, "ORDENS PRINCIPAIS", "▣", "Nova ordem, progresso e conclusão"),
-    AlertGroupVisual(AlertGroup.DSS, "ESTAÇÃO ESPACIAL DA DEMOCRACIA", "✣", "Realocação, ações táticas e votação"),
+    AlertGroupVisual(AlertGroup.DSS, "ESTAÇÃO ESPACIAL DA DEMOCRACIA", "✣", "Mudança confirmada de planeta"),
 )
 
 @Composable

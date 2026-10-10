@@ -4,7 +4,7 @@ import android.content.Intent
 import androidx.core.app.NotificationManagerCompat
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.platform.testTag
-import br.com.helldiversbr.app.notifications.AlertType
+import br.com.helldiversbr.app.notifications.AlertGroup
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -174,7 +174,7 @@ fun SettingsScreen(
 
     val alertsEnabled = NotificationPreferences.isMasterEnabled(context)
     val blocked = alertsEnabled && !NotificationManagerCompat.from(context).areNotificationsEnabled()
-    val activeTypes = AlertType.entries.count { NotificationPreferences.isEnabled(context, it) }
+    val activeTypes = AlertGroup.entries.sumOf { NotificationPreferences.enabledCount(context, it) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
